@@ -1,0 +1,191 @@
+context_code,label,end_date,is_active,references
+11,Sans rendez-vous - clinique réseau,,TRUE,
+12,Forfait de garde sur place réclamé en raison d’un transfert ambulancier,,TRUE,
+13,Pour déterminer l'aptitude de l'accusé à subir son procès.,,TRUE,
+14,Pour déterminer si l’accusé était atteint de troubles mentaux de nature à ne pas engager sa responsabilité criminelle,,TRUE,
+15,Pour déterminer la décision qui devrait être prise dans le cas où un verdict d’inaptitude à subir son procès ou de non-responsabilité criminelle pour cause de troubles mentaux a été rendu à l’égard de l’accusé,,TRUE,
+16,"Pour déterminer si l'accusé inculpé d'une infraction liée à la mort de son enfant nouveau-né, était mentalement déséquilibré au moment de la perpétration de l'infraction",,TRUE,
+17,"Pour déterminer si une ordonnance de suspension d’instance devrait être rendue en vertu de l’article 672.851 du Code criminel, dans le cas où un verdict d’inaptitude à subir son procès a été rendu à l’égard de l’accusé",,TRUE,
+18,Sans rendez-vous - GMF désigné réseau (GMF-R),2022-05-31,FALSE,GMF
+21,Soins simultanés selon l'EP - Soins intensifs ou coronariens,,TRUE,EP
+24,Réduction mammaire d’au moins 150 grammes,2019-03-29,FALSE,
+25,Réduction mammaire d’au moins 250 grammes par sein,2019-03-29,FALSE,
+40,Patient hospitalisé,,TRUE,
+70,Soins d'urgence,,TRUE,
+75,Service médical immédiatement requis,,TRUE,
+85,Séance différente,,TRUE,
+87,Séjour différent à la salle d'urgence,,TRUE,
+100,Le travailleur ne s'est pas présenté au rendez-vous fixé par le centre administratif du ministère du Travail ou par la Commission,,TRUE,
+110,Remplaçant au cours d'une anesthésie,,TRUE,
+200,Garde en disponibilité,,TRUE,
+210,Garde sur place,,TRUE,
+220,"Soins immédiatement requis, dispensés car non-disponibilité temporaire du médecin responsable",,TRUE,
+230,N'assume pas la responsabilité du patient,,TRUE,
+310,GMF - service sans rendez-vous,,TRUE,GMF
+440,Traitement physiatrique supplémentaire,,TRUE,
+450,Déplacement pour prélèvement d'organes,,TRUE,
+480,Post mastectomie,,TRUE,
+500,"Médecin adhérant au mode mixte avec honoraires fixes dans cet établissement ayant choisi la rémunération selon les modalités générales du mode mixte (anx XXIII, par 2.15)",,TRUE,
+510,Droit acquis en sans rendez-vous,,TRUE,
+520,Droit acquis pour interruption volontaire de grossesse (IVG),,TRUE,
+530,Mixte (Ann. XXIII) - Santé publique,,TRUE,Ann. XXIII
+540,Mixte (Ann. XXIII) - Santé et sécurité du travail,,TRUE,Ann. XXIII
+550,"Mixte (Ann. XXIII) - Programme de médecine de famille, de prise en charge et de suivi de la clientèle ainsi qu’au programme jeunesse ou au programme d’interruption volontaire de grossesse",,TRUE,Ann. XXIII
+560,Mixte (Ann. XXIII) - Unité de médecine familiale,2018-12-09,FALSE,Ann. XXIII
+570,Mixte (Ann. XXIII) - Psychiatrie (soins psychiatriques),,TRUE,Ann. XXIII
+580,Service dispensé pendant la période où un forfait de l'EP - Médecin enseignant est réclamé,2017-10-24,FALSE,EP
+590,Service dispensé pendant la période où un forfait de l'EP - Groupe de médecine de famille (GMF) est réclamé,2017-10-24,FALSE,"EP, GMF"
+600,Service dispensé pendant la période où un forfait de l'EP - Clinique réseau est réclamé,2017-10-24,FALSE,EP
+610,En période de disponibilité (selon 2.05 de l'Annexe XXIII),,TRUE,Ann. XXIII
+620,Mixte (Ann. XXIII) - Programme de soutien à domicile incluant le soutien à domicile pour les soins palliatifs,2017-09-30,FALSE,Ann. XXIII
+630,Mixte (Ann. XXIII) - Programmes de santé mentale adulte et jeunesse,2017-09-30,FALSE,Ann. XXIII
+660,Service non lié à la santé et à la sécurité du travail,,TRUE,
+670,Le médecin n'a pas pu se rendre dans la même journée.,,TRUE,
+680,Fracture ou luxation de plusieurs os majeurs,,TRUE,
+710,Chirurgie multiple pratiquée au cours d'une même séance,,TRUE,
+800,"Deuxième approche par voie différente, à la même séance",,TRUE,
+870,ADT multiple effectué à la même séance,,TRUE,
+880,Effectué à la même séance que l'enregistrement et interprétation de potentiel évoqué cortical et dorsal,,TRUE,
+890,"Chirurgie multiple dont l'une relève du système nerveux pratiquée à la même séance, à un site différent",,TRUE,
+900,Mixte (Ann.XXIII) - Gériatrie,,TRUE,Ann. XXIII
+910,Mixte (Ann.XXIII) - Soins palliatifs,,TRUE,Ann. XXIII
+920,Mixte (Ann.XXIII) - Services auprès des patients admis en soins de longue durée,,TRUE,Ann. XXIII
+930,Indication médicale particulière,,TRUE,
+940,Garde simultanée,,TRUE,
+950,Prélèvement d'une autogreffe hétérotopique osseuse ou ostéo-cartilagineuse lors de la chirurgie,,TRUE,
+960,Prélèvement d'une autogreffe hétérotopique cartilagineuse lors de la chirurgie,,TRUE,
+970,Prélèvement d'une greffe tendineuse lors de la chirurgie de reconstruction,,TRUE,
+990,Composante technique pour vasectomie unilatérale ou bilatérale en cabinet privé,,TRUE,
+1000,"Approche transseptale ou fermeture concomitante d'une communication interauriculaire, type ostium secundum lors de la chirurgie valvulaire",,TRUE,
+1010,Aurait exercé en cabinet pendant la période du stage de ressourcement,,TRUE,
+1060,Autre incision,,TRUE,
+1115,"Reconstruction des tissus mous, des éléments neurovasculaires, des tendons ou des ligaments",,TRUE,
+1130,Intervention côté droit,,TRUE,
+1131,Intervention côté gauche,,TRUE,
+1185,Chirurgie distincte de celle pratiquée à la même séance par un autre médecin,,TRUE,
+1230,Échographie abdominale supérieure effectuée le même jour,,TRUE,
+1290,Fracture ouverte,,TRUE,
+1300,En vue de l'étude d'un ou de plusieurs pontages artériels ou de fistules artérioveineuses,,TRUE,
+1310,Synchronisation cardiaque pour étude cardiaque ou des grands vaisseaux,,TRUE,
+1325,Injection de phénol,,TRUE,
+1335,Blocage thérapeutique avec alcool ou phénol ou autres substances neurotoxiques ou selon la technique de cryoneurothérapie,,TRUE,
+1340,Consultation pour l'interprétation d'une épreuve complexe,,TRUE,
+1343,Comparaison des données de l'épreuve et celles d'un enregistrement électronique,,TRUE,
+1346,Complément d'épreuve,,TRUE,
+1390,Utilisation du cœur-poumon artificiel au cours d'une anesthésie,,TRUE,
+1400,Soins post-opératoires confiés à un autre médecin,,TRUE,
+1410,Soins post-opératoires confiés par un autre médecin,,TRUE,
+1420,Médecin consultant,,TRUE,
+1430,Fait au laser,,TRUE,
+1440,Étude morphologique non comparative,,TRUE,
+1450,Soins post-partum effectués par plus d'un médecin,,TRUE,
+1460,Partage de la rémunération en obstétrique,,TRUE,
+1470,Assume des tâches additionnelles en situation de pénurie d’effectifs pour l’EP – Malade admis – CHSGS,,TRUE,EP
+1480,Fracture avec lésion neurologique,,TRUE,
+1485,Réduction ouverte,,TRUE,
+1490,Effectue la réduction chirurgicale de la colonne sans l'approche chirurgicale,,TRUE,
+1495,Effectue l’approche chirurgicale de la colonne sans la réduction chirurgicale,,TRUE,
+1500,Biopsie osseuse ou des tissus mous avec analyse extemporanée effectuée le même jour que la chirurgie principale,,TRUE,
+1510,Chirurgie principale bilatérale de même nature au niveau du deuxième membre,,TRUE,
+1520,Les deux fractures du même os sont reliées à une articulation,,TRUE,
+1530,Service dispensé pendant la période où un forfait de l'EP - Centre de médecine de jour est réclamé,,TRUE,EP
+1540,Service dispensé pendant la période où un forfait de l'EP - Malade admis est réclamé,,TRUE,EP
+1550,Service dispensé pendant la période où un forfait de l'EP - Soins intensifs ou coronariens est réclamé,,TRUE,EP
+1560,Service dispensé pendant la période où un forfait de dépannage de l'Annexe XVIII est réclamé,,TRUE,
+1570,Service dispensé pendant la période où un forfait de l'EP - Garde sur place est réclamé,,TRUE,EP
+1580,Service dispensé pendant la période où un forfait du PG 1.4 est réclamé,,TRUE,PG
+1590,Service dispensé en prolongation de la période de garde précédente,,TRUE,
+1600,Service dispensé pendant la période où un per diem est réclamé,,TRUE,
+1610,Service dispensé pendant la période où un demi per diem A.M. est réclamé,,TRUE,
+1620,Service dispensé pendant la période où un demi per diem P.M. est réclamé,,TRUE,
+1630,Service médical dont la complexité est inhabituelle,,TRUE,
+1650,Site différent,,TRUE,
+1690,Cicatrice située à la face ou au cou,,TRUE,
+1700,"Révision, avec rapport écrit, à la demande d'un médecin, de document radiologique fait ailleurs ou dont le rapport a déjà été fourni",,TRUE,
+1711,Visite rendue au domicile du patient,,TRUE,
+1712,Médecin appartenant au même groupe que le médecin traitant qui est absent pour une période consécutive de 13 semaines ou plus,,TRUE,
+1713,Intervention clinique effectuée auprès d'une clientèle pédiatrique d'un centre de pédiatrie sociale ou d'un programme Petite enfance d'un CLSC,,TRUE,
+1714,"Intervention clinique effectuée auprès d'une personne présentant un problème de santé figurant à l'EP - Médecine de famille, prise en charge, suivi de la clientèle (par. 5.01)",,TRUE,EP
+1715,Intervention clinique effectuée auprès d'une personne présentant un problème de santé mentale,,TRUE,
+1716,Intervention clinique effectuée auprès d'une personne présentant un problème de toxicomanie,,TRUE,
+1717,Service exercé dans le cadre des activités du GMF de la Rouge,,TRUE,GMF
+1718,Demande de remboursement des frais de transport déjà transmise,,TRUE,
+1719,Temps d'attente imprévu,,TRUE,
+1720,"En raison d'une complication, l'intervention ne peut être entreprise ou est interrompue",,TRUE,
+1721,Soins simultanés selon le préambule particulier de chirurgie,,TRUE,EP
+1722,Intervention bilatérale,,TRUE,
+1757,Difficulté à recruter un médecin plus près du lieu de l'intervention dans le cadre de l'aide médicale à mourir,,TRUE,
+1758,Mixte (Ann. XXIII) - Programme de soutien à domicile en CLSC incluant les soins palliatifs,,TRUE,Ann. XXIII
+1759,Mixte (Ann. XXIII) - Soins physiques en psychiatrie,,TRUE,Ann. XXIII
+1760,Mixte (Ann. XXIII) - Soins ambulatoires en clinique d'oncologie,,TRUE,Ann. XXIII
+1761,Mixte (Ann. XXIII) - Soins ambulatoires en clinique de la douleur,,TRUE,Ann. XXIII
+1762,LE 310 - Centre de protection de la jeunesse dont la fonction principale est la réadaptation,,TRUE,LE
+1764,Mixte (Ann. XXIII) - Soins ambulatoires en clinique des maladies du sein,,TRUE,Ann. XXIII
+1765,Modalités de rémunération spécifiques (EP-17) - Programme de santé mentale en CLSC,,TRUE,EP
+1766,Mixte (Ann. XXIII) - Gérontopsychiatrie,,TRUE,Ann. XXIII
+1770,Garde pour les soins physiques rendus à l'urgence psychiatrique (selon article 6 de l'annexe XXIII - section C3),,TRUE,Ann. XXIII
+1771,Intervention clinique effectuée auprès d'une personne suivie comme grand brulé dans un centre de réadaptation désigné par le MSSS à cette fin,,TRUE,
+1772,Intervention clinique effectuée auprès de la clientèle polytraumatisée d'un centre de réadaptation désigné par le MSSS à cette fin,,TRUE,
+1773,Mixte (Ann. XXIII) - Réadaptation,,TRUE,Ann. XXIII
+1774,Selon la règle 8.3 du préambule particulier de Chirurgie - Chirurgie vasculaire non-thoracique,,TRUE,EP
+1776,Service dispensé en vertu de l'Accord 727,,TRUE,Accord
+1777,Forfait résiduel pour les activités médico-administratives en GMF-R,2022-05-31,FALSE,GMF
+1778,Déplacement à l’hôpital pour une parturiente dont le travail se termine par un accouchement,,TRUE,
+1779,Déplacement pour faire l’examen externe d’un cadavre à la demande d’un coroner,,TRUE,
+1780,Aller,,TRUE,
+1781,Retour,,TRUE,
+1787,Déplacement pour prodiguer les services d'aide médicale à mourir,,TRUE,
+1789,Mixte (Ann. XXIII) - Groupe de médecine de famille universitaire,,TRUE,Ann. XXIII
+1790,Procédure codée P.A.R. 3.02 réclamée en plus de l'intervention principale,2019-03-18,FALSE,
+1791,Service dispensé dans le cadre des soins intensifs à domicile en CLSC (LE 336),,TRUE,LE
+1792,Anesthésie simultanée pour une procédure obstétricale,,TRUE,
+1793,Anesthésie simultanée pour une urgence grave,,TRUE,
+1796,Service dispensé dans une clinique d'hiver,,TRUE,
+1797,Examen non relié à la chirurgie,,TRUE,
+1804,Service rendu selon l'EP 45 - Unité de décision clinique dans un autre secteur que l'unité de décision clinique.,,TRUE,EP
+1805,Reprise de la réduction fermée,,TRUE,
+1806,Service rendu dans le cadre de l'Accord 733,,TRUE,Accord
+1816,Déplacement au domicile suivant – Patient en perte sévère d’autonomie ou en soins palliatifs,,TRUE,
+1818,Intervention clinique effectuée auprès d’une personne souffrant d’un problème de migraine,,TRUE,
+1819,Intervention clinique effectuée auprès d’une personne au sein d’une clinique privée désignée où il s’effectue des interruptions volontaires de grossesse chirurgicales,,TRUE,
+1820,Service rendu en présence du patient dans le cadre de la COVID-19,2025-03-10,FALSE,COVID-19
+1821,Service rendu à distance dans le cadre de la COVID-19,,TRUE,COVID-19
+1834,Intervention clinique effectuée pour l'intubation d'un patient COVID positif durant sa garde,2022-05-14,FALSE,COVID-19
+1839,Téléconsultation par visioconférence,,TRUE,
+1840,Téléconsultation par voie téléphonique,,TRUE,
+1841,Déplacement dans une unité de soins intensifs ou coronariens non désignée à l'EP 3 - Soins intensifs ou coronariens pendant une période de dépannage,,TRUE,EP
+1849,Service rendu dans le cadre du programme de soutien à domicile en CLSC (LE 269),2022-05-14,FALSE,LE
+1850,Service rendu en sans rendez-vous populationnel (LE 269),2022-05-14,FALSE,LE
+1851,Service rendu en clinique d’évaluation (CDE),2022-12-31,FALSE,
+1852,Service rendu en résidence privée pour aînés (RPA) ou en ressource intermédiaire (RI),2022-05-14,FALSE,
+1879,Service rendu en sans rendez-vous populationnel visé à l'article 5.3 de l'Annexe IX (LE 269),2022-05-14,FALSE,LE
+1882,Séance de vaccination contre la Covid-19,2022-05-14,FALSE,COVID-19
+1883,Médecin responsable clinique dans le cadre d'une séance de vaccination de masse contre la COVID-19,2021-09-24,FALSE,COVID-19
+1884,Transidentité,2024-01-31,FALSE,
+1884,Transidentité,,TRUE,
+1888,Médecin adhérant au HUB - Sans rendez-vous populationnel,2022-05-14,FALSE,
+1889,Médecin engagé auprès de son DRMG pour son adhésion au HUB - Sans rendez-vous populationnel,2022-05-14,FALSE,
+1890,Service rendu en CLSC mais selon un autre mode de rémunération qu'en rémunération mixte de l'annexe XXIII.,,TRUE,Ann. XXIII
+1902,Affectation médicale additionnelle dans un secteur en difficulté au sein d’un établissement (LE 269),2022-05-14,FALSE,LE
+1903,Médecin de garde en disponibilité appelé à se déplacer à l'urgence pour dispenser des services sur place,2022-05-14,FALSE,
+1909,Forfait du médecin assistant pour les activités administratives en GMF-AR,,TRUE,GMF
+1910,Patient inscrit en groupe selon la LE - Accès à l'offre de services en première ligne,,TRUE,
+1911,Sans rendez-vous - GMF désigné accès-réseau (GMF-AR),,TRUE,GMF
+1913,Service à distance,,TRUE,
+1923,Intervention clinique effectuée auprès d'une personne au sein d'un milieu de périnatalité sociale désigné,,TRUE,
+1924,Service rendu selon le mode mixte dans le cadre de la LE 381,,TRUE,LE
+1925,Service rendu selon le mode mixte dans le cadre de la LE 382,,TRUE,LE
+1926,Service rendu dans le cadre de la LE 381 ou LE 382,,TRUE,LE
+1927,Service rendu en soins de niveau alternatif (SNA),2023-05-31,FALSE,
+1932,Visite dans le cadre d’une clinique de la douleur pour l’évaluation ou le suivi d’un patient ou pour des infiltrations sous fluoroscopie visant le contrôle de la douleur,,TRUE,
+1935,Visite rendue ailleurs qu'en GMF-AR en suivi de la première visite effectuée en GMF-AR,2024-05-31,FALSE,GMF
+1936,Patient inscrit dans le cadre de la mesure d'accès aux patients sans médecin de famille,2024-05-31,FALSE,
+1947,Service rendu dans la clinique mobile du GMF-U Lafontaine.,,TRUE,GMF
+1951,Service rendu dans le cadre du projet pilote de télémédecine en CHSLD (LE 387),,TRUE,LE
+1961,Service rendu pendant la période où un forfait de l’Accord no 784 est facturé,2026-06-30,FALSE,Accord
+1964,Service rendu dans un point de service du GMF-U de Verdun - Accord no 789,,TRUE,"Accord, GMF"
+1968,Service rendu dans le cadre de l'Accord no 768,,TRUE,Accord
+1973,Service rendu dans une clinique externe dans les 5 jours suivants le congé d'un séjour admis du patient.,,TRUE,
+1974,Visite effectuée pendant une plage de rendez-vous réservée pour le GAP,2024-11-28,FALSE,GAP
+1975,Inadmissible à la facturation des forfaits codifiés 42251 ou 42267 à la dernière journée du trimestre en cours,,TRUE,
+1976,Inadmissible à la facturation des forfaits codifiés 42271 à 42275 à la dernière journée du mois en cours,,TRUE,
