@@ -138,17 +138,17 @@ export class DatabaseStorage implements IStorage {
   async upsertCodes(codeList: InsertCode[]): Promise<void> {
     if (codeList.length === 0) return;
     
-    await db.insert(codes).values(codeList).onConflictDoUpdate({
-      target: codes.code,
-      set: {
-        description: sql`EXCLUDED.description`,
-        category: sql`EXCLUDED.category`,
-        active: sql`EXCLUDED.active`,
-        customFields: sql`EXCLUDED.custom_fields`,
-        updatedAt: sql`EXCLUDED.updated_at`,
-        updatedBy: sql`EXCLUDED.updated_by`
+    // Insert codes individually to avoid primary key conflicts
+    for (const code of codeList) {
+      try {
+        await db.insert(codes).values(code);
+      } catch (error) {
+        // Skip if code already exists (duplicate primary key)
+        if (error.code !== '23505') { // 23505 is unique_violation
+          throw error;
+        }
       }
-    });
+    }
   }
 
   // Contexts

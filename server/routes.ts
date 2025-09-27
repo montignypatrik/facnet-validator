@@ -524,47 +524,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let updateCount = 0;
 
           try {
-            // Remove duplicates based on primary key before upserting
-            const deduplicatedRows: any[] = [];
-            const seenKeys = new Set();
-            
-            for (const row of validRows) {
-              let primaryKey: string;
-              
-              // Determine primary key based on table
-              switch (tableName) {
-                case "codes":
-                  primaryKey = row.code;
-                  break;
-                case "contexts":
-                  primaryKey = row.name;
-                  break;
-                case "establishments":
-                  primaryKey = row.name;
-                  break;
-                case "rules":
-                  primaryKey = row.name;
-                  break;
-                default:
-                  primaryKey = row.id || JSON.stringify(row);
-              }
-              
-              if (!seenKeys.has(primaryKey)) {
-                seenKeys.add(primaryKey);
-                deduplicatedRows.push(row);
-              }
-              // Note: For duplicates, we keep the first occurrence
-            }
-            
-            console.log(`Deduplicated ${validRows.length} rows to ${deduplicatedRows.length} unique rows`);
-
-            // Perform actual import with deduplicated rows only
-            if (upsertMethod && (storage as any)[upsertMethod] && deduplicatedRows.length > 0) {
-              await (storage as any)[upsertMethod](deduplicatedRows);
-              createCount = deduplicatedRows.length; // Simplified - in reality would be mixed
-            } else if (deduplicatedRows.length > 0) {
+            // Perform actual import with valid rows
+            if (upsertMethod && (storage as any)[upsertMethod] && validRows.length > 0) {
+              await (storage as any)[upsertMethod](validRows);
+              createCount = validRows.length; // Simplified - in reality would be mixed
+            } else if (validRows.length > 0) {
               // Fallback to individual creates/updates
-              for (const row of deduplicatedRows) {
+              for (const row of validRows) {
                 try {
                   await (storage as any)[createMethod](row);
                   createCount++;
