@@ -235,6 +235,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       'cat': 'category',
       'est': 'establishment',
       'ctx': 'context',
+      'billing_code': 'code',
+      'code_id': 'code',
+      'item_code': 'code',
+      'place': 'category',
+      'location': 'category',
+      'unit_require': 'active',
+      'unit_required': 'active',
+      'enabled': 'active',
+      'is_active': 'active',
     };
     return synonymMap[header] || header;
   };

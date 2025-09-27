@@ -120,7 +120,7 @@ export default function ContextsPage() {
         autoCreateFields: data.autoCreateFields.toString(),
       });
 
-      const response = await client.post(`/contexts:import?${params}`, formData, {
+      const response = await client.post(`/contexts/import?${params}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       return response.data;
@@ -145,7 +145,7 @@ export default function ContextsPage() {
 
   const handleExport = async () => {
     try {
-      const response = await client.get("/contexts:export", {
+      const response = await client.get("/contexts/export", {
         responseType: "blob",
       });
       

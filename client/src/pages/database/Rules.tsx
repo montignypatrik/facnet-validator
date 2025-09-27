@@ -121,7 +121,7 @@ export default function RulesPage() {
         autoCreateFields: data.autoCreateFields.toString(),
       });
 
-      const response = await client.post(`/rules:import?${params}`, formData, {
+      const response = await client.post(`/rules/import?${params}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       return response.data;
@@ -153,7 +153,7 @@ export default function RulesPage() {
 
   const handleExport = async () => {
     try {
-      const response = await client.get("/rules:export", {
+      const response = await client.get("/rules/export", {
         responseType: "blob",
       });
       

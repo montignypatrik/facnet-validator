@@ -122,7 +122,7 @@ export default function EstablishmentsPage() {
         autoCreateFields: data.autoCreateFields.toString(),
       });
 
-      const response = await client.post(`/establishments:import?${params}`, formData, {
+      const response = await client.post(`/establishments/import?${params}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       return response.data;
@@ -147,7 +147,7 @@ export default function EstablishmentsPage() {
 
   const handleExport = async () => {
     try {
-      const response = await client.get("/establishments:export", {
+      const response = await client.get("/establishments/export", {
         responseType: "blob",
       });
       
