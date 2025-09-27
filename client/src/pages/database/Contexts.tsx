@@ -125,6 +125,11 @@ export default function ContextsPage() {
       });
       return response.data;
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => query.queryKey[0] === "/contexts" 
+      });
+    },
   });
 
   const handleEdit = (context: Context) => {

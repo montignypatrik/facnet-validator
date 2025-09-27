@@ -125,6 +125,11 @@ export default function CodesPage() {
       });
       return response.data;
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => query.queryKey[0] === "/codes" 
+      });
+    },
   });
 
   const handleEdit = (code: Code) => {

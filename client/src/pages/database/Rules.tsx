@@ -126,6 +126,11 @@ export default function RulesPage() {
       });
       return response.data;
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => query.queryKey[0] === "/rules" 
+      });
+    },
   });
 
   const handleEdit = (rule: Rule) => {

@@ -127,6 +127,11 @@ export default function EstablishmentsPage() {
       });
       return response.data;
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => query.queryKey[0] === "/establishments" 
+      });
+    },
   });
 
   const handleEdit = (establishment: Establishment) => {
