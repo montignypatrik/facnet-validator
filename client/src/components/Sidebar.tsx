@@ -1,6 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/hooks/useAuth";
-import { signOutUser } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth";
 import {
   Home,
   ShieldCheck,
@@ -21,7 +20,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useState } from "react";
 
 export function Sidebar() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [location] = useLocation();
   const [validatorOpen, setValidatorOpen] = useState(true);
   const [databaseOpen, setDatabaseOpen] = useState(true);
@@ -58,7 +57,7 @@ export function Sidebar() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={signOutUser}
+            onClick={logout}
             data-testid="button-logout"
           >
             <LogOut className="w-4 h-4" />
@@ -69,15 +68,13 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {/* Dashboard */}
-        <Link href="/">
-          <a className={`flex items-center space-x-3 px-3 py-2 rounded-xl font-medium transition-colors ${
-            isActive("/") && location === "/" 
-              ? "text-primary bg-primary/10" 
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          }`} data-testid="link-dashboard">
-            <Home className="w-5 h-5" />
-            <span>Dashboard</span>
-          </a>
+        <Link href="/" className={`flex items-center space-x-3 px-3 py-2 rounded-xl font-medium transition-colors ${
+          isActive("/") && location === "/"
+            ? "text-primary bg-primary/10"
+            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+        }`} data-testid="link-dashboard">
+          <Home className="w-5 h-5" />
+          <span>Dashboard</span>
         </Link>
 
         {/* Validator Section */}
@@ -91,35 +88,29 @@ export function Sidebar() {
               <ChevronDown className={`w-4 h-4 transition-transform ${validatorOpen ? "rotate-180" : ""}`} />
             </CollapsibleTrigger>
             <CollapsibleContent className="ml-6 space-y-1">
-              <Link href="/validator/upload">
-                <a className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                  isActive("/validator/upload") 
-                    ? "text-primary bg-primary/10" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`} data-testid="link-validator-upload">
-                  <Upload className="w-4 h-4" />
-                  <span>Upload</span>
-                </a>
+              <Link href="/validator/upload" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                isActive("/validator/upload")
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`} data-testid="link-validator-upload">
+                <Upload className="w-4 h-4" />
+                <span>Upload</span>
               </Link>
-              <Link href="/validator/runs">
-                <a className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                  isActive("/validator/runs") 
-                    ? "text-primary bg-primary/10" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`} data-testid="link-validator-runs">
-                  <PlayCircle className="w-4 h-4" />
-                  <span>Runs</span>
-                </a>
+              <Link href="/validator/runs" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                isActive("/validator/runs")
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`} data-testid="link-validator-runs">
+                <PlayCircle className="w-4 h-4" />
+                <span>Runs</span>
               </Link>
-              <Link href="/validator/analytics">
-                <a className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                  isActive("/validator/analytics") 
-                    ? "text-primary bg-primary/10" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`} data-testid="link-validator-analytics">
-                  <BarChart3 className="w-4 h-4" />
-                  <span>Analytics</span>
-                </a>
+              <Link href="/validator/analytics" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                isActive("/validator/analytics")
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`} data-testid="link-validator-analytics">
+                <BarChart3 className="w-4 h-4" />
+                <span>Analytics</span>
               </Link>
             </CollapsibleContent>
           </Collapsible>
@@ -136,45 +127,37 @@ export function Sidebar() {
               <ChevronDown className={`w-4 h-4 transition-transform ${databaseOpen ? "rotate-180" : ""}`} />
             </CollapsibleTrigger>
             <CollapsibleContent className="ml-6 space-y-1">
-              <Link href="/database/codes">
-                <a className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                  isActive("/database/codes") 
-                    ? "text-primary bg-primary/10" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`} data-testid="link-database-codes">
-                  <Code className="w-4 h-4" />
-                  <span>Codes</span>
-                </a>
+              <Link href="/database/codes" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                isActive("/database/codes")
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`} data-testid="link-database-codes">
+                <Code className="w-4 h-4" />
+                <span>Codes</span>
               </Link>
-              <Link href="/database/contexts">
-                <a className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                  isActive("/database/contexts") 
-                    ? "text-primary bg-primary/10" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`} data-testid="link-database-contexts">
-                  <Layers className="w-4 h-4" />
-                  <span>Contexts</span>
-                </a>
+              <Link href="/database/contexts" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                isActive("/database/contexts")
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`} data-testid="link-database-contexts">
+                <Layers className="w-4 h-4" />
+                <span>Contexts</span>
               </Link>
-              <Link href="/database/establishments">
-                <a className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                  isActive("/database/establishments") 
-                    ? "text-primary bg-primary/10" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`} data-testid="link-database-establishments">
-                  <Building className="w-4 h-4" />
-                  <span>Establishments</span>
-                </a>
+              <Link href="/database/establishments" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                isActive("/database/establishments")
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`} data-testid="link-database-establishments">
+                <Building className="w-4 h-4" />
+                <span>Establishments</span>
               </Link>
-              <Link href="/database/rules">
-                <a className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                  isActive("/database/rules") 
-                    ? "text-primary bg-primary/10" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`} data-testid="link-database-rules">
-                  <Zap className="w-4 h-4" />
-                  <span>Rules</span>
-                </a>
+              <Link href="/database/rules" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                isActive("/database/rules")
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`} data-testid="link-database-rules">
+                <Zap className="w-4 h-4" />
+                <span>Rules</span>
               </Link>
             </CollapsibleContent>
           </Collapsible>
@@ -182,15 +165,13 @@ export function Sidebar() {
 
         {/* Settings */}
         <div className="pt-4">
-          <Link href="/settings">
-            <a className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-              isActive("/settings") 
-                ? "text-primary bg-primary/10" 
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`} data-testid="link-settings">
-              <Settings className="w-5 h-5" />
-              <span>Settings</span>
-            </a>
+          <Link href="/settings" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+            isActive("/settings")
+              ? "text-primary bg-primary/10"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`} data-testid="link-settings">
+            <Settings className="w-5 h-5" />
+            <span>Settings</span>
           </Link>
         </div>
       </nav>

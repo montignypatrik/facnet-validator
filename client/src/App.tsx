@@ -1,3 +1,4 @@
+import React from "react";
 import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -16,12 +17,65 @@ import Establishments from "./pages/database/Establishments";
 import Rules from "./pages/database/Rules";
 import Settings from "./pages/Settings";
 import NotFound from "@/pages/not-found";
+import { useAuth0 } from "@auth0/auth0-react";
+
+function AuthCallback() {
+  const { handleRedirectCallback } = useAuth0();
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    // Check if we have the required query parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasCode = urlParams.has('code');
+    const hasState = urlParams.has('state');
+
+    if (!hasCode || !hasState) {
+      // No Auth0 callback parameters, redirect to home
+      window.location.href = "/";
+      return;
+    }
+
+    // Process the Auth0 callback
+    handleRedirectCallback()
+      .then(() => {
+        window.location.href = "/";
+      })
+      .catch((error) => {
+        console.error("Auth0 callback error:", error);
+        setError("Authentication failed. Please try again.");
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 3000);
+      });
+  }, [handleRedirectCallback]);
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <p className="text-gray-600">Redirecting to home page...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <p className="text-lg">Processing login...</p>
+        <p className="text-gray-600 mt-2">Please wait while we complete your authentication.</p>
+      </div>
+    </div>
+  );
+}
 
 function Router() {
   return (
     <Switch>
+      <Route path="/callback" component={AuthCallback} />
       <Route path="/" component={Dashboard} />
-      
+
       {/* Validator routes */}
       <Route path="/validator">
         <Redirect to="/validator/upload" />

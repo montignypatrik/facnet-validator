@@ -1,7 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { User as FirebaseUser, onAuthStateChanged } from "firebase/auth";
-import { auth, handleRedirectResult } from "./firebase";
-import { apiRequest } from "./queryClient";
+import { useAuth0 } from "@auth0/auth0-react";
 
 interface User {
   id: string;
@@ -12,101 +10,93 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  firebaseUser: FirebaseUser | null;
   loading: boolean;
   token: string | null;
+  login: () => void;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const {
+    user: auth0User,
+    isAuthenticated,
+    isLoading,
+    getAccessTokenSilently,
+    loginWithRedirect,
+    logout: auth0Logout
+  } = useAuth0();
+
   const [user, setUser] = useState<User | null>(null);
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
-  const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // TEMPORARY: Bypass authentication for development
-    // Create a mock admin user to enable app access
-    const mockUser: User = {
-      id: "temp-admin-user",
-      email: "admin@dashvalidator.local",
-      name: "Admin User",
-      role: "admin"
-    };
+    console.log("Auth0 State:", { isAuthenticated, isLoading, auth0User });
 
-    console.log("Authentication bypassed - using mock admin user");
-    setUser(mockUser);
-    setToken("mock-token");
-    
-    // Store mock token in localStorage so the query client can access it
-    localStorage.setItem("firebaseToken", "mock-token");
-    
-    setLoading(false);
-    return;
+    if (!isLoading) {
+      if (isAuthenticated && auth0User) {
+        console.log("User is authenticated, getting access token...");
 
-    // Original auth code (commented out for temporary bypass)
-    /*
-    // Handle redirect result on app load
-    handleRedirectResult().then((result) => {
-      if (result) {
-        console.log("Redirect result:", result);
-      }
-    }).catch((error) => {
-      console.error("Redirect error:", error);
-    });
-
-    // If Firebase auth is not available, set loading to false and exit
-    if (!auth) {
-      console.warn("Firebase not configured - authentication disabled");
-      setLoading(false);
-      return;
-    }
-
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setFirebaseUser(firebaseUser);
-      
-      if (firebaseUser) {
-        try {
-          const idToken = await firebaseUser.getIdToken();
-          setToken(idToken);
-
-          // Verify with backend
-          const response = await fetch("/api/auth/verify", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${idToken}`,
-              "Content-Type": "application/json",
-            },
-          });
-
-          if (response.ok) {
-            const { user } = await response.json();
-            setUser(user);
-          } else {
-            console.error("Backend verification failed");
-            setUser(null);
-            setToken(null);
+        // Get real Auth0 access token
+        getAccessTokenSilently({
+          authorizationParams: {
+            audience: import.meta.env.VITE_AUTH0_AUDIENCE || "facnet-validator-api",
+            scope: "openid profile email offline_access"
           }
-        } catch (error) {
-          console.error("Auth error:", error);
+        })
+        .then((accessToken) => {
+          console.log("Got Auth0 access token");
+
+          // Create user object from Auth0 data
+          const userData: User = {
+            id: auth0User.sub || "",
+            email: auth0User.email || "",
+            name: auth0User.name || auth0User.email || "",
+            role: "admin" // Default role for now
+          };
+
+          setUser(userData);
+          setToken(accessToken);
+          localStorage.setItem("authToken", accessToken);
+          console.log("Auth0 user authenticated:", userData);
+        })
+        .catch((error) => {
+          console.error("Error getting access token:", error);
           setUser(null);
           setToken(null);
-        }
+          localStorage.removeItem("authToken");
+        });
       } else {
+        console.log("Not authenticated, clearing state");
         setUser(null);
         setToken(null);
+        localStorage.removeItem("authToken");
       }
-      
-      setLoading(false);
-    });
+    }
+  }, [isAuthenticated, auth0User, isLoading, getAccessTokenSilently]);
 
-    return () => unsubscribe();
-    */
-  }, []);
+  const login = () => {
+    loginWithRedirect();
+  };
+
+  const logout = () => {
+    localStorage.removeItem("authToken");
+    auth0Logout({
+      logoutParams: {
+        returnTo: window.location.origin
+      }
+    });
+  };
 
   return (
-    <AuthContext.Provider value={{ user, firebaseUser, loading, token }}>
+    <AuthContext.Provider value={{
+      user,
+      loading: isLoading,
+      token,
+      login,
+      logout
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,12 +1,11 @@
 // No Outlet needed in wouter - children are rendered directly
 import { Sidebar } from "./Sidebar";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { signInWithGoogle, isFirebaseReady } from "@/lib/firebase";
 import { Loader2 } from "lucide-react";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, login } = useAuth();
 
   if (loading) {
     return (
@@ -29,14 +28,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               Sign in to access your data validation and management platform
             </p>
           </div>
-          <Button 
-            onClick={isFirebaseReady() ? signInWithGoogle : () => alert("Firebase not configured. Please provide Firebase credentials.")}
+          <Button
+            onClick={login}
             className="w-full"
             size="lg"
-            data-testid="button-google-signin"
-            disabled={!isFirebaseReady()}
+            data-testid="button-auth0-signin"
           >
-            {isFirebaseReady() ? "Sign in with Google" : "Firebase Not Configured"}
+            Sign in with Auth0
           </Button>
         </div>
       </div>

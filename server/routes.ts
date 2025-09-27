@@ -4,7 +4,7 @@ import cors from "cors";
 import multer from "multer";
 import { z } from "zod";
 import { storage } from "./storage";
-import { authenticateToken, requireRole, type AuthenticatedRequest } from "./firebase";
+import { authenticateToken, requireRole, type AuthenticatedRequest } from "./auth";
 import { 
   insertCodeSchema, insertContextSchema, insertEstablishmentSchema, 
   insertRuleSchema, insertFieldCatalogSchema, insertValidationRunSchema,
@@ -137,7 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/validations", authenticateToken, async (req, res) => {
     try {
       const { limit, status, page, pageSize } = req.query;
-      
+
       const result = await storage.getValidationRuns({
         limit: limit ? parseInt(limit as string) : undefined,
         status: status as string,
@@ -146,9 +146,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json(result);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Get validations error:", error);
-      res.status(500).json({ error: "Failed to get validations" });
+
+      // Provide more specific error messages
+      if (error.code === '28P01') {
+        console.error("Database authentication failed - check DATABASE_URL credentials");
+        res.status(503).json({ error: "Database connection failed - authentication error" });
+      } else if (error.code && error.code.startsWith('28')) {
+        console.error("Database authentication/authorization error:", error.message);
+        res.status(503).json({ error: "Database connection failed" });
+      } else if (error.code === 'ECONNREFUSED') {
+        console.error("Database connection refused - is PostgreSQL running?");
+        res.status(503).json({ error: "Database service unavailable" });
+      } else {
+        res.status(500).json({ error: "Failed to get validations" });
+      }
     }
   });
 

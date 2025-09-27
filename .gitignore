@@ -3,4 +3,19 @@ dist
 .DS_Store
 server/public
 vite.config.ts.*
-*.tar.gz
+*.tar.gz# dependencies / builds / caches
+node_modules/
+dist/
+build/
+.turbo/
+.next/
+.cache/
+
+# uploads & temp
+uploads/
+
+# env & local configs
+.env
+client/.env
+.claude/
+*.local.json
