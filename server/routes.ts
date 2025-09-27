@@ -243,7 +243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return new Promise((resolve, reject) => {
       const results: any[] = [];
       fs.createReadStream(filePath)
-        .pipe(csv({ separator: [',', ';'] }))
+        .pipe(csv())
         .on('data', (data) => results.push(data))
         .on('end', () => resolve(results))
         .on('error', reject);
@@ -312,7 +312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     // Import endpoint
-    app.post(`/api/${tableName}:import`, authenticateToken, requireRole(["editor", "admin"]), upload.single("file"), async (req: AuthenticatedRequest, res) => {
+    app.post(`/api/${tableName}/import`, authenticateToken, requireRole(["editor", "admin"]), upload.single("file"), async (req: AuthenticatedRequest, res) => {
       try {
         const dryRun = req.query.dryRun === "true";
         const conflictStrategy = (req.query.conflictStrategy as string) || "update";
