@@ -1,0 +1,424 @@
+import { eq, and, like, desc, asc, count } from "drizzle-orm";
+import { db } from "./db";
+import { 
+  users, codes, contexts, establishments, rules, fieldCatalog, validationRuns, files,
+  type User, type InsertUser,
+  type Code, type InsertCode,
+  type Context, type InsertContext,
+  type Establishment, type InsertEstablishment,
+  type Rule, type InsertRule,
+  type FieldCatalog, type InsertFieldCatalog,
+  type ValidationRun, type InsertValidationRun,
+  type File, type InsertFile
+} from "@shared/schema";
+
+export interface IStorage {
+  // Users
+  getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, user: Partial<InsertUser>): Promise<User>;
+
+  // Codes
+  getCodes(params: { search?: string; page?: number; pageSize?: number }): Promise<{ data: Code[]; total: number }>;
+  getCode(code: string): Promise<Code | undefined>;
+  createCode(code: InsertCode): Promise<Code>;
+  updateCode(code: string, data: Partial<InsertCode>): Promise<Code>;
+  deleteCode(code: string): Promise<void>;
+  upsertCodes(codes: InsertCode[]): Promise<void>;
+
+  // Contexts
+  getContexts(params: { search?: string; page?: number; pageSize?: number }): Promise<{ data: Context[]; total: number }>;
+  getContext(id: string): Promise<Context | undefined>;
+  getContextByName(name: string): Promise<Context | undefined>;
+  createContext(context: InsertContext): Promise<Context>;
+  updateContext(id: string, data: Partial<InsertContext>): Promise<Context>;
+  deleteContext(id: string): Promise<void>;
+  upsertContexts(contexts: InsertContext[]): Promise<void>;
+
+  // Establishments
+  getEstablishments(params: { search?: string; page?: number; pageSize?: number }): Promise<{ data: Establishment[]; total: number }>;
+  getEstablishment(id: string): Promise<Establishment | undefined>;
+  getEstablishmentByName(name: string): Promise<Establishment | undefined>;
+  createEstablishment(establishment: InsertEstablishment): Promise<Establishment>;
+  updateEstablishment(id: string, data: Partial<InsertEstablishment>): Promise<Establishment>;
+  deleteEstablishment(id: string): Promise<void>;
+  upsertEstablishments(establishments: InsertEstablishment[]): Promise<void>;
+
+  // Rules
+  getRules(params: { search?: string; page?: number; pageSize?: number }): Promise<{ data: Rule[]; total: number }>;
+  getRule(id: string): Promise<Rule | undefined>;
+  getRuleByName(name: string): Promise<Rule | undefined>;
+  createRule(rule: InsertRule): Promise<Rule>;
+  updateRule(id: string, data: Partial<InsertRule>): Promise<Rule>;
+  deleteRule(id: string): Promise<void>;
+  upsertRules(rules: InsertRule[]): Promise<void>;
+
+  // Field Catalog
+  getFieldCatalog(tableName?: string): Promise<FieldCatalog[]>;
+  getFieldCatalogItem(id: string): Promise<FieldCatalog | undefined>;
+  createFieldCatalogItem(item: InsertFieldCatalog): Promise<FieldCatalog>;
+  updateFieldCatalogItem(id: string, data: Partial<InsertFieldCatalog>): Promise<FieldCatalog>;
+  deleteFieldCatalogItem(id: string): Promise<void>;
+
+  // Validation Runs
+  getValidationRuns(params: { limit?: number; status?: string; page?: number; pageSize?: number }): Promise<{ data: ValidationRun[]; total: number }>;
+  getValidationRun(id: string): Promise<ValidationRun | undefined>;
+  createValidationRun(run: InsertValidationRun): Promise<ValidationRun>;
+  updateValidationRun(id: string, data: Partial<InsertValidationRun>): Promise<ValidationRun>;
+
+  // Files
+  createFile(file: InsertFile): Promise<File>;
+  getFile(id: string): Promise<File | undefined>;
+}
+
+export class DatabaseStorage implements IStorage {
+  // Users
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const [created] = await db.insert(users).values(user).returning();
+    return created;
+  }
+
+  async updateUser(id: string, user: Partial<InsertUser>): Promise<User> {
+    const [updated] = await db.update(users).set(user).where(eq(users.id, id)).returning();
+    return updated;
+  }
+
+  // Codes
+  async getCodes(params: { search?: string; page?: number; pageSize?: number }): Promise<{ data: Code[]; total: number }> {
+    const { search, page = 1, pageSize = 50 } = params;
+    const offset = (page - 1) * pageSize;
+
+    let query = db.select().from(codes);
+    let countQuery = db.select({ count: count() }).from(codes);
+
+    if (search) {
+      const searchCondition = like(codes.description, `%${search}%`);
+      query = query.where(searchCondition);
+      countQuery = countQuery.where(searchCondition);
+    }
+
+    const [data, totalResult] = await Promise.all([
+      query.limit(pageSize).offset(offset).orderBy(asc(codes.code)),
+      countQuery
+    ]);
+
+    return { data, total: totalResult[0].count };
+  }
+
+  async getCode(code: string): Promise<Code | undefined> {
+    const [result] = await db.select().from(codes).where(eq(codes.code, code));
+    return result || undefined;
+  }
+
+  async createCode(code: InsertCode): Promise<Code> {
+    const [created] = await db.insert(codes).values(code).returning();
+    return created;
+  }
+
+  async updateCode(code: string, data: Partial<InsertCode>): Promise<Code> {
+    const [updated] = await db.update(codes).set({ ...data, updatedAt: new Date() }).where(eq(codes.code, code)).returning();
+    return updated;
+  }
+
+  async deleteCode(code: string): Promise<void> {
+    await db.delete(codes).where(eq(codes.code, code));
+  }
+
+  async upsertCodes(codeList: InsertCode[]): Promise<void> {
+    if (codeList.length === 0) return;
+    
+    await db.insert(codes).values(codeList).onConflictDoUpdate({
+      target: codes.code,
+      set: {
+        description: sql`EXCLUDED.description`,
+        category: sql`EXCLUDED.category`,
+        active: sql`EXCLUDED.active`,
+        customFields: sql`EXCLUDED.custom_fields`,
+        updatedAt: sql`EXCLUDED.updated_at`,
+        updatedBy: sql`EXCLUDED.updated_by`
+      }
+    });
+  }
+
+  // Contexts
+  async getContexts(params: { search?: string; page?: number; pageSize?: number }): Promise<{ data: Context[]; total: number }> {
+    const { search, page = 1, pageSize = 50 } = params;
+    const offset = (page - 1) * pageSize;
+
+    let query = db.select().from(contexts);
+    let countQuery = db.select({ count: count() }).from(contexts);
+
+    if (search) {
+      const searchCondition = like(contexts.name, `%${search}%`);
+      query = query.where(searchCondition);
+      countQuery = countQuery.where(searchCondition);
+    }
+
+    const [data, totalResult] = await Promise.all([
+      query.limit(pageSize).offset(offset).orderBy(asc(contexts.name)),
+      countQuery
+    ]);
+
+    return { data, total: totalResult[0].count };
+  }
+
+  async getContext(id: string): Promise<Context | undefined> {
+    const [result] = await db.select().from(contexts).where(eq(contexts.id, id));
+    return result || undefined;
+  }
+
+  async getContextByName(name: string): Promise<Context | undefined> {
+    const [result] = await db.select().from(contexts).where(eq(contexts.name, name));
+    return result || undefined;
+  }
+
+  async createContext(context: InsertContext): Promise<Context> {
+    const [created] = await db.insert(contexts).values(context).returning();
+    return created;
+  }
+
+  async updateContext(id: string, data: Partial<InsertContext>): Promise<Context> {
+    const [updated] = await db.update(contexts).set({ ...data, updatedAt: new Date() }).where(eq(contexts.id, id)).returning();
+    return updated;
+  }
+
+  async deleteContext(id: string): Promise<void> {
+    await db.delete(contexts).where(eq(contexts.id, id));
+  }
+
+  async upsertContexts(contextList: InsertContext[]): Promise<void> {
+    if (contextList.length === 0) return;
+    
+    await db.insert(contexts).values(contextList).onConflictDoUpdate({
+      target: contexts.name,
+      set: {
+        description: sql`EXCLUDED.description`,
+        tags: sql`EXCLUDED.tags`,
+        customFields: sql`EXCLUDED.custom_fields`,
+        updatedAt: sql`EXCLUDED.updated_at`,
+        updatedBy: sql`EXCLUDED.updated_by`
+      }
+    });
+  }
+
+  // Establishments
+  async getEstablishments(params: { search?: string; page?: number; pageSize?: number }): Promise<{ data: Establishment[]; total: number }> {
+    const { search, page = 1, pageSize = 50 } = params;
+    const offset = (page - 1) * pageSize;
+
+    let query = db.select().from(establishments);
+    let countQuery = db.select({ count: count() }).from(establishments);
+
+    if (search) {
+      const searchCondition = like(establishments.name, `%${search}%`);
+      query = query.where(searchCondition);
+      countQuery = countQuery.where(searchCondition);
+    }
+
+    const [data, totalResult] = await Promise.all([
+      query.limit(pageSize).offset(offset).orderBy(asc(establishments.name)),
+      countQuery
+    ]);
+
+    return { data, total: totalResult[0].count };
+  }
+
+  async getEstablishment(id: string): Promise<Establishment | undefined> {
+    const [result] = await db.select().from(establishments).where(eq(establishments.id, id));
+    return result || undefined;
+  }
+
+  async getEstablishmentByName(name: string): Promise<Establishment | undefined> {
+    const [result] = await db.select().from(establishments).where(eq(establishments.name, name));
+    return result || undefined;
+  }
+
+  async createEstablishment(establishment: InsertEstablishment): Promise<Establishment> {
+    const [created] = await db.insert(establishments).values(establishment).returning();
+    return created;
+  }
+
+  async updateEstablishment(id: string, data: Partial<InsertEstablishment>): Promise<Establishment> {
+    const [updated] = await db.update(establishments).set({ ...data, updatedAt: new Date() }).where(eq(establishments.id, id)).returning();
+    return updated;
+  }
+
+  async deleteEstablishment(id: string): Promise<void> {
+    await db.delete(establishments).where(eq(establishments.id, id));
+  }
+
+  async upsertEstablishments(establishmentList: InsertEstablishment[]): Promise<void> {
+    if (establishmentList.length === 0) return;
+    
+    await db.insert(establishments).values(establishmentList).onConflictDoUpdate({
+      target: establishments.name,
+      set: {
+        type: sql`EXCLUDED.type`,
+        region: sql`EXCLUDED.region`,
+        active: sql`EXCLUDED.active`,
+        notes: sql`EXCLUDED.notes`,
+        customFields: sql`EXCLUDED.custom_fields`,
+        updatedAt: sql`EXCLUDED.updated_at`,
+        updatedBy: sql`EXCLUDED.updated_by`
+      }
+    });
+  }
+
+  // Rules
+  async getRules(params: { search?: string; page?: number; pageSize?: number }): Promise<{ data: Rule[]; total: number }> {
+    const { search, page = 1, pageSize = 50 } = params;
+    const offset = (page - 1) * pageSize;
+
+    let query = db.select().from(rules);
+    let countQuery = db.select({ count: count() }).from(rules);
+
+    if (search) {
+      const searchCondition = like(rules.name, `%${search}%`);
+      query = query.where(searchCondition);
+      countQuery = countQuery.where(searchCondition);
+    }
+
+    const [data, totalResult] = await Promise.all([
+      query.limit(pageSize).offset(offset).orderBy(asc(rules.name)),
+      countQuery
+    ]);
+
+    return { data, total: totalResult[0].count };
+  }
+
+  async getRule(id: string): Promise<Rule | undefined> {
+    const [result] = await db.select().from(rules).where(eq(rules.id, id));
+    return result || undefined;
+  }
+
+  async getRuleByName(name: string): Promise<Rule | undefined> {
+    const [result] = await db.select().from(rules).where(eq(rules.name, name));
+    return result || undefined;
+  }
+
+  async createRule(rule: InsertRule): Promise<Rule> {
+    const [created] = await db.insert(rules).values(rule).returning();
+    return created;
+  }
+
+  async updateRule(id: string, data: Partial<InsertRule>): Promise<Rule> {
+    const [updated] = await db.update(rules).set({ ...data, updatedAt: new Date() }).where(eq(rules.id, id)).returning();
+    return updated;
+  }
+
+  async deleteRule(id: string): Promise<void> {
+    await db.delete(rules).where(eq(rules.id, id));
+  }
+
+  async upsertRules(ruleList: InsertRule[]): Promise<void> {
+    if (ruleList.length === 0) return;
+    
+    await db.insert(rules).values(ruleList).onConflictDoUpdate({
+      target: rules.name,
+      set: {
+        condition: sql`EXCLUDED.condition`,
+        threshold: sql`EXCLUDED.threshold`,
+        enabled: sql`EXCLUDED.enabled`,
+        customFields: sql`EXCLUDED.custom_fields`,
+        updatedAt: sql`EXCLUDED.updated_at`,
+        updatedBy: sql`EXCLUDED.updated_by`
+      }
+    });
+  }
+
+  // Field Catalog
+  async getFieldCatalog(tableName?: string): Promise<FieldCatalog[]> {
+    let query = db.select().from(fieldCatalog).where(eq(fieldCatalog.active, true));
+    
+    if (tableName) {
+      query = query.where(and(eq(fieldCatalog.active, true), eq(fieldCatalog.tableName, tableName as any)));
+    }
+    
+    return await query.orderBy(asc(fieldCatalog.label));
+  }
+
+  async getFieldCatalogItem(id: string): Promise<FieldCatalog | undefined> {
+    const [result] = await db.select().from(fieldCatalog).where(eq(fieldCatalog.id, id));
+    return result || undefined;
+  }
+
+  async createFieldCatalogItem(item: InsertFieldCatalog): Promise<FieldCatalog> {
+    const [created] = await db.insert(fieldCatalog).values(item).returning();
+    return created;
+  }
+
+  async updateFieldCatalogItem(id: string, data: Partial<InsertFieldCatalog>): Promise<FieldCatalog> {
+    const [updated] = await db.update(fieldCatalog).set({ ...data, updatedAt: new Date() }).where(eq(fieldCatalog.id, id)).returning();
+    return updated;
+  }
+
+  async deleteFieldCatalogItem(id: string): Promise<void> {
+    await db.delete(fieldCatalog).where(eq(fieldCatalog.id, id));
+  }
+
+  // Validation Runs
+  async getValidationRuns(params: { limit?: number; status?: string; page?: number; pageSize?: number }): Promise<{ data: ValidationRun[]; total: number }> {
+    const { limit, status, page = 1, pageSize = 50 } = params;
+    const offset = (page - 1) * pageSize;
+
+    let query = db.select().from(validationRuns);
+    let countQuery = db.select({ count: count() }).from(validationRuns);
+
+    if (status) {
+      query = query.where(eq(validationRuns.status, status));
+      countQuery = countQuery.where(eq(validationRuns.status, status));
+    }
+
+    if (limit) {
+      query = query.limit(limit);
+    } else {
+      query = query.limit(pageSize).offset(offset);
+    }
+
+    const [data, totalResult] = await Promise.all([
+      query.orderBy(desc(validationRuns.createdAt)),
+      countQuery
+    ]);
+
+    return { data, total: totalResult[0].count };
+  }
+
+  async getValidationRun(id: string): Promise<ValidationRun | undefined> {
+    const [result] = await db.select().from(validationRuns).where(eq(validationRuns.id, id));
+    return result || undefined;
+  }
+
+  async createValidationRun(run: InsertValidationRun): Promise<ValidationRun> {
+    const [created] = await db.insert(validationRuns).values(run).returning();
+    return created;
+  }
+
+  async updateValidationRun(id: string, data: Partial<InsertValidationRun>): Promise<ValidationRun> {
+    const [updated] = await db.update(validationRuns).set({ ...data, updatedAt: new Date() }).where(eq(validationRuns.id, id)).returning();
+    return updated;
+  }
+
+  // Files
+  async createFile(file: InsertFile): Promise<File> {
+    const [created] = await db.insert(files).values(file).returning();
+    return created;
+  }
+
+  async getFile(id: string): Promise<File | undefined> {
+    const [result] = await db.select().from(files).where(eq(files.id, id));
+    return result || undefined;
+  }
+}
+
+export const storage = new DatabaseStorage();
