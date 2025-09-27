@@ -1,0 +1,156 @@
+You are my backend engineer. Build a FastAPI + PostgreSQL project that matches the spec below.
+Name the project “dashvalidator-backend”. Do NOT build a front end; just enable CORS for a future React app.
+
+# 0) Tech & env
+- Python 3.11, FastAPI, Uvicorn, SQLAlchemy 2.x, Alembic, Pydantic v2, python-multipart, psycopg[binary], python-jose, passlib[bcrypt], python-dotenv.
+- Postgres via DATABASE_URL in .env. Replit or external (Neon/Supabase).
+- .env keys:
+  DATABASE_URL=postgresql+psycopg://user:pass@host:5432/db
+  JWT_SECRET=devsecret
+  JWT_EXPIRES_MIN=60
+  UPLOAD_DIR=./uploads
+  MAX_UPLOAD_MB=50
+- Scripts:
+  make run: uvicorn app.main:app --reload --port 8000
+  make migrate: alembic upgrade head
+  make revision: alembic revision --autogenerate -m "msg"
+
+# 1) App structure
+app/
+  __init__.py
+  main.py
+  core/{config.py,security.py}
+  db/{session.py,base.py}
+  models/{codes.py,contexts.py,establishments.py,rules.py,field_catalog.py}
+  schemas/{auth.py,common.py,codes.py,contexts.py,establishments.py,rules.py,field_catalog.py}
+  routers/{auth.py,codes.py,contexts.py,establishments.py,rules.py,field_catalog.py,import_export.py,validations_stub.py}
+  services/{import_csv.py,export_csv.py,catalog.py}
+  utils/{csv_normalize.py,paging.py,time.py}
+alembic/{env.py,script.py.mako,versions/}
+README.md
+
+# 2) Data model — core columns + custom_fields JSONB
+## codes
+- code TEXT PK
+- description TEXT NOT NULL
+- category TEXT NULL
+- active BOOLEAN DEFAULT TRUE
+- custom_fields JSONB DEFAULT '{}'::jsonb
+- updated_at TIMESTAMPTZ DEFAULT now()
+- updated_by TEXT NULL
+(Upsert key: code)
+
+## contexts
+- id UUID PK (gen)
+- name TEXT UNIQUE NOT NULL
+- description TEXT NULL
+- tags TEXT[] NULL
+- custom_fields JSONB DEFAULT '{}'::jsonb
+- updated_at TIMESTAMPTZ DEFAULT now()
+- updated_by TEXT NULL
+(Upsert key: name; allow id if present)
+
+## establishments
+- id UUID PK (gen)
+- name TEXT UNIQUE NOT NULL
+- type TEXT NULL
+- region TEXT NULL
+- active BOOLEAN DEFAULT TRUE
+- notes TEXT NULL
+- custom_fields JSONB DEFAULT '{}'::jsonb
+- updated_at TIMESTAMPTZ DEFAULT now()
+- updated_by TEXT NULL
+(Upsert key: name; allow id if present)
+
+## rules
+- id UUID PK (gen)
+- name TEXT UNIQUE NOT NULL
+- condition JSONB NOT NULL
+- threshold NUMERIC NULL
+- enabled BOOLEAN DEFAULT TRUE
+- custom_fields JSONB DEFAULT '{}'::jsonb
+- updated_at TIMESTAMPTZ DEFAULT now()
+- updated_by TEXT NULL
+(Upsert key: name)
+
+## field_catalog
+- id UUID PK
+- table_name TEXT CHECK (table_name IN ('codes','contexts','establishments','rules'))
+- field_key TEXT NOT NULL                         # snake_case
+- label TEXT NOT NULL
+- type TEXT NOT NULL                              # text|number|boolean|date|select|multiselect
+- required BOOLEAN DEFAULT FALSE
+- options TEXT[] NULL
+- unique_field BOOLEAN DEFAULT FALSE
+- default_value TEXT NULL
+- active BOOLEAN DEFAULT TRUE
+- created_at TIMESTAMPTZ DEFAULT now()
+- updated_at TIMESTAMPTZ DEFAULT now()
+- UNIQUE (table_name, field_key)
+
+Indexes:
+- GIN on custom_fields for each core table.
+- Functional UNIQUE index helper when catalog field is unique, e.g.:
+  CREATE UNIQUE INDEX IF NOT EXISTS codes_billing_group_unique
+  ON codes ((custom_fields->>'billing_group')) WHERE custom_fields ? 'billing_group';
+
+# 3) Auth (dev)
+- POST /auth/login -> {token, user:{id,email,role}} for {email,password}.
+- Hardcode one admin: admin@example.com / admin123 / role=admin.
+- JWT dependency; role_guard(viewer|editor|admin).
+- Writes need editor|admin; DELETE needs admin.
+
+# 4) CSV import/export (shared for all 4 tables)
+IMPORT: POST /{table}:import
+- multipart form: file; query: dryRun=true|false, conflictStrategy=skip|update (default update), useKeys=true|false, autoCreateFields=true|false
+- Detect delimiter (comma/semicolon), UTF-8.
+- Normalize headers (lowercase, trim, de-accent). Map synonyms (desc->description, cat->category).
+- Header mapping:
+  * core column -> core field
+  * active field_catalog (match field_key or label) -> custom_fields[field_key]
+  * else -> unknown_headers list (if autoCreateFields=true and user=admin/editor, create catalog entry type=text and include this import)
+- Coerce custom types by catalog.type.
+- Natural keys: codes.code; contexts.name (or id); establishments.name (or id); rules.name.
+- Row hash from core+registered custom fields → unchanged rows SKIP.
+- dryRun returns preview {create,update,skip,errors,unknown_headers[],sampleDiffs[]}.
+- Non-dryRun: INSERT ... ON CONFLICT(key) DO UPDATE only if changed and conflictStrategy=update; else SKIP. Stamp updated_at/updated_by.
+
+EXPORT: GET /{table}:export?filters=...&useKeys=true|false
+- Export core + active custom fields (ordered by catalog). Labels by default; keys if useKeys=true.
+
+# 5) CRUD endpoints (per table)
+- GET list: search, filters, pagination (page,pageSize).
+- POST create (core + custom_fields validated against catalog).
+- PATCH update (partial).
+- DELETE (admin only).
+- Enforce catalog required/unique; 409 on unique violation with human message.
+Routers: /codes, /contexts, /establishments, /rules, /field-catalog (create/edit/toggle unique/activate).
+
+# 6) Validator flow (stub only)
+- POST /files (store CSV under UPLOAD_DIR) -> {fileId}
+- POST /validations {fileId} -> {validationId,status:"queued"}
+- GET /validations -> []
+- GET /validations/{id} -> stub
+(Real engine later.)
+
+# 7) CORS & OpenAPI
+- CORS for http://localhost:5173 and Replit preview origins.
+- Tags by area; include examples in schemas.
+
+# 8) Alembic
+- rev_0001_initial: all 5 tables + GIN indexes; helper SQL for functional unique indexes.
+- Provide `make migrate` and README steps.
+
+# 9) Tests (light)
+- Import dry run & commit flow: create/update/skip, type coercion, unknown headers, unique enforcement.
+- CRUD happy paths.
+
+# 10) README
+- Setup, run, migrate, example CSVs (codes, establishments), example curl commands.
+
+# 11) Acceptance
+- Import works: dryRun and commit upsert-only.
+- Unknown headers reported; autoCreateFields creates catalog + imports same request.
+- Toggling unique enforces uniqueness (409 on violation).
+- Export returns core+custom with labels by default.
+- Role guards respected.
