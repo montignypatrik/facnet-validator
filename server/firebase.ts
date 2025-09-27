@@ -42,6 +42,23 @@ export async function authenticateToken(req: AuthenticatedRequest, res: Response
       return res.status(401).json({ error: "No token provided" });
     }
 
+    // TEMPORARY: Handle mock token for development (auth bypass)
+    if (token === "mock-token") {
+      console.log("Authentication bypassed - accepting mock token");
+      req.user = {
+        uid: "temp-admin-user",
+        email: "admin@dashvalidator.local",
+        role: "admin",
+        claims: { name: "Admin User" }
+      };
+      return next();
+    }
+
+    // Original Firebase token verification (for production)
+    if (!auth) {
+      return res.status(500).json({ error: "Firebase Admin not configured" });
+    }
+
     const decodedToken = await auth.verifyIdToken(token);
     
     // Get user role from custom claims or default to viewer

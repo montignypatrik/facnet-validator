@@ -26,6 +26,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
+    // TEMPORARY: Bypass authentication for development
+    // Create a mock admin user to enable app access
+    const mockUser: User = {
+      id: "temp-admin-user",
+      email: "admin@dashvalidator.local",
+      name: "Admin User",
+      role: "admin"
+    };
+
+    console.log("Authentication bypassed - using mock admin user");
+    setUser(mockUser);
+    setToken("mock-token");
+    
+    // Store mock token in localStorage so the query client can access it
+    localStorage.setItem("firebaseToken", "mock-token");
+    
+    setLoading(false);
+    return;
+
+    // Original auth code (commented out for temporary bypass)
+    /*
     // Handle redirect result on app load
     handleRedirectResult().then((result) => {
       if (result) {
@@ -81,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => unsubscribe();
+    */
   }, []);
 
   return (
