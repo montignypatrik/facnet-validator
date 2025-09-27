@@ -35,6 +35,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Redirect error:", error);
     });
 
+    // If Firebase auth is not available, set loading to false and exit
+    if (!auth) {
+      console.warn("Firebase not configured - authentication disabled");
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setFirebaseUser(firebaseUser);
       

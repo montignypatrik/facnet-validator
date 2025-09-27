@@ -2,7 +2,7 @@
 import { Sidebar } from "./Sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { signInWithGoogle } from "@/lib/firebase";
+import { signInWithGoogle, isFirebaseReady } from "@/lib/firebase";
 import { Loader2 } from "lucide-react";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -30,12 +30,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </p>
           </div>
           <Button 
-            onClick={signInWithGoogle}
+            onClick={isFirebaseReady() ? signInWithGoogle : () => alert("Firebase not configured. Please provide Firebase credentials.")}
             className="w-full"
             size="lg"
             data-testid="button-google-signin"
+            disabled={!isFirebaseReady()}
           >
-            Sign in with Google
+            {isFirebaseReady() ? "Sign in with Google" : "Firebase Not Configured"}
           </Button>
         </div>
       </div>
