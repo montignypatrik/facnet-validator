@@ -37,7 +37,7 @@ export function Sidebar() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-foreground">DashValidator</h1>
-            <p className="text-sm text-muted-foreground">Data Management</p>
+            <p className="text-sm text-muted-foreground">Gestion de Données</p>
           </div>
         </div>
       </div>
@@ -74,7 +74,7 @@ export function Sidebar() {
             : "text-muted-foreground hover:text-foreground hover:bg-muted"
         }`} data-testid="link-dashboard">
           <Home className="w-5 h-5" />
-          <span>Dashboard</span>
+          <span>Tableau de Bord</span>
         </Link>
 
         {/* Validator Section */}
@@ -83,7 +83,7 @@ export function Sidebar() {
             <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">
               <div className="flex items-center space-x-2">
                 <ShieldCheck className="w-4 h-4" />
-                <span>Validator</span>
+                <span>Validateur</span>
               </div>
               <ChevronDown className={`w-4 h-4 transition-transform ${validatorOpen ? "rotate-180" : ""}`} />
             </CollapsibleTrigger>
@@ -94,7 +94,7 @@ export function Sidebar() {
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`} data-testid="link-validator-upload">
                 <Upload className="w-4 h-4" />
-                <span>Upload</span>
+                <span>Télécharger</span>
               </Link>
               <Link href="/validator/runs" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
                 isActive("/validator/runs")
@@ -102,7 +102,7 @@ export function Sidebar() {
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`} data-testid="link-validator-runs">
                 <PlayCircle className="w-4 h-4" />
-                <span>Runs</span>
+                <span>Exécutions</span>
               </Link>
               <Link href="/validator/analytics" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
                 isActive("/validator/analytics")
@@ -110,7 +110,7 @@ export function Sidebar() {
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`} data-testid="link-validator-analytics">
                 <BarChart3 className="w-4 h-4" />
-                <span>Analytics</span>
+                <span>Analytiques</span>
               </Link>
             </CollapsibleContent>
           </Collapsible>
@@ -122,7 +122,7 @@ export function Sidebar() {
             <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">
               <div className="flex items-center space-x-2">
                 <Database className="w-4 h-4" />
-                <span>Database</span>
+                <span>Base de Données</span>
               </div>
               <ChevronDown className={`w-4 h-4 transition-transform ${databaseOpen ? "rotate-180" : ""}`} />
             </CollapsibleTrigger>
@@ -141,7 +141,7 @@ export function Sidebar() {
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`} data-testid="link-database-contexts">
                 <Layers className="w-4 h-4" />
-                <span>Contexts</span>
+                <span>Contextes</span>
               </Link>
               <Link href="/database/establishments" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
                 isActive("/database/establishments")
@@ -149,7 +149,7 @@ export function Sidebar() {
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`} data-testid="link-database-establishments">
                 <Building className="w-4 h-4" />
-                <span>Establishments</span>
+                <span>Établissements</span>
               </Link>
               <Link href="/database/rules" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
                 isActive("/database/rules")
@@ -157,7 +157,7 @@ export function Sidebar() {
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`} data-testid="link-database-rules">
                 <Zap className="w-4 h-4" />
-                <span>Rules</span>
+                <span>Règles</span>
               </Link>
             </CollapsibleContent>
           </Collapsible>
@@ -171,7 +171,7 @@ export function Sidebar() {
               : "text-muted-foreground hover:text-foreground hover:bg-muted"
           }`} data-testid="link-settings">
             <Settings className="w-5 h-5" />
-            <span>Settings</span>
+            <span>Paramètres</span>
           </Link>
         </div>
       </nav>
@@ -180,7 +180,7 @@ export function Sidebar() {
       <div className="p-4 border-t border-border">
         <div className="flex items-center space-x-2 px-3 py-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-          <span className="text-sm text-green-700 dark:text-green-300">API Connected</span>
+          <span className="text-sm text-green-700 dark:text-green-300">API Connectée</span>
         </div>
       </div>
     </aside>

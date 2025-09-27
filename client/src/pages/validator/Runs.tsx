@@ -31,6 +31,32 @@ interface ValidationRun {
 }
 
 export default function RunsPage() {
+  // French translations
+  const translations = {
+    pageTitle: "Exécutions de Validation",
+    pageDescription: "Surveillez et gérez vos processus de validation de données",
+    newUpload: "Nouveau Téléchargement",
+    searchByFilename: "Rechercher par nom de fichier...",
+    filterByStatus: "Filtrer par statut",
+    allStatuses: "Tous les Statuts",
+    queued: "En Attente",
+    running: "En Cours",
+    completed: "Terminé",
+    failed: "Échoué",
+    noValidationRuns: "Aucune exécution de validation trouvée",
+    adjustCriteria: "Essayez d'ajuster vos critères de recherche ou vos filtres",
+    uploadFirstFile: "Téléchargez votre premier fichier CSV pour commencer à valider les données",
+    uploadFile: "Télécharger un Fichier",
+    view: "Voir",
+    progress: "Progression",
+    errors: "erreurs",
+    rows: "lignes",
+    complete: "terminé",
+    previous: "Précédent",
+    next: "Suivant",
+    pageOf: "Page"
+  };
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [page, setPage] = useState(1);
@@ -93,16 +119,16 @@ export default function RunsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">
-              Validation Runs
+              {translations.pageTitle}
             </h1>
             <p className="text-muted-foreground">
-              Monitor and manage your data validation processes
+              {translations.pageDescription}
             </p>
           </div>
           <Link href="/validator/upload">
             <Button data-testid="button-new-upload">
               <FileText className="w-4 h-4 mr-2" />
-              New Upload
+              {translations.newUpload}
             </Button>
           </Link>
         </div>
@@ -114,7 +140,7 @@ export default function RunsPage() {
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
-              placeholder="Search by filename..."
+              placeholder={translations.searchByFilename}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10"
@@ -123,14 +149,14 @@ export default function RunsPage() {
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-48" data-testid="select-status-filter">
-              <SelectValue placeholder="Filter by status" />
+              <SelectValue placeholder={translations.filterByStatus} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Statuses</SelectItem>
-              <SelectItem value="queued">Queued</SelectItem>
-              <SelectItem value="running">Running</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="failed">Failed</SelectItem>
+              <SelectItem value="">{translations.allStatuses}</SelectItem>
+              <SelectItem value="queued">{translations.queued}</SelectItem>
+              <SelectItem value="running">{translations.running}</SelectItem>
+              <SelectItem value="completed">{translations.completed}</SelectItem>
+              <SelectItem value="failed">{translations.failed}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -158,17 +184,17 @@ export default function RunsPage() {
           <Card>
             <CardContent className="p-12 text-center">
               <FileText className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No validation runs found</h3>
+              <h3 className="text-lg font-medium text-foreground mb-2">{translations.noValidationRuns}</h3>
               <p className="text-muted-foreground mb-4">
                 {search || statusFilter 
-                  ? "Try adjusting your search criteria or filters" 
-                  : "Upload your first CSV file to start validating data"
+                  ? translations.adjustCriteria
+                  : translations.uploadFirstFile
                 }
               </p>
               <Link href="/validator/upload">
                 <Button data-testid="button-upload-first">
                   <FileText className="w-4 h-4 mr-2" />
-                  Upload File
+                  {translations.uploadFile}
                 </Button>
               </Link>
             </CardContent>
@@ -196,13 +222,13 @@ export default function RunsPage() {
                             {new Date(run.createdAt).toLocaleDateString()}
                           </div>
                           {run.totalRows > 0 && (
-                            <span>{run.totalRows.toLocaleString()} rows</span>
+                            <span>{run.totalRows.toLocaleString()} {translations.rows}</span>
                           )}
                           {run.errorCount > 0 && (
-                            <span className="text-red-600">{run.errorCount} errors</span>
+                            <span className="text-red-600">{run.errorCount} {translations.errors}</span>
                           )}
                           {run.status === "running" && run.totalRows > 0 && (
-                            <span>{getProgressPercentage(run)}% complete</span>
+                            <span>{getProgressPercentage(run)}% {translations.complete}</span>
                           )}
                         </div>
                       </div>
@@ -211,7 +237,7 @@ export default function RunsPage() {
                       <Link href={`/validator/runs/${run.id}`}>
                         <Button variant="outline" size="sm" data-testid={`button-view-run-${index}`}>
                           <Eye className="w-4 h-4 mr-2" />
-                          View
+                          {translations.view}
                         </Button>
                       </Link>
                     </div>
@@ -220,7 +246,7 @@ export default function RunsPage() {
                   {run.status === "running" && run.totalRows > 0 && (
                     <div className="mt-4">
                       <div className="flex items-center justify-between text-sm mb-2">
-                        <span className="text-muted-foreground">Progress</span>
+                        <span className="text-muted-foreground">{translations.progress}</span>
                         <span className="font-medium">{getProgressPercentage(run)}%</span>
                       </div>
                       <div className="w-full bg-muted rounded-full h-2">
@@ -244,10 +270,10 @@ export default function RunsPage() {
                   disabled={page === 1}
                   data-testid="button-prev-page"
                 >
-                  Previous
+                  {translations.previous}
                 </Button>
                 <span className="text-sm text-muted-foreground">
-                  Page {page} of {Math.ceil(runsData.total / pageSize)}
+                  {translations.pageOf} {page} / {Math.ceil(runsData.total / pageSize)}
                 </span>
                 <Button
                   variant="outline"
@@ -255,7 +281,7 @@ export default function RunsPage() {
                   disabled={page >= Math.ceil(runsData.total / pageSize)}
                   data-testid="button-next-page"
                 >
-                  Next
+                  {translations.next}
                 </Button>
               </div>
             )}

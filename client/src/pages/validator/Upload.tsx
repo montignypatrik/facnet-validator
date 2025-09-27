@@ -11,6 +11,44 @@ import { useToast } from "@/hooks/use-toast";
 import client from "@/api/client";
 
 export default function UploadPage() {
+  // French translations
+  const translations = {
+    pageTitle: "Télécharger et Valider",
+    pageDescription: "Téléchargez vos fichiers CSV pour la validation et le traitement des données",
+    fileUpload: "Téléchargement de Fichier",
+    uploadAndValidate: "Télécharger et Valider",
+    uploading: "Téléchargement en cours...",
+    pleaseWait: "Veuillez patienter pendant que nous traitons votre fichier",
+    complete: "% terminé",
+    uploadSuccessful: "Téléchargement Réussi !",
+    fileUploaded: "Votre fichier a été téléchargé et la validation a commencé",
+    viewValidationRun: "Voir l'Exécution de Validation",
+    uploadGuidelines: "Directives de Téléchargement",
+    followFormat: "Veuillez vous assurer que vos fichiers CSV suivent le format attendu pour des résultats de validation optimaux.",
+    supportedFileTypes: "Types de Fichiers Supportés",
+    csvFiles: "• Fichiers CSV (.csv)",
+    utf8Encoding: "• Encodage UTF-8 recommandé",
+    maxFileSize: "• Taille maximale du fichier : 50MB",
+    fileFormatRequirements: "Exigences de Format de Fichier",
+    headerRowRequired: "• Ligne d'en-tête requise",
+    delimited: "• Délimité par virgule ou point-virgule",
+    consistentStructure: "• Structure de colonnes cohérente",
+    validationFeatures: "Fonctionnalités de Validation",
+    dataTypeValidation: "• Validation des types de données",
+    businessRuleEnforcement: "• Application des règles métier",
+    duplicateDetection: "• Détection des doublons",
+    formatConsistencyChecks: "• Vérifications de cohérence de format",
+    afterUpload: "Après Téléchargement",
+    realTimeProgress: "• Progression de validation en temps réel",
+    detailedErrorReporting: "• Rapport d'erreurs détaillé",
+    dataQualityMetrics: "• Métriques de qualité des données",
+    exportValidatedData: "• Exporter les données validées",
+    success: "Succès !",
+    uploadStarted: "Fichier téléchargé et validation commencée",
+    uploadFailed: "Échec du téléchargement",
+    errorOccurred: "Une erreur s'est produite"
+  };
+
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [files, setFiles] = useState<File[]>([]);
@@ -46,14 +84,14 @@ export default function UploadPage() {
     onSuccess: (data) => {
       setValidationId(data.validationId);
       toast({
-        title: "Success!",
-        description: "File uploaded and validation started",
+        title: translations.success,
+        description: translations.uploadStarted,
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Upload failed",
-        description: error.response?.data?.error || "An error occurred",
+        title: translations.uploadFailed,
+        description: error.response?.data?.error || translations.errorOccurred,
         variant: "destructive",
       });
     },
@@ -83,10 +121,10 @@ export default function UploadPage() {
       <header className="bg-card border-b border-border p-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">
-            Upload & Validate
+            {translations.pageTitle}
           </h1>
           <p className="text-muted-foreground">
-            Upload your CSV files for data validation and processing
+            {translations.pageDescription}
           </p>
         </div>
       </header>
@@ -99,7 +137,7 @@ export default function UploadPage() {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Upload className="w-5 h-5 mr-2" />
-                File Upload
+                {translations.fileUpload}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -125,7 +163,7 @@ export default function UploadPage() {
                     </div>
                     <Button onClick={handleUpload} data-testid="button-upload">
                       <Upload className="w-4 h-4 mr-2" />
-                      Upload & Validate
+                      {translations.uploadAndValidate}
                     </Button>
                   </div>
                 </div>
@@ -135,12 +173,12 @@ export default function UploadPage() {
                 <div className="space-y-4">
                   <div className="text-center">
                     <Upload className="w-12 h-12 mx-auto mb-4 text-primary" />
-                    <h3 className="text-lg font-medium">Uploading file...</h3>
-                    <p className="text-muted-foreground">Please wait while we process your file</p>
+                    <h3 className="text-lg font-medium">{translations.uploading}</h3>
+                    <p className="text-muted-foreground">{translations.pleaseWait}</p>
                   </div>
                   <Progress value={uploadProgress} className="w-full" />
                   <p className="text-center text-sm text-muted-foreground">
-                    {uploadProgress}% complete
+                    {uploadProgress}{translations.complete}
                   </p>
                 </div>
               )}
@@ -149,14 +187,14 @@ export default function UploadPage() {
                 <div className="text-center space-y-4">
                   <CheckCircle className="w-12 h-12 mx-auto text-green-600" />
                   <div>
-                    <h3 className="text-lg font-medium text-green-600">Upload Successful!</h3>
+                    <h3 className="text-lg font-medium text-green-600">{translations.uploadSuccessful}</h3>
                     <p className="text-muted-foreground">
-                      Your file has been uploaded and validation has started
+                      {translations.fileUploaded}
                     </p>
                   </div>
                   <Button onClick={handleViewRun} data-testid="button-view-run">
                     <Eye className="w-4 h-4 mr-2" />
-                    View Validation Run
+                    {translations.viewValidationRun}
                   </Button>
                 </div>
               )}
@@ -166,52 +204,52 @@ export default function UploadPage() {
           {/* Upload Guidelines */}
           <Card>
             <CardHeader>
-              <CardTitle>Upload Guidelines</CardTitle>
+              <CardTitle>{translations.uploadGuidelines}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Please ensure your CSV files follow the expected format for optimal validation results.
+                  {translations.followFormat}
                 </AlertDescription>
               </Alert>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <h4 className="font-medium mb-2">Supported File Types</h4>
+                  <h4 className="font-medium mb-2">{translations.supportedFileTypes}</h4>
                   <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• CSV files (.csv)</li>
-                    <li>• UTF-8 encoding recommended</li>
-                    <li>• Maximum file size: 50MB</li>
+                    <li>{translations.csvFiles}</li>
+                    <li>{translations.utf8Encoding}</li>
+                    <li>{translations.maxFileSize}</li>
                   </ul>
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-2">File Format Requirements</h4>
+                  <h4 className="font-medium mb-2">{translations.fileFormatRequirements}</h4>
                   <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Header row required</li>
-                    <li>• Comma or semicolon delimited</li>
-                    <li>• Consistent column structure</li>
+                    <li>{translations.headerRowRequired}</li>
+                    <li>{translations.delimited}</li>
+                    <li>{translations.consistentStructure}</li>
                   </ul>
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-2">Validation Features</h4>
+                  <h4 className="font-medium mb-2">{translations.validationFeatures}</h4>
                   <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Data type validation</li>
-                    <li>• Business rule enforcement</li>
-                    <li>• Duplicate detection</li>
-                    <li>• Format consistency checks</li>
+                    <li>{translations.dataTypeValidation}</li>
+                    <li>{translations.businessRuleEnforcement}</li>
+                    <li>{translations.duplicateDetection}</li>
+                    <li>{translations.formatConsistencyChecks}</li>
                   </ul>
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-2">After Upload</h4>
+                  <h4 className="font-medium mb-2">{translations.afterUpload}</h4>
                   <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Real-time validation progress</li>
-                    <li>• Detailed error reporting</li>
-                    <li>• Data quality metrics</li>
-                    <li>• Export validated data</li>
+                    <li>{translations.realTimeProgress}</li>
+                    <li>{translations.detailedErrorReporting}</li>
+                    <li>{translations.dataQualityMetrics}</li>
+                    <li>{translations.exportValidatedData}</li>
                   </ul>
                 </div>
               </div>
