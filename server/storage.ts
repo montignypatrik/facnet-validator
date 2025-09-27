@@ -1,7 +1,8 @@
 import { eq, and, like, desc, asc, count, sql } from "drizzle-orm";
 import { db } from "./db";
-import { 
+import {
   users, codes, contexts, establishments, rules, fieldCatalog, validationRuns, files,
+  billingRecords, validationResults,
   type User, type InsertUser,
   type Code, type InsertCode,
   type Context, type InsertContext,
@@ -9,7 +10,9 @@ import {
   type Rule, type InsertRule,
   type FieldCatalog, type InsertFieldCatalog,
   type ValidationRun, type InsertValidationRun,
-  type File, type InsertFile
+  type File, type InsertFile,
+  type BillingRecord, type InsertBillingRecord,
+  type ValidationResult, type InsertValidationResult
 } from "@shared/schema";
 
 export interface IStorage {
@@ -70,6 +73,14 @@ export interface IStorage {
   // Files
   createFile(file: InsertFile): Promise<File>;
   getFile(id: string): Promise<File | undefined>;
+
+  // Billing Records
+  createBillingRecords(records: InsertBillingRecord[]): Promise<BillingRecord[]>;
+  getBillingRecords(validationRunId: string): Promise<BillingRecord[]>;
+
+  // Validation Results
+  createValidationResults(results: InsertValidationResult[]): Promise<ValidationResult[]>;
+  getValidationResults(validationRunId: string): Promise<ValidationResult[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -420,6 +431,32 @@ export class DatabaseStorage implements IStorage {
   async getFile(id: string): Promise<File | undefined> {
     const [result] = await db.select().from(files).where(eq(files.id, id));
     return result || undefined;
+  }
+
+  // Billing Records
+  async createBillingRecords(records: InsertBillingRecord[]): Promise<BillingRecord[]> {
+    if (records.length === 0) return [];
+    const created = await db.insert(billingRecords).values(records).returning();
+    return created;
+  }
+
+  async getBillingRecords(validationRunId: string): Promise<BillingRecord[]> {
+    return await db.select().from(billingRecords)
+      .where(eq(billingRecords.validationRunId, validationRunId))
+      .orderBy(asc(billingRecords.recordNumber));
+  }
+
+  // Validation Results
+  async createValidationResults(results: InsertValidationResult[]): Promise<ValidationResult[]> {
+    if (results.length === 0) return [];
+    const created = await db.insert(validationResults).values(results).returning();
+    return created;
+  }
+
+  async getValidationResults(validationRunId: string): Promise<ValidationResult[]> {
+    return await db.select().from(validationResults)
+      .where(eq(validationResults.validationRunId, validationRunId))
+      .orderBy(asc(validationResults.createdAt));
   }
 }
 

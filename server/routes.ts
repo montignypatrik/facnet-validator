@@ -5,11 +5,12 @@ import multer from "multer";
 import { z } from "zod";
 import { storage } from "./storage";
 import { authenticateToken, requireRole, type AuthenticatedRequest } from "./auth";
-import { 
-  insertCodeSchema, insertContextSchema, insertEstablishmentSchema, 
+import {
+  insertCodeSchema, insertContextSchema, insertEstablishmentSchema,
   insertRuleSchema, insertFieldCatalogSchema, insertValidationRunSchema,
   insertFileSchema
 } from "@shared/schema";
+import { BillingCSVProcessor } from "./validation/csvProcessor";
 import fs from "fs";
 import path from "path";
 import csv from "csv-parser";
@@ -125,8 +126,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdBy: req.user!.uid,
       });
 
-      // TODO: Queue actual validation job
-      
+      // Process billing validation asynchronously
+      console.log(`[DEBUG] About to call processBillingValidation with runId: ${run.id}, fileName: ${file.fileName}`);
+      processBillingValidation(run.id, file.fileName).catch(error => {
+        console.error(`Background validation processing failed for run ${run.id}:`, error);
+      });
+
       res.json({ validationId: run.id, status: run.status });
     } catch (error) {
       console.error("Validation creation error:", error);
@@ -685,7 +690,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
   createTableRoutes("establishments", insertEstablishmentSchema, "getEstablishments", "createEstablishment", "updateEstablishment", "deleteEstablishment", "upsertEstablishments");
   createTableRoutes("rules", insertRuleSchema, "getRules", "createRule", "updateRule", "deleteRule", "upsertRules");
 
+  // Get validation results for a specific validation run
+  app.get("/api/validations/:id/results", authenticateToken, async (req, res) => {
+    try {
+      const validationResults = await storage.getValidationResults(req.params.id);
+      res.json(validationResults);
+    } catch (error) {
+      console.error("Get validation results error:", error);
+      res.status(500).json({ error: "Failed to get validation results" });
+    }
+  });
+
+  // Get billing records for a specific validation run
+  app.get("/api/validations/:id/records", authenticateToken, async (req, res) => {
+    try {
+      const billingRecords = await storage.getBillingRecords(req.params.id);
+      res.json(billingRecords);
+    } catch (error) {
+      console.error("Get billing records error:", error);
+      res.status(500).json({ error: "Failed to get billing records" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;
+}
+
+// Async function to process billing validation
+async function processBillingValidation(validationRunId: string, fileName: string) {
+  console.log(`[DEBUG] processBillingValidation called with runId: ${validationRunId}, fileName: ${fileName}`);
+  try {
+    console.log(`Starting billing validation for run ${validationRunId}, file: ${fileName}`);
+
+    // Update status to running
+    console.log(`[DEBUG] About to update validation run status to running`);
+    try {
+      await storage.updateValidationRun(validationRunId, {
+        status: "running",
+        processedRows: 0,
+        errorCount: 0
+      });
+      console.log(`[DEBUG] Successfully updated validation run status to running`);
+    } catch (updateError) {
+      console.error(`[DEBUG] Failed to update validation run status:`, updateError);
+      // Continue with validation even if status update fails
+    }
+
+    const processor = new BillingCSVProcessor();
+    const filePath = path.join(uploadDir, fileName);
+
+    // Process CSV and extract billing records
+    const { records, errors } = await processor.processBillingCSV(filePath, validationRunId);
+
+    // Save billing records to database
+    const savedRecords = await storage.createBillingRecords(records);
+
+    // Run validation rules
+    const validationResults = await processor.validateBillingRecords(savedRecords, validationRunId);
+
+    // Save validation results
+    await storage.createValidationResults(validationResults);
+
+    // Update validation run with final status
+    console.log(`[DEBUG] About to update validation run status to completed`);
+    try {
+      await storage.updateValidationRun(validationRunId, {
+        status: "completed",
+        totalRows: savedRecords.length,
+        processedRows: savedRecords.length,
+        errorCount: validationResults.filter(r => r.severity === "error").length
+      });
+      console.log(`[DEBUG] Successfully updated validation run status to completed`);
+    } catch (updateError) {
+      console.error(`[DEBUG] Failed to update final validation run status:`, updateError);
+    }
+
+    console.log(`Billing validation completed for run ${validationRunId}. Processed ${savedRecords.length} records, found ${validationResults.length} validation issues.`);
+
+  } catch (error) {
+    console.error(`Billing validation failed for run ${validationRunId}:`, error);
+
+    // Update status to failed
+    console.log(`[DEBUG] About to update validation run status to failed`);
+    try {
+      await storage.updateValidationRun(validationRunId, {
+        status: "failed"
+      });
+      console.log(`[DEBUG] Successfully updated validation run status to failed`);
+    } catch (updateError) {
+      console.error(`[DEBUG] Failed to update validation run status to failed:`, updateError);
+    }
+  }
 }

@@ -104,6 +104,51 @@ export const files = pgTable("files", {
   uploadedBy: text("uploaded_by"),
 });
 
+// Billing records table - stores the CSV billing data
+export const billingRecords = pgTable("billing_records", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  validationRunId: uuid("validation_run_id").notNull(),
+
+  // CSV Fields
+  recordNumber: numeric("record_number"),
+  facture: text("facture"), // Internal invoice number
+  idRamq: text("id_ramq"), // RAMQ invoice number
+  dateService: timestamp("date_service"), // Service date
+  debut: text("debut"), // Start time
+  fin: text("fin"), // End time
+  periode: text("periode"), // Period
+  lieuPratique: text("lieu_pratique"), // Establishment number
+  secteurActivite: text("secteur_activite"), // Establishment sector
+  diagnostic: text("diagnostic"), // Diagnostic code
+  code: text("code"), // Billing code
+  unites: numeric("unites"), // Units
+  role: text("role"), // Role (1=primary, 2=assistant)
+  elementContexte: text("element_contexte"), // Context element
+  montantPreliminaire: numeric("montant_preliminaire", { precision: 10, scale: 2 }),
+  montantPaye: numeric("montant_paye", { precision: 10, scale: 2 }),
+  doctorInfo: text("doctor_info"), // Doctor information
+  patient: text("patient"), // Patient identifier
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Validation results table - stores individual validation errors/warnings
+export const validationResults = pgTable("validation_results", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  validationRunId: uuid("validation_run_id").notNull(),
+  ruleId: text("rule_id"), // References the rule that was violated
+  billingRecordId: uuid("billing_record_id"), // References the specific record
+
+  // Validation details
+  severity: text("severity").notNull(), // error, warning, info
+  category: text("category").notNull(), // office_fees, context_missing, etc.
+  message: text("message").notNull(), // Human-readable error message
+  affectedRecords: jsonb("affected_records"), // Array of record IDs involved
+  ruleData: jsonb("rule_data"), // Additional data about the rule violation
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCodeSchema = createInsertSchema(codes).omit({ updatedAt: true });
@@ -113,6 +158,8 @@ export const insertRuleSchema = createInsertSchema(rules).omit({ id: true, updat
 export const insertFieldCatalogSchema = createInsertSchema(fieldCatalog).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertValidationRunSchema = createInsertSchema(validationRuns).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertFileSchema = createInsertSchema(files).omit({ id: true, uploadedAt: true });
+export const insertBillingRecordSchema = createInsertSchema(billingRecords).omit({ id: true, createdAt: true });
+export const insertValidationResultSchema = createInsertSchema(validationResults).omit({ id: true, createdAt: true });
 
 // Select schemas
 export const selectUserSchema = createSelectSchema(users);
@@ -123,6 +170,8 @@ export const selectRuleSchema = createSelectSchema(rules);
 export const selectFieldCatalogSchema = createSelectSchema(fieldCatalog);
 export const selectValidationRunSchema = createSelectSchema(validationRuns);
 export const selectFileSchema = createSelectSchema(files);
+export const selectBillingRecordSchema = createSelectSchema(billingRecords);
+export const selectValidationResultSchema = createSelectSchema(validationResults);
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -141,3 +190,7 @@ export type InsertValidationRun = z.infer<typeof insertValidationRunSchema>;
 export type ValidationRun = typeof validationRuns.$inferSelect;
 export type InsertFile = z.infer<typeof insertFileSchema>;
 export type File = typeof files.$inferSelect;
+export type InsertBillingRecord = z.infer<typeof insertBillingRecordSchema>;
+export type BillingRecord = typeof billingRecords.$inferSelect;
+export type InsertValidationResult = z.infer<typeof insertValidationResultSchema>;
+export type ValidationResult = typeof validationResults.$inferSelect;
