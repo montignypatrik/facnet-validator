@@ -1,11 +1,11 @@
-import { Outlet } from "wouter";
+// No Outlet needed in wouter - children are rendered directly
 import { Sidebar } from "./Sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { signInWithGoogle } from "@/lib/firebase";
 import { Loader2 } from "lucide-react";
 
-export function AppLayout() {
+export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -46,7 +46,7 @@ export function AppLayout() {
     <div className="flex h-screen bg-background">
       <Sidebar />
       <main className="flex-1 flex flex-col overflow-hidden">
-        <Outlet />
+        {children}
       </main>
     </div>
   );

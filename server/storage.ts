@@ -1,4 +1,4 @@
-import { eq, and, like, desc, asc, count } from "drizzle-orm";
+import { eq, and, like, desc, asc, count, sql } from "drizzle-orm";
 import { db } from "./db";
 import { 
   users, codes, contexts, establishments, rules, fieldCatalog, validationRuns, files,
@@ -339,13 +339,15 @@ export class DatabaseStorage implements IStorage {
 
   // Field Catalog
   async getFieldCatalog(tableName?: string): Promise<FieldCatalog[]> {
-    let query = db.select().from(fieldCatalog).where(eq(fieldCatalog.active, true));
+    const conditions = [eq(fieldCatalog.active, true)];
     
     if (tableName) {
-      query = query.where(and(eq(fieldCatalog.active, true), eq(fieldCatalog.tableName, tableName as any)));
+      conditions.push(eq(fieldCatalog.tableName, tableName));
     }
     
-    return await query.orderBy(asc(fieldCatalog.label));
+    return await db.select().from(fieldCatalog)
+      .where(and(...conditions))
+      .orderBy(asc(fieldCatalog.label));
   }
 
   async getFieldCatalogItem(id: string): Promise<FieldCatalog | undefined> {

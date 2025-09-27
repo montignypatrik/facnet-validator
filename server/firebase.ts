@@ -4,15 +4,25 @@ import { Request, Response, NextFunction } from "express";
 
 // Initialize Firebase Admin
 if (!getApps().length) {
-  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || "{}");
-  
-  initializeApp({
-    credential: cert(serviceAccount),
-    projectId: serviceAccount.project_id,
-  });
+  // For now, initialize with minimal config - will need proper service account for production
+  try {
+    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (serviceAccountKey) {
+      const serviceAccount = JSON.parse(serviceAccountKey);
+      initializeApp({
+        credential: cert(serviceAccount),
+        projectId: serviceAccount.project_id,
+      });
+    } else {
+      // Initialize without admin SDK for now - authentication will use client-side
+      console.warn("Firebase Admin not initialized - missing FIREBASE_SERVICE_ACCOUNT_KEY");
+    }
+  } catch (error) {
+    console.warn("Firebase Admin initialization failed:", error);
+  }
 }
 
-const auth = getAuth();
+const auth = getApps().length > 0 ? getAuth() : null;
 
 export interface AuthenticatedRequest extends Request {
   user?: {
