@@ -473,25 +473,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           res.json(previewResult);
         } else {
-          // Perform actual import
-          if (upsertMethod && (storage as any)[upsertMethod]) {
-            await (storage as any)[upsertMethod](processedRows.map(p => p.row));
-          } else {
-            // Fallback to individual creates/updates
-            for (const { row } of processedRows) {
-              try {
-                await (storage as any)[createMethod](row);
-              } catch (error) {
-                console.error(`Failed to import row:`, error);
+          // Validate required fields before import
+          const validRows: any[] = [];
+          const skippedRows: { row: number; reason: string; data: any }[] = [];
+          const errors: string[] = [];
+
+          // Define required fields per table
+          const requiredFields: Record<string, string[]> = {
+            codes: ["code"],
+            contexts: ["name"],
+            establishments: ["name"],
+            rules: ["name"]
+          };
+
+          const tableRequiredFields = requiredFields[tableName] || [];
+
+          processedRows.forEach(({ row, index }) => {
+            let isValid = true;
+            const missingFields: string[] = [];
+
+            // Check required fields
+            for (const field of tableRequiredFields) {
+              if (!row[field] || (typeof row[field] === 'string' && row[field].trim() === '')) {
+                isValid = false;
+                missingFields.push(field);
               }
             }
-          }
 
-          res.json({
-            success: true,
-            imported: processedRows.length,
-            unknownHeaders,
+            if (isValid) {
+              validRows.push(row);
+            } else {
+              skippedRows.push({
+                row: index + 2, // +2 because CSV rows start at 1 and we skip header
+                reason: `Missing required field(s): ${missingFields.join(', ')}`,
+                data: row
+              });
+            }
           });
+
+          let createCount = 0;
+          let updateCount = 0;
+
+          try {
+            // Perform actual import with valid rows only
+            if (upsertMethod && (storage as any)[upsertMethod] && validRows.length > 0) {
+              await (storage as any)[upsertMethod](validRows);
+              createCount = validRows.length; // Simplified - in reality would be mixed
+            } else if (validRows.length > 0) {
+              // Fallback to individual creates/updates
+              for (const row of validRows) {
+                try {
+                  await (storage as any)[createMethod](row);
+                  createCount++;
+                } catch (error) {
+                  console.error(`Failed to import row:`, error);
+                  errors.push(`Failed to import row: ${error.message}`);
+                }
+              }
+            }
+
+            res.json({
+              success: true,
+              create: createCount,
+              update: updateCount,
+              skip: skippedRows.length,
+              errors: errors.length > 0 ? errors.slice(0, 10) : [], // Limit errors shown
+              skippedRows: skippedRows.slice(0, 10), // Show first 10 skipped rows
+              unknownHeaders,
+            });
+          } catch (error) {
+            console.error(`Import ${tableName} error:`, error);
+            res.status(500).json({ 
+              error: `Failed to import ${tableName}`,
+              create: createCount,
+              update: updateCount,
+              skip: skippedRows.length,
+              skippedRows: skippedRows.slice(0, 10)
+            });
+          }
         }
 
         // Clean up uploaded file
