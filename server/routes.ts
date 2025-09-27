@@ -663,6 +663,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   createTableRoutes("establishments", insertEstablishmentSchema, "getEstablishments", "createEstablishment", "updateEstablishment", "deleteEstablishment", "upsertEstablishments");
   createTableRoutes("rules", insertRuleSchema, "getRules", "createRule", "updateRule", "deleteRule", "upsertRules");
 
+
   const httpServer = createServer(app);
   return httpServer;
 }
