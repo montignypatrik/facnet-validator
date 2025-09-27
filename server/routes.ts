@@ -524,13 +524,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let updateCount = 0;
 
           try {
-            // Perform actual import with valid rows only
-            if (upsertMethod && (storage as any)[upsertMethod] && validRows.length > 0) {
-              await (storage as any)[upsertMethod](validRows);
-              createCount = validRows.length; // Simplified - in reality would be mixed
-            } else if (validRows.length > 0) {
+            // Remove duplicates based on primary key before upserting
+            const deduplicatedRows: any[] = [];
+            const seenKeys = new Set();
+            
+            for (const row of validRows) {
+              let primaryKey: string;
+              
+              // Determine primary key based on table
+              switch (tableName) {
+                case "codes":
+                  primaryKey = row.code;
+                  break;
+                case "contexts":
+                  primaryKey = row.name;
+                  break;
+                case "establishments":
+                  primaryKey = row.name;
+                  break;
+                case "rules":
+                  primaryKey = row.name;
+                  break;
+                default:
+                  primaryKey = row.id || JSON.stringify(row);
+              }
+              
+              if (!seenKeys.has(primaryKey)) {
+                seenKeys.add(primaryKey);
+                deduplicatedRows.push(row);
+              }
+              // Note: For duplicates, we keep the first occurrence
+            }
+            
+            console.log(`Deduplicated ${validRows.length} rows to ${deduplicatedRows.length} unique rows`);
+
+            // Perform actual import with deduplicated rows only
+            if (upsertMethod && (storage as any)[upsertMethod] && deduplicatedRows.length > 0) {
+              await (storage as any)[upsertMethod](deduplicatedRows);
+              createCount = deduplicatedRows.length; // Simplified - in reality would be mixed
+            } else if (deduplicatedRows.length > 0) {
               // Fallback to individual creates/updates
-              for (const row of validRows) {
+              for (const row of deduplicatedRows) {
                 try {
                   await (storage as any)[createMethod](row);
                   createCount++;
@@ -572,7 +606,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     // Export endpoint
-    app.get(`/api/${tableName}:export`, authenticateToken, async (req, res) => {
+    app.get(`/api/${tableName}/export`, authenticateToken, async (req, res) => {
       try {
         const useKeys = req.query.useKeys === "true";
         
