@@ -39,8 +39,17 @@ jobs:
           # Stop application
           pm2 stop facnet-validator 2>/dev/null || echo "Application not running"
 
-          # Pull latest changes
-          git pull origin main
+          # Initialize git repository if it doesn't exist
+          if [ ! -d ".git" ]; then
+            echo "Initializing git repository..."
+            git init
+            git remote add origin https://github.com/montignypatrik/facnet-validator.git
+            git fetch origin
+            git checkout -b main origin/main
+          else
+            # Pull latest changes
+            git pull origin main
+          fi
 
           # Install dependencies
           npm ci --only=production
