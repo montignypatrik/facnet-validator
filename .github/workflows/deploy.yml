@@ -30,10 +30,11 @@ jobs:
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.VPS_HOST }}
-        username: ${{ secrets.VPS_USER }}
+        username: ubuntu
         key: ${{ secrets.VPS_SSH_KEY }}
         script: |
           # Navigate to application directory
+          sudo -u facnet -i bash << 'EOF'
           cd /var/www/facnet/app
 
           # Stop application
@@ -71,17 +72,18 @@ jobs:
           pm2 status facnet-validator
 
           echo "Deployment completed successfully!"
+          EOF
 
     - name: Verify deployment
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.VPS_HOST }}
-        username: ${{ secrets.VPS_USER }}
+        username: ubuntu
         key: ${{ secrets.VPS_SSH_KEY }}
         script: |
           # Check if application is responding
           sleep 10
           curl -f -k https://148.113.196.245 > /dev/null && echo "✅ Application is responding" || echo "❌ Application is not responding"
 
-          # Check PM2 status
-          pm2 status facnet-validator
+          # Check PM2 status as facnet user
+          sudo -u facnet pm2 status facnet-validator
