@@ -2,9 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'facnet-validator',
-      script: 'server/index.ts',
+      script: 'dist/index.js',
       interpreter: 'node',
-      interpreter_args: '--loader tsx/esm',
       instances: 'max', // Use all CPU cores
       exec_mode: 'cluster', // Enable clustering for better performance
       autorestart: true,
@@ -12,11 +11,13 @@ module.exports = {
       max_memory_restart: '1G',
       env: {
         NODE_ENV: 'production',
-        PORT: 5000
+        PORT: 5000,
+        DATABASE_URL: 'postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator'
       },
       env_production: {
         NODE_ENV: 'production',
-        PORT: 5000
+        PORT: 5000,
+        DATABASE_URL: 'postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator'
       },
       // Logging configuration
       log_file: '/var/www/facnet/logs/combined.log',
