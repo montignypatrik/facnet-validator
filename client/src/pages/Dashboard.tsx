@@ -17,7 +17,7 @@ export default function Dashboard() {
     pageTitle: "Tableau de Bord",
     greeting: "Bonjour",
     uploadAndValidate: "Télécharger et Valider",
-    uploadFirstFile: "Téléchargez votre premier fichier CSV pour commencer à valider les données",
+    uploadFirstFile: "Téléchargez votre premier fichier CSV pour commencer à valider les données de santé du Québec",
     uploadFile: "Télécharger un Fichier",
     compressedValidator: "Validateur Compact"
   };
