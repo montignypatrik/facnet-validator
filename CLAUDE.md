@@ -272,22 +272,52 @@ The application processes Quebec healthcare billing CSV files with the following
 7. **Amount Validation** - Expected vs actual billing amounts
 8. **Sector Compliance** - Establishment sector-specific rules
 
-## Deployment Notes
+## Production Server Setup
 
-### Port Configuration
-- Application runs on port 5000 (required for Auth0)
-- Vite dev server and Express API on same port in development
-- Production serves static files from Express
+> **📄 Complete Server Documentation**: See [`SERVER_SETUP.md`](./SERVER_SETUP.md) for comprehensive production server configuration, including all credentials, security settings, and operational procedures.
 
-### Database Setup
-- PostgreSQL required
-- User needs full permissions on database and public schema
-- Drizzle handles schema migrations
+### Production Environment
+- **VPS**: Ubuntu 24.04.2 LTS on OVH Cloud (148.113.196.245)
+- **Security**: UFW firewall, Fail2Ban, SSH key authentication
+- **Web Server**: Nginx reverse proxy with SSL/TLS
+- **Process Management**: PM2 with clustering and auto-restart
+- **Database**: PostgreSQL 16 with production optimization
+- **Service User**: `facnet` dedicated system user
+- **Backups**: Automated daily database backups with 7-day retention
 
-### Auth0 Setup
-- Callback URLs configured for localhost:5000
+### Development vs Production
+
+#### Development (Local)
+- Port 5000 (required for Auth0)
+- Vite dev server and Express API on same port
+- HTTP only, self-signed certificates for testing
+- Direct database access
+
+#### Production (VPS)
+- HTTPS with automatic HTTP redirect
+- Nginx reverse proxy handling SSL termination
+- PM2 process management with clustering
+- Firewall protection and intrusion detection
+- Automated backups and monitoring
+
+### Deployment Process
+1. **Code Upload**: Deploy to `/var/www/facnet/app/` on production server
+2. **Dependencies**: `npm install` and `npm run build`
+3. **Database**: Run migrations with `npm run db:push`
+4. **Process Management**: Start with PM2 using `ecosystem.config.js`
+5. **Monitoring**: Verify via PM2 status and Nginx logs
+
+### Auth0 Configuration
+- **Development**: Callback URLs for localhost:5000
+- **Production**: Update Auth0 for VPS IP address (148.113.196.245)
 - JWT verification with RS256
 - Custom claims for user roles
+
+### Database Setup
+- PostgreSQL required with proper user permissions
+- Drizzle handles schema migrations
+- Production database optimized for SaaS workloads
+- Automated backup and recovery procedures
 
 ## Troubleshooting
 
