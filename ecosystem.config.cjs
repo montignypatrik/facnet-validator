@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'facnet-validator',
-      script: 'dist/index.js',
+      script: 'dist/server/index.js',
       interpreter: 'node',
       instances: 'max', // Use all CPU cores
       exec_mode: 'cluster', // Enable clustering for better performance

@@ -4,7 +4,7 @@ module.exports = {
       name: 'facnet-validator-staging',
       script: 'server/index.ts',
       interpreter: 'node',
-      interpreter_args: '--loader tsx/esm',
+      interpreter_args: '--import tsx/esm',
       instances: 1, // Single instance for testing
       exec_mode: 'fork', // Fork mode for easier debugging
       autorestart: true,
