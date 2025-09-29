@@ -1,0 +1,78 @@
+name: Deploy FacNet Validator
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Production VPS
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build application
+      run: npm run build
+
+    - name: Deploy to VPS
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        script: |
+          # Navigate to application directory
+          cd /var/www/facnet/app
+
+          # Stop application
+          pm2 stop facnet-validator 2>/dev/null || echo "Application not running"
+
+          # Pull latest changes
+          git pull origin main
+
+          # Install dependencies
+          npm ci --only=production
+
+          # Build application
+          npm run build
+
+          # Run database migrations
+          npm run db:push
+
+          # Start/restart application with PM2
+          pm2 start ecosystem.config.js --update-env
+
+          # Save PM2 configuration
+          pm2 save
+
+          # Check application status
+          sleep 5
+          pm2 status facnet-validator
+
+          echo "Deployment completed successfully!"
+
+    - name: Verify deployment
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        script: |
+          # Check if application is responding
+          sleep 10
+          curl -f -k https://148.113.196.245 > /dev/null && echo "✅ Application is responding" || echo "❌ Application is not responding"
+
+          # Check PM2 status
+          pm2 status facnet-validator
