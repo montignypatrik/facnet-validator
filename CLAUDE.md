@@ -184,12 +184,192 @@ npm run build                 # Build for production
 npm run start                 # Start production server
 ```
 
+### Production Deployment
+**Current Method**: Automated GitHub Actions CI/CD Pipeline
+**Status**: ✅ Active and Tested (September 29, 2025)
+
+The application is automatically deployed to production on every push to the main branch:
+- **Production URL**: https://148.113.196.245
+- **GitHub Repository**: https://github.com/montignypatrik/facnet-validator
+- **Workflow File**: `.github/workflows/deploy.yml`
+- **Last Deployment**: Commit `9221ca0` - September 29, 2025
+
+**Deployment Process**:
+1. Push to main branch triggers GitHub Actions
+2. Application builds and tests in CI environment
+3. Automated SSH deployment to production VPS
+4. Database migrations run automatically
+5. PM2 restarts application with zero downtime
+6. Health checks verify successful deployment
+
+**Production Environment**:
+- **Server**: Ubuntu 24.04.2 LTS on OVH Cloud VPS
+- **Process Manager**: PM2 with clustering (6 instances)
+- **Web Server**: Nginx with SSL/HTTPS
+- **Database**: PostgreSQL 16 (`dashvalidator`)
+- **Monitoring**: PM2 status, health endpoints, fail2ban security
+
+### Staging Environment
+**Purpose**: Safe testing of features before production deployment
+**Status**: ✅ Active (September 29, 2025)
+
+The staging environment mirrors production for safe feature testing:
+- **Staging URL**: https://148.113.196.245:3001
+- **Directory**: `/var/www/facnet/staging/`
+- **Database**: `dashvalidator_staging`
+- **Configuration**: `ecosystem.staging.js`
+
+**Staging Features**:
+- **Separate Database**: Isolated testing without affecting production data
+- **Single Instance**: Fork mode for easier debugging
+- **Same Infrastructure**: PostgreSQL 16, Nginx SSL, Ubuntu environment
+- **Manual Deployment**: Deploy feature branches for testing
+
+**Branch Testing Workflow**:
+1. **Develop locally**: Create feature branch (`feature/new-validation`)
+2. **Deploy to staging**: Manual deployment of feature branch
+3. **Test on server**: Verify with real server environment and data structure
+4. **Merge to main**: If tests pass, merge triggers automatic production deployment
+
 ### Database Management
 ```bash
 npm run db:push               # Apply schema changes
 node scripts/import_codes.js             # Import RAMQ codes
 node scripts/import_contexts.cjs         # Import contexts
 node scripts/import_establishments.cjs   # Import establishments
+```
+
+## Git Branch Development Workflow
+
+### Branch Strategy
+The project uses **GitHub Flow** for safe, continuous deployment of healthcare validation features.
+
+#### Branch Types:
+```bash
+main                           # ← Production branch (auto-deploy)
+feature/patient-analytics      # ← New features
+feature/csv-improvements       # ← Feature development
+fix/validation-performance     # ← Bug fixes
+hotfix/critical-security       # ← Emergency fixes
+```
+
+#### Recommended Naming Conventions:
+```bash
+# Features
+feature/email-notifications
+feature/bulk-data-import
+feature/dashboard-analytics
+feature/user-roles-rbac
+
+# Bug Fixes
+fix/csv-parsing-error
+fix/auth0-login-timeout
+fix/validation-rule-logic
+
+# Hotfixes
+hotfix/security-vulnerability
+hotfix/data-corruption-fix
+```
+
+### Development Workflow
+
+#### 1. Local Development
+```bash
+# Start new feature
+git checkout main
+git pull origin main
+git checkout -b feature/new-validation-rule
+
+# Develop and test locally
+npm run dev
+# Make changes, test locally
+
+# Commit your work
+git add .
+git commit -m "Add new RAMQ validation rule for Quebec billing codes"
+git push origin feature/new-validation-rule
+```
+
+#### 2. Staging Deployment (Manual Testing)
+```bash
+# SSH to server
+ssh ubuntu@148.113.196.245
+
+# Navigate to staging
+cd /var/www/facnet/staging
+
+# Switch to your feature branch
+sudo -u facnet git fetch origin
+sudo -u facnet git checkout feature/new-validation-rule
+
+# Install dependencies and build
+sudo -u facnet npm install
+sudo -u facnet npm run build
+sudo -u facnet npm run db:push  # Apply any database changes
+
+# Restart staging app
+sudo -u facnet pm2 restart facnet-validator-staging
+
+# Test at https://148.113.196.245:3001
+# Verify Quebec healthcare data validation works correctly
+```
+
+#### 3. Production Deployment (Automatic)
+```bash
+# If staging tests pass, merge to main
+git checkout main
+git merge feature/new-validation-rule
+git push origin main
+
+# 🚀 GitHub Actions automatically deploys to production!
+# Application available at https://148.113.196.245
+```
+
+### Branch Protection Strategy
+
+For your Quebec healthcare system, implement these **GitHub branch protection rules**:
+
+```yaml
+Branch Protection for 'main':
+✅ Require pull request reviews before merging
+✅ Require status checks to pass (GitHub Actions)
+✅ Require branches to be up to date before merging
+✅ Include administrators in restrictions
+✅ Restrict pushes (no direct commits to main)
+✅ Require review from code owners
+```
+
+### Benefits for Healthcare Data Validation
+
+1. **Patient Data Safety**: Never break production Quebec healthcare processing
+2. **Regulatory Compliance**: Code review trail for healthcare audit requirements
+3. **Quality Assurance**: All RAMQ validation rules tested before deployment
+4. **Zero Downtime**: PM2 clustering ensures continuous healthcare data processing
+5. **Rollback Capability**: Easy revert if validation logic causes issues
+6. **Team Collaboration**: Multiple developers can safely work on validation features
+
+### Example: Adding New Validation Rule
+
+```bash
+# 1. Create feature branch for new RAMQ rule
+git checkout -b feature/ramq-office-visit-validation
+
+# 2. Implement validation logic
+# Edit server/validation/rules/office-visits.ts
+# Add new rule for Quebec billing code validation
+
+# 3. Test locally with sample Quebec healthcare data
+npm run dev
+# Upload test CSV with Quebec billing codes
+
+# 4. Deploy to staging for server testing
+# SSH to server, checkout branch, test with production-like data
+
+# 5. Create pull request on GitHub
+# Code review ensures healthcare compliance
+
+# 6. Merge to main → Automatic production deployment
+# New validation rule active for Quebec healthcare system
 ```
 
 ## Key Components
@@ -377,6 +557,8 @@ The application supports both **comma-delimited** and **semicolon-delimited** CS
 ✅ **Database-Driven Rules**: Validation rules loaded from database instead of hardcoded
 ✅ **Security Compliance**: CSV files automatically deleted after processing
 ✅ **Data Cleanup**: Validation results cleared when user changes pages
+✅ **Production Deployment**: Automated GitHub Actions CI/CD pipeline active
+✅ **Production Testing**: Deployment successfully tested with commit `9221ca0`
 
 ## Database-Driven Validation System
 
@@ -519,3 +701,32 @@ This demonstrates the system correctly handles Quebec's billing structure where 
 ✅ **French Localization**: Maintained throughout all interface changes
 
 These updates align with the simplified, focused user experience requested, emphasizing the core validation workflow while maintaining the professional French interface for Quebec healthcare system users.
+
+## Production Deployment History
+
+### September 29, 2025 - GitHub Actions CI/CD Implementation
+✅ **Automated Deployment Pipeline**: Successfully implemented and tested GitHub Actions workflow for continuous deployment
+- **Repository**: https://github.com/montignypatrik/facnet-validator
+- **Workflow**: `.github/workflows/deploy.yml`
+- **Test Deployment**: Commit `9221ca0` - French text improvement for dashboard
+- **Verification**: Application responding correctly at https://148.113.196.245
+- **Health Check**: API endpoint `/api/health` returning status 200
+- **Process Management**: PM2 running with clustering enabled
+
+✅ **Production Environment Status**:
+- **Frontend**: React application served via Nginx
+- **Backend**: Express API with Auth0 authentication
+- **Database**: PostgreSQL 16 with proper schema deployment
+- **SSL**: Self-signed certificate for HTTPS
+- **Security**: Fail2ban, UFW firewall, SSH key authentication
+- **Monitoring**: PM2 process management, health endpoints
+
+✅ **Deployment Verification**:
+- **Automated Build**: ✓ Application builds successfully in CI
+- **Database Migration**: ✓ Schema changes applied automatically
+- **Process Restart**: ✓ PM2 restarts with zero downtime
+- **Health Verification**: ✓ Deployment health checks pass
+- **Static Assets**: ✓ Frontend assets served correctly
+- **API Connectivity**: ✓ Backend API responding to requests
+
+**Note**: For detailed server configuration and operational procedures, see `SERVER_SETUP.md`.

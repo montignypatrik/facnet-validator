@@ -29,11 +29,13 @@
 ### PostgreSQL 16
 - **Service**: postgresql
 - **Port**: 5432 (localhost only)
-- **Database Name**: `dashvalidator`
+- **Production Database**: `dashvalidator`
+- **Staging Database**: `dashvalidator_staging`
 - **Database User**: `dashvalidator_user`
 - **Database Password**: `dashvalidator123!`
-- **Permissions**: Full access to `dashvalidator` database and `public` schema
-- **Connection String**: `postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator`
+- **Permissions**: Full access to both databases and `public` schema
+- **Production Connection**: `postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator`
+- **Staging Connection**: `postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator_staging`
 
 ### Database Commands
 ```bash
@@ -54,15 +56,17 @@ sudo -u postgres psql dashvalidator < backup.sql
 
 ```
 /var/www/facnet/          # Service user home directory
-├── app/                  # Application code deployment
-├── logs/                 # Application logs
+├── app/                  # Production application code (main branch)
+├── staging/              # Staging application code (feature branches)
+├── logs/                 # Application logs (production + staging)
 ├── backups/              # Database backups (automated)
 └── uploads/              # File uploads storage
 
 /var/www/html/            # Default Nginx document root
-/etc/nginx/sites-available/facnet-validator  # Nginx configuration
-/etc/ssl/certs/facnet.crt    # SSL certificate
-/etc/ssl/private/facnet.key  # SSL private key
+/etc/nginx/sites-available/facnet-validator          # Production Nginx config
+/etc/nginx/sites-available/facnet-validator-staging  # Staging Nginx config
+/etc/ssl/certs/facnet.crt    # SSL certificate (shared)
+/etc/ssl/private/facnet.key  # SSL private key (shared)
 ```
 
 ## Network & Security
@@ -147,24 +151,52 @@ sudo tail -f /var/log/nginx/error.log
 - **Installation Source**: NodeSource repository
 
 ### PM2 Process Manager
+
+#### Production Environment
 ```bash
-# Start application
-pm2 start ecosystem.config.js
+# Start production application
+cd /var/www/facnet/app
+pm2 start ecosystem.config.cjs
 
-# View status
-pm2 status
+# View production status
+pm2 status facnet-validator
 
-# View logs
+# View production logs
 pm2 logs facnet-validator
 
-# Restart application
+# Restart production application
 pm2 restart facnet-validator
+```
 
-# Save PM2 configuration
+#### Staging Environment
+```bash
+# Start staging application
+cd /var/www/facnet/staging
+pm2 start ecosystem.staging.js
+
+# View staging status
+pm2 status facnet-validator-staging
+
+# View staging logs
+pm2 logs facnet-validator-staging
+
+# Restart staging application
+pm2 restart facnet-validator-staging
+```
+
+#### General PM2 Commands
+```bash
+# View all processes
+pm2 status
+
+# Save current configuration
 pm2 save
 
 # Setup PM2 startup
 pm2 startup
+
+# Monitor all processes
+pm2 monit
 ```
 
 ### Environment Variables Template
@@ -184,6 +216,140 @@ NODE_ENV=production
 PORT=5000
 VITE_API_BASE_URL=https://148.113.196.245/api
 ```
+
+## Staging Environment
+
+### Overview
+**Purpose**: Safe testing environment for feature branches before production deployment
+**Status**: ✅ Active (September 29, 2025)
+**URL**: https://148.113.196.245:3001
+
+### Configuration
+
+#### Directory Structure
+- **Location**: `/var/www/facnet/staging/`
+- **Database**: `dashvalidator_staging` (isolated from production)
+- **Configuration**: `ecosystem.staging.js`
+- **Environment**: `.env.staging`
+
+#### PM2 Configuration (`ecosystem.staging.js`)
+```javascript
+{
+  name: 'facnet-validator-staging',
+  script: 'server/index.ts',
+  instances: 1,           // Single instance for easier debugging
+  exec_mode: 'fork',      // Fork mode instead of cluster
+  env: {
+    NODE_ENV: 'staging',
+    PORT: 3001,           // Different port from production
+    DATABASE_URL: 'postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator_staging'
+  }
+}
+```
+
+#### Nginx Configuration
+- **Config File**: `/etc/nginx/sites-available/facnet-validator-staging`
+- **Port**: 3001 (HTTPS)
+- **SSL**: Shared certificates with production
+- **Document Root**: `/var/www/facnet/staging/dist/public`
+
+### Branch Testing Workflow
+
+#### 1. Deploy Feature Branch to Staging
+```bash
+# SSH to server
+ssh ubuntu@148.113.196.245
+
+# Navigate to staging directory
+cd /var/www/facnet/staging
+
+# Switch to feature branch
+sudo -u facnet git fetch origin
+sudo -u facnet git checkout feature/your-feature-name
+
+# Install dependencies and build
+sudo -u facnet npm install
+sudo -u facnet npm run build
+
+# Apply database changes (if any)
+sudo -u facnet npm run db:push
+
+# Restart staging application
+sudo -u facnet pm2 restart facnet-validator-staging
+```
+
+#### 2. Test on Server Environment
+```bash
+# Access staging environment
+# Visit: https://148.113.196.245:3001
+
+# Monitor staging logs
+sudo -u facnet pm2 logs facnet-validator-staging
+
+# Check staging database
+psql -h localhost -U dashvalidator_user -d dashvalidator_staging
+```
+
+#### 3. Production Deployment (if tests pass)
+```bash
+# Merge feature branch to main (locally or via GitHub PR)
+git checkout main
+git merge feature/your-feature-name
+git push origin main
+
+# GitHub Actions automatically deploys to production
+```
+
+### Database Management
+
+#### Staging Database Commands
+```bash
+# Connect to staging database
+psql -h localhost -U dashvalidator_user -d dashvalidator_staging
+
+# Copy production data to staging (for realistic testing)
+sudo -u postgres pg_dump dashvalidator | sudo -u postgres psql dashvalidator_staging
+
+# Reset staging database to clean state
+sudo -u postgres dropdb dashvalidator_staging
+sudo -u postgres createdb dashvalidator_staging
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE dashvalidator_staging TO dashvalidator_user;"
+cd /var/www/facnet/staging && sudo -u facnet npm run db:push
+```
+
+#### Data Isolation
+- **Production**: Real Quebec healthcare data - **NEVER** modified during testing
+- **Staging**: Copy of production data OR test data for safe experimentation
+- **No Cross-Contamination**: Completely separate database schemas
+
+### Monitoring & Troubleshooting
+
+#### Check Staging Status
+```bash
+# PM2 process status
+sudo -u facnet pm2 status facnet-validator-staging
+
+# Application logs
+sudo -u facnet pm2 logs facnet-validator-staging
+
+# Nginx staging logs
+sudo tail -f /var/log/nginx/access.log | grep :3001
+sudo tail -f /var/log/nginx/error.log
+```
+
+#### Common Issues
+1. **Port 3001 not responding**: Check PM2 status and restart if needed
+2. **Database connection errors**: Verify staging database exists and permissions
+3. **Build failures**: Check Node.js dependencies and build logs
+4. **SSL certificate issues**: Ensure shared certificates are accessible
+
+### Benefits for Quebec Healthcare System
+
+1. **Data Safety**: Test new validation rules without affecting production RAMQ data
+2. **Server Environment Testing**: Verify features work with production PostgreSQL, Nginx, SSL
+3. **Performance Testing**: Test CSV processing with production-sized Quebec healthcare files
+4. **Integration Testing**: Verify Auth0 authentication works in server environment
+5. **Compliance Testing**: Ensure new features meet Quebec healthcare regulatory requirements
 
 ## System Optimization
 
@@ -230,7 +396,43 @@ htop
 
 ## Deployment Process
 
-### Initial Deployment
+### Automated GitHub Actions Deployment (Current Method)
+**Status**: ✅ Active and Tested (September 29, 2025)
+
+The application is deployed automatically via GitHub Actions on every push to the main branch:
+
+1. **Workflow File**: `.github/workflows/deploy.yml`
+2. **Trigger**: Push to `main` branch or manual workflow dispatch
+3. **Build Process**:
+   - Checkout code
+   - Setup Node.js 20
+   - Install dependencies (`npm ci`)
+   - Build application (`npm run build`)
+4. **Deployment Process**:
+   - SSH to VPS using GitHub Secrets
+   - Pull latest changes from Git
+   - Install production dependencies
+   - Build application
+   - Run database migrations (`npm run db:push`)
+   - Restart PM2 with `ecosystem.config.js`
+   - Verify deployment health
+
+**GitHub Secrets Required**:
+- `VPS_HOST`: 148.113.196.245
+- `VPS_USER`: root
+- `VPS_SSH_KEY`: Private SSH key for server access
+
+**Last Successful Deployment**: Commit `9221ca0` - September 29, 2025
+
+### GitHub Repository Setup
+- **Repository**: https://github.com/montignypatrik/facnet-validator
+- **Branch**: main
+- **Deployment Key**: SSH key configured for automated access
+- **Webhook**: Automatic trigger on push to main
+
+### Manual Deployment (Backup Method)
+
+#### Initial Deployment
 1. Upload code to `/var/www/facnet/app/`
 2. Set proper ownership: `sudo chown -R facnet:facnet /var/www/facnet/app/`
 3. Install dependencies: `cd /var/www/facnet/app && npm install`
@@ -239,7 +441,7 @@ htop
 6. Configure PM2: Create `ecosystem.config.js`
 7. Start application: `pm2 start ecosystem.config.js`
 
-### Application Updates
+#### Manual Application Updates
 1. Stop application: `pm2 stop facnet-validator`
 2. Upload new code
 3. Install/update dependencies: `npm install`
@@ -314,12 +516,16 @@ journalctl -u postgresql -f
 - Review log files for errors
 - Verify backup integrity
 - Check for security updates
+- Monitor GitHub Actions deployment logs
+- Verify application health endpoints
 
 ### Monthly Tasks
 - Review fail2ban logs
 - Update system packages
 - Review and clean old log files
 - Test backup restore process
+- Review GitHub Actions workflow performance
+- Test manual deployment procedure
 
 ### Security Updates
 - Automatic security updates enabled via unattended-upgrades
@@ -346,4 +552,5 @@ journalctl -u postgresql -f
 
 **Last Updated**: September 29, 2025
 **Setup Completed By**: Claude Code Assistant
-**Documentation Version**: 1.0
+**GitHub Actions Deployment**: ✅ Active and Tested
+**Documentation Version**: 1.1
