@@ -712,6 +712,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // SECURITY: Manual cleanup endpoint
+  app.post("/api/validations/:id/cleanup", authenticateToken, async (req, res) => {
+    try {
+      await storage.deleteValidationRun(req.params.id);
+      res.json({ message: "Validation run data deleted successfully" });
+    } catch (error) {
+      console.error("Cleanup validation run error:", error);
+      res.status(500).json({ error: "Failed to cleanup validation run" });
+    }
+  });
+
+  // SECURITY: Cleanup old validation runs (older than specified hours)
+  app.post("/api/validations/cleanup-old", authenticateToken, async (req, res) => {
+    try {
+      const { hours = 24 } = req.body;
+      const deletedCount = await storage.deleteOldValidationRuns(hours);
+      res.json({ message: `Deleted ${deletedCount} old validation runs` });
+    } catch (error) {
+      console.error("Cleanup old validation runs error:", error);
+      res.status(500).json({ error: "Failed to cleanup old validation runs" });
+    }
+  });
+
+  // RULES: Get all validation rules
+  app.get("/api/rules", authenticateToken, async (req, res) => {
+    try {
+      const rules = await storage.getAllRules();
+      res.json(rules);
+    } catch (error) {
+      console.error("Get rules error:", error);
+      res.status(500).json({ error: "Failed to get rules" });
+    }
+  });
+
+  // RULES: Create default office fee rule (for migration) - NO AUTH for testing
+  app.post("/api/rules/create-default", async (req, res) => {
+    try {
+      const defaultRule = {
+        name: "Office Fee Validation (19928/19929)",
+        condition: {
+          type: "office_fee_validation",
+          category: "office_fees",
+          codes: ["19928", "19929"],
+          walkInContexts: ["#G160", "#AR"],
+          thresholds: {
+            "19928": { registered: 6, walkIn: 10 },
+            "19929": { registered: 12, walkIn: 20 }
+          }
+        },
+        threshold: 64.80,
+        enabled: true
+      };
+
+      const created = await storage.createRule(defaultRule);
+      res.json({ message: "Default office fee rule created", rule: created });
+    } catch (error) {
+      console.error("Create default rule error:", error);
+      res.status(500).json({ error: "Failed to create default rule" });
+    }
+  });
+
+  // SECURITY: Schedule automatic cleanup of old validation data every hour
+  setInterval(async () => {
+    try {
+      console.log('[SECURITY] Running scheduled cleanup of old validation data...');
+      const deletedCount = await storage.deleteOldValidationRuns(24); // Delete data older than 24 hours
+      if (deletedCount > 0) {
+        console.log(`[SECURITY] Automatically deleted ${deletedCount} old validation runs`);
+      }
+    } catch (error) {
+      console.error('[SECURITY] Scheduled cleanup failed:', error);
+    }
+  }, 60 * 60 * 1000); // Run every hour
+
   const httpServer = createServer(app);
   return httpServer;
 }
@@ -767,6 +841,9 @@ async function processBillingValidation(validationRunId: string, fileName: strin
 
     console.log(`Billing validation completed for run ${validationRunId}. Processed ${savedRecords.length} records, found ${validationResults.length} validation issues.`);
 
+    // SECURITY: Clean up CSV file immediately after processing
+    await processor.cleanupCSVFile(filePath);
+
   } catch (error) {
     console.error(`Billing validation failed for run ${validationRunId}:`, error);
 
@@ -779,6 +856,13 @@ async function processBillingValidation(validationRunId: string, fileName: strin
       console.log(`[DEBUG] Successfully updated validation run status to failed`);
     } catch (updateError) {
       console.error(`[DEBUG] Failed to update validation run status to failed:`, updateError);
+    }
+
+    // SECURITY: Clean up CSV file even on failure
+    try {
+      await new BillingCSVProcessor().cleanupCSVFile(filePath);
+    } catch (cleanupError) {
+      console.error(`Failed to cleanup CSV file on error:`, cleanupError);
     }
   }
 }

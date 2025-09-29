@@ -15,9 +15,21 @@ export const users = pgTable("users", {
 
 // Codes table
 export const codes = pgTable("codes", {
-  code: text("code").primaryKey(),
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull(),
   description: text("description").notNull(),
   category: text("category"),
+  place: text("place"),
+  tariffValue: numeric("tariff_value"),
+  extraUnitValue: numeric("extra_unit_value"),
+  unitRequire: boolean("unit_require"),
+  sourceFile: text("source_file"),
+  topLevel: text("top_level"),
+  level1Group: text("level1_group"),
+  level2Group: text("level2_group"),
+  leaf: text("leaf"),
+  indicators: text("indicators"),
+  anchorId: text("anchor_id"),
   active: boolean("active").default(true).notNull(),
   customFields: jsonb("custom_fields").default({}).notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

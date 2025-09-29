@@ -15,6 +15,10 @@ export class ValidationEngine {
     this.rules.push(rule);
   }
 
+  clearRules() {
+    this.rules = [];
+  }
+
   async validateRecords(records: BillingRecord[], validationRunId: string): Promise<InsertValidationResult[]> {
     const results: InsertValidationResult[] = [];
 

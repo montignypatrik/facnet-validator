@@ -58,7 +58,7 @@ export default function RunsPage() {
   };
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
@@ -71,7 +71,7 @@ export default function RunsPage() {
       });
       
       if (search) params.append("search", search);
-      if (statusFilter) params.append("status", statusFilter);
+      if (statusFilter && statusFilter !== "all") params.append("status", statusFilter);
 
       const response = await client.get(`/validations?${params}`);
       return response.data;
@@ -152,7 +152,7 @@ export default function RunsPage() {
               <SelectValue placeholder={translations.filterByStatus} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">{translations.allStatuses}</SelectItem>
+              <SelectItem value="all">{translations.allStatuses}</SelectItem>
               <SelectItem value="queued">{translations.queued}</SelectItem>
               <SelectItem value="running">{translations.running}</SelectItem>
               <SelectItem value="completed">{translations.completed}</SelectItem>
@@ -186,7 +186,7 @@ export default function RunsPage() {
               <FileText className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-medium text-foreground mb-2">{translations.noValidationRuns}</h3>
               <p className="text-muted-foreground mb-4">
-                {search || statusFilter 
+                {search || (statusFilter && statusFilter !== "all")
                   ? translations.adjustCriteria
                   : translations.uploadFirstFile
                 }

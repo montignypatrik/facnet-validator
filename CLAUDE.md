@@ -344,6 +344,58 @@ The application supports both **comma-delimited** and **semicolon-delimited** CS
 ✅ **Database Integration**: Fixed UUID schema issues
 ✅ **Validation Engine**: Office fee rules (19928/19929) operational
 ✅ **Error Reporting**: Results saved and displayed in interface
+✅ **Database-Driven Rules**: Validation rules loaded from database instead of hardcoded
+✅ **Security Compliance**: CSV files automatically deleted after processing
+✅ **Data Cleanup**: Validation results cleared when user changes pages
+
+## Database-Driven Validation System
+
+### Architecture Overview
+The validation system is now fully database-driven, allowing dynamic rule management without code changes.
+
+### Key Components
+- **Migration System**: `server/migrate-rules.ts` - Populates database with default rules on startup
+- **Database Rule Loader**: `server/validation/databaseRuleLoader.ts` - Converts database rules to executable validation logic
+- **Fallback Mechanism**: Falls back to hardcoded rules if database is empty
+- **Rule Engine**: `server/validation/engine.ts` - Executes validation rules against billing data
+
+### Database Rule Structure
+```typescript
+{
+  name: string;           // Human-readable rule name
+  condition: {            // Rule configuration
+    type: string;         // Rule type (e.g., 'office_fee_validation')
+    category: string;     // Rule category
+    codes: string[];      // Target billing codes
+    walkInContexts?: string[];  // Walk-in context codes
+    thresholds?: object;  // Code-specific thresholds
+  };
+  threshold: number;      // Daily maximum amount
+  enabled: boolean;       // Rule activation status
+}
+```
+
+### Office Fee Validation Rule (19928/19929)
+- **Purpose**: Validates daily office fee maximums for Quebec billing codes 19928 and 19929
+- **Thresholds**:
+  - Code 19928: 6 registered patients, 10 walk-in patients max/day
+  - Code 19929: 12 registered patients, 20 walk-in patients max/day
+- **Daily Maximum**: $64.80 per doctor per day
+- **Walk-in Contexts**: #G160, #AR
+
+### Security Features
+- **CSV File Cleanup**: Uploaded files automatically deleted after processing
+- **Data Persistence Control**: Validation results cleared when user navigates away
+- **Database Permissions**: Proper PostgreSQL user permissions for data isolation
+
+### Rule Management Commands
+```bash
+# Check if rules exist in database
+curl http://localhost:5000/api/rules
+
+# Migration runs automatically on server startup
+npm run dev  # Will populate rules if database is empty
+```
 
 ## Data Import Scripts
 
@@ -354,3 +406,86 @@ The project includes utility scripts for importing Quebec healthcare data:
 - `import_establishments.cjs` - Healthcare facilities
 
 These scripts process CSV files and populate the database with official Quebec healthcare system data.
+
+## Recent Fixes & Updates
+
+### RAMQ Codes System (Completed)
+✅ **Data Import**: Successfully imported 6,740 RAMQ billing codes from CSV
+✅ **Schema Design**: Updated to use UUID primary keys allowing duplicate billing codes with different attributes (e.g., same code for "cabinet" vs "établissement")
+✅ **Search Functionality**: Fixed billing code search to properly handle string-based searches
+✅ **Frontend Display**: Enhanced table to show all important columns (Code, Description, Place, Tariff Value, Level Groups, etc.)
+✅ **Data Type Handling**: Fixed tariff value display to handle string-to-number conversion
+
+### Search System Fixes
+- **Issue**: Search for billing codes like "15804" was failing with SQL parameter binding errors
+- **Root Cause**: Debugging code with raw SQL queries was causing PostgreSQL parameter conflicts
+- **Solution**: Simplified search to use clean Drizzle ORM `like()` operators
+- **Result**: Search now works perfectly for all billing codes (confirmed with "15804" test)
+
+### Frontend Error Resolution
+- **Issue**: `value.toFixed is not a function` error in Codes table
+- **Root Cause**: Database returns `tariffValue` as string but frontend expected number
+- **Solution**: Added type-safe conversion with fallback handling
+- **Implementation**:
+  ```typescript
+  render: (value: string | number) => {
+    if (!value) return "-";
+    const numValue = typeof value === "string" ? parseFloat(value) : value;
+    return isNaN(numValue) ? "-" : `$${numValue.toFixed(2)}`;
+  }
+  ```
+
+### Database Schema Updates
+- **Codes Table**: Changed from string primary key to UUID to allow duplicate billing codes
+- **Billing Codes**: Support for multiple records with same code but different settings (cabinet/établissement)
+- **Data Integrity**: Maintained all original CSV data while enabling proper duplicate handling
+
+### Current System Status
+✅ **RAMQ Codes Database**: 6,740 codes successfully imported and searchable
+✅ **Search Functionality**: Working for all billing code searches
+✅ **Frontend Interface**: Clean table display with proper formatting
+✅ **Data Types**: Proper handling of numeric fields from string database values
+✅ **Duplicate Code Support**: Allows legitimate duplicate codes with different attributes
+
+### Validation Data Examples
+When searching for code "15804":
+- **Result 1**: "Visite de suivi" - Cabinet ($49.15)
+- **Result 2**: "Visite de suivi" - Établissement ($36.95)
+
+This demonstrates the system correctly handles Quebec's billing structure where the same medical service has different rates depending on location.
+
+## Latest UI/UX Updates (January 2025)
+
+### Dashboard Redesign
+✅ **Simplified Interface**: Removed complex dashboard components as per user requirements
+- **Removed**: KPI cards, recent activity section, system status cards, export cards, analytics section
+- **Added**: Clean, centered "Validateur Compact" module focused on primary action
+- **Header Update**: Replaced generic description with personalized French greeting using first name only
+
+### Sidebar Navigation Improvements
+✅ **Streamlined Validator Flow**: Consolidated three separate validator links into single entry point
+- **Before**: Separate "Télécharger", "Exécutions", "Analytiques" links
+- **After**: Single "Validateur" link pointing to `/validator`
+- **Removed**: Subtitle "Gestion de Données" from brand header
+- **Flow**: Users land on upload → automatically move to runs during validation → reach analytics when complete
+
+### Validation Flow Enhancements
+✅ **Improved Navigation**: Enhanced end-of-validation user experience
+- **Button Update**: Changed "Back to Runs" to "Nouvelle Validation"
+- **Redirect**: Now points to `/validator` instead of `/validator/runs`
+- **User Experience**: Encourages new validation workflow rather than returning to runs list
+
+### Technical Fixes
+✅ **Radix UI Select Component**: Fixed console error in Runs page
+- **Issue**: Empty string value in SelectItem causing validation error
+- **Solution**: Changed from `value=""` to `value="all"` with proper filtering logic
+- **Result**: Eliminated console errors and improved component stability
+
+### UI Component Status
+✅ **Dashboard**: Minimalist design with focus on primary upload action
+✅ **Sidebar**: Clean navigation with logical validator workflow
+✅ **Validation Flow**: Seamless progression from upload to results to new validation
+✅ **Error Resolution**: Console errors eliminated, stable component behavior
+✅ **French Localization**: Maintained throughout all interface changes
+
+These updates align with the simplified, focused user experience requested, emphasizing the core validation workflow while maintaining the professional French interface for Quebec healthcare system users.

@@ -11,9 +11,21 @@ import { useToast } from "@/hooks/use-toast";
 import client from "@/api/client";
 
 interface Code {
+  id: string;
   code: string;
   description: string;
   category?: string;
+  place?: string;
+  tariffValue?: number;
+  extraUnitValue?: number;
+  unitRequire?: boolean;
+  sourceFile?: string;
+  topLevel?: string;
+  level1Group?: string;
+  level2Group?: string;
+  leaf?: string;
+  indicators?: string;
+  anchorId?: string;
   active: boolean;
   customFields: Record<string, any>;
   updatedAt: string;
@@ -67,8 +79,8 @@ export default function CodesPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ code, data }: { code: string; data: any }) => {
-      const response = await client.patch(`/codes/${code}`, data);
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await client.patch(`/codes/${id}`, data);
       return response.data;
     },
     onSuccess: () => {
@@ -90,8 +102,8 @@ export default function CodesPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (code: string) => {
-      await client.delete(`/codes/${code}`);
+    mutationFn: async (id: string) => {
+      await client.delete(`/codes/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/codes"] });
@@ -139,7 +151,7 @@ export default function CodesPage() {
 
   const handleDelete = (code: Code) => {
     if (confirm(`Are you sure you want to delete code "${code.code}"?`)) {
-      deleteMutation.mutate(code.code);
+      deleteMutation.mutate(code.id);
     }
   };
 
@@ -172,12 +184,31 @@ export default function CodesPage() {
       label: "Code",
     },
     {
-      key: "description", 
+      key: "description",
       label: "Description",
     },
     {
-      key: "category",
-      label: "Category",
+      key: "place",
+      label: "Place",
+      render: (value: string) => value || "-",
+    },
+    {
+      key: "tariffValue",
+      label: "Tariff Value",
+      render: (value: string | number) => {
+        if (!value) return "-";
+        const numValue = typeof value === "string" ? parseFloat(value) : value;
+        return isNaN(numValue) ? "-" : `$${numValue.toFixed(2)}`;
+      },
+    },
+    {
+      key: "level1Group",
+      label: "Level 1 Group",
+      render: (value: string) => value || "-",
+    },
+    {
+      key: "level2Group",
+      label: "Level 2 Group",
       render: (value: string) => value || "-",
     },
     {
@@ -259,7 +290,7 @@ export default function CodesPage() {
             <DynamicForm
               tableName="codes"
               initialData={selectedCode}
-              onSubmit={(data) => updateMutation.mutate({ code: selectedCode.code, data })}
+              onSubmit={(data) => updateMutation.mutate({ id: selectedCode.id, data })}
               onCancel={() => {
                 setShowEditDialog(false);
                 setSelectedCode(null);

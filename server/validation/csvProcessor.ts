@@ -2,10 +2,9 @@ import csv from 'csv-parser';
 import fs from 'fs';
 import { BillingRecord, InsertBillingRecord } from "../../shared/schema";
 import { validationEngine } from './engine';
-import { officeFeeValidationRule } from './rules/officeFeeRule';
+import { loadDatabaseRules } from './databaseRuleLoader';
 
-// Register validation rules
-validationEngine.registerRule(officeFeeValidationRule);
+// Database rules will be loaded dynamically
 
 export interface CSVRow {
   '#': string;
@@ -146,6 +145,39 @@ export class BillingCSVProcessor {
   }
 
   async validateBillingRecords(records: BillingRecord[], validationRunId: string) {
+    // Load rules from database and register them
+    console.log('[RULES] Loading validation rules from database...');
+    const databaseRules = await loadDatabaseRules();
+
+    // Clear existing rules
+    validationEngine.clearRules();
+
+    // If no database rules exist, fall back to hardcoded rule for compatibility
+    if (databaseRules.length === 0) {
+      console.log('[RULES] No database rules found, falling back to hardcoded office fee rule');
+      const { officeFeeValidationRule } = await import('./rules/officeFeeRule');
+      validationEngine.registerRule(officeFeeValidationRule);
+      console.log(`[RULES] Registered 1 fallback rule`);
+    } else {
+      // Register database rules
+      for (const rule of databaseRules) {
+        validationEngine.registerRule(rule);
+      }
+      console.log(`[RULES] Registered ${databaseRules.length} database rules`);
+    }
+
     return await validationEngine.validateRecords(records, validationRunId);
+  }
+
+  // Clean up CSV file after processing
+  async cleanupCSVFile(filePath: string): Promise<void> {
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log(`[SECURITY] CSV file deleted: ${filePath}`);
+      }
+    } catch (error) {
+      console.error(`[SECURITY] Failed to delete CSV file ${filePath}:`, error);
+    }
   }
 }

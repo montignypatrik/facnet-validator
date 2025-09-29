@@ -1,8 +1,9 @@
 import { readFileSync } from 'fs';
-import { parse } from 'csv-parser';
+import csvParser from 'csv-parser';
 import { Readable } from 'stream';
-import { db } from '../server/db.js';
-import { codes } from '../shared/schema.js';
+import { db } from '../server/db.ts';
+import { codes } from '../shared/schema.ts';
+import 'dotenv/config';
 
 async function importCodes() {
   console.log('Starting BD Code RAMQ import...');
@@ -17,29 +18,36 @@ async function importCodes() {
   
   return new Promise((resolve, reject) => {
     readable
-      .pipe(parse({ headers: true }))
+      .pipe(csvParser())
       .on('data', (row) => {
+        // Skip rows with empty billing_code
+        if (!row.billing_code || row.billing_code.trim() === '') {
+          console.log('Skipping row with empty billing_code:', Object.keys(row));
+          return;
+        }
+
         // Map CSV fields to database schema
         const codeRecord = {
-          code: row.billing_code,
+          code: row.billing_code.trim(),
           description: row.description || '',
-          category: row.place || '',
-          active: row.unit_require === 'FALSE', // Inverted logic: FALSE in CSV means active=true
-          customFields: {
-            tariff_value: row.tariff_value,
-            extra_unit_value: row.extra_unit_value,
-            source_file: row.source_file,
-            top_level: row.top_level,
-            level1_group: row.level1_group,
-            level2_group: row.level2_group,
-            leaf: row.leaf,
-            indicators: row.indicators,
-            anchor_id: row.anchor_id
-          },
+          category: row.level1_group || '',
+          place: row.place || '',
+          tariffValue: row.tariff_value ? parseFloat(row.tariff_value) : null,
+          extraUnitValue: row.extra_unit_value ? parseFloat(row.extra_unit_value) : null,
+          unitRequire: row.unit_require === 'TRUE',
+          sourceFile: row.source_file || '',
+          topLevel: row.top_level || '',
+          level1Group: row.level1_group || '',
+          level2Group: row.level2_group || '',
+          leaf: row.leaf || '',
+          indicators: row.indicators || '',
+          anchorId: row.anchor_id || '',
+          active: true,
+          customFields: {},
           updatedAt: new Date(),
           updatedBy: 'system_import'
         };
-        
+
         records.push(codeRecord);
       })
       .on('end', async () => {

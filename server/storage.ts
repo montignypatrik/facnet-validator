@@ -1,4 +1,4 @@
-import { eq, and, like, desc, asc, count, sql } from "drizzle-orm";
+import { eq, and, or, like, desc, asc, count, sql } from "drizzle-orm";
 import { db } from "./db";
 import {
   users, codes, contexts, establishments, rules, fieldCatalog, validationRuns, files,
@@ -24,10 +24,10 @@ export interface IStorage {
 
   // Codes
   getCodes(params: { search?: string; page?: number; pageSize?: number }): Promise<{ data: Code[]; total: number }>;
-  getCode(code: string): Promise<Code | undefined>;
+  getCode(id: string): Promise<Code | undefined>;
   createCode(code: InsertCode): Promise<Code>;
-  updateCode(code: string, data: Partial<InsertCode>): Promise<Code>;
-  deleteCode(code: string): Promise<void>;
+  updateCode(id: string, data: Partial<InsertCode>): Promise<Code>;
+  deleteCode(id: string): Promise<void>;
   upsertCodes(codes: InsertCode[]): Promise<void>;
 
   // Contexts
@@ -114,7 +114,7 @@ export class DatabaseStorage implements IStorage {
     let countQuery = db.select({ count: count() }).from(codes);
 
     if (search) {
-      const searchCondition = like(codes.description, `%${search}%`);
+      const searchCondition = like(codes.code, `%${search}%`);
       query = query.where(searchCondition);
       countQuery = countQuery.where(searchCondition);
     }
@@ -127,8 +127,8 @@ export class DatabaseStorage implements IStorage {
     return { data, total: totalResult[0].count };
   }
 
-  async getCode(code: string): Promise<Code | undefined> {
-    const [result] = await db.select().from(codes).where(eq(codes.code, code));
+  async getCode(id: string): Promise<Code | undefined> {
+    const [result] = await db.select().from(codes).where(eq(codes.id, id));
     return result || undefined;
   }
 
@@ -137,13 +137,13 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateCode(code: string, data: Partial<InsertCode>): Promise<Code> {
-    const [updated] = await db.update(codes).set({ ...data, updatedAt: new Date() }).where(eq(codes.code, code)).returning();
+  async updateCode(id: string, data: Partial<InsertCode>): Promise<Code> {
+    const [updated] = await db.update(codes).set({ ...data, updatedAt: new Date() }).where(eq(codes.id, id)).returning();
     return updated;
   }
 
-  async deleteCode(code: string): Promise<void> {
-    await db.delete(codes).where(eq(codes.code, code));
+  async deleteCode(id: string): Promise<void> {
+    await db.delete(codes).where(eq(codes.id, id));
   }
 
   async upsertCodes(codeList: InsertCode[]): Promise<void> {
@@ -457,6 +457,56 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(validationResults)
       .where(eq(validationResults.validationRunId, validationRunId))
       .orderBy(asc(validationResults.createdAt));
+  }
+
+  // Rules
+  async getAllRules(): Promise<Rule[]> {
+    return await db.select().from(rules).where(eq(rules.enabled, true));
+  }
+
+  async createRule(rule: InsertRule): Promise<Rule> {
+    const [created] = await db.insert(rules).values(rule).returning();
+    return created;
+  }
+
+  async updateRule(id: string, data: Partial<InsertRule>): Promise<Rule> {
+    const [updated] = await db.update(rules).set({ ...data, updatedAt: new Date() }).where(eq(rules.id, id)).returning();
+    return updated;
+  }
+
+  async deleteRule(id: string): Promise<void> {
+    await db.delete(rules).where(eq(rules.id, id));
+  }
+
+  // SECURITY: Data cleanup methods for sensitive information
+  async deleteValidationRun(validationRunId: string): Promise<void> {
+    console.log(`[SECURITY] Deleting validation run: ${validationRunId}`);
+
+    // Delete in order due to foreign key constraints
+    await db.delete(validationResults).where(eq(validationResults.validationRunId, validationRunId));
+    await db.delete(billingRecords).where(eq(billingRecords.validationRunId, validationRunId));
+    await db.delete(validationRuns).where(eq(validationRuns.id, validationRunId));
+
+    console.log(`[SECURITY] Validation run ${validationRunId} completely deleted`);
+  }
+
+  async deleteOldValidationRuns(olderThanHours: number = 24): Promise<number> {
+    console.log(`[SECURITY] Cleaning up validation runs older than ${olderThanHours} hours`);
+
+    const cutoffDate = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
+
+    // Get old validation runs to delete
+    const oldRuns = await db.select({ id: validationRuns.id })
+      .from(validationRuns)
+      .where(sql`${validationRuns.createdAt} < ${cutoffDate}`);
+
+    // Delete each run and its related data
+    for (const run of oldRuns) {
+      await this.deleteValidationRun(run.id);
+    }
+
+    console.log(`[SECURITY] Deleted ${oldRuns.length} old validation runs`);
+    return oldRuns.length;
   }
 }
 
