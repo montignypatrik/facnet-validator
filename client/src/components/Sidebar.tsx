@@ -47,11 +47,12 @@ export function Sidebar() {
       <div className={`${sidebarCollapsed ? 'p-3' : 'p-6'} border-b border-border`}>
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
-            <ShieldCheck className="w-6 h-6 text-primary-foreground" />
+            <span className="text-xl font-bold text-primary-foreground">D</span>
           </div>
           {!sidebarCollapsed && (
             <div>
-              <h1 className="text-xl font-bold text-foreground">DashValidator</h1>
+              <h1 className="text-xl font-bold text-foreground tracking-wider">DASH</h1>
+              <p className="text-xs text-muted-foreground">Design System</p>
             </div>
           )}
         </div>
