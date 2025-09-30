@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/auth";
 import {
   Home,
   ShieldCheck,
+  Shield,
   Database,
   Code,
   Layers,
@@ -23,6 +24,7 @@ export function Sidebar() {
   const { user, logout } = useAuth();
   const [location] = useLocation();
   const [databaseOpen, setDatabaseOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const isActive = (path: string) => location === path || location.startsWith(path + "/");
@@ -178,14 +180,35 @@ export function Sidebar() {
         {/* Admin Section - Only visible for admins */}
         {user?.role === "admin" && (
           <div className="pt-4">
-            <Link href="/users" className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-xl font-medium transition-colors ${
-              isActive("/users")
-                ? "text-primary bg-primary/10"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`} data-testid="link-users">
-              <Users className={`${sidebarCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
-              {!sidebarCollapsed && <span>Utilisateurs</span>}
-            </Link>
+            {sidebarCollapsed ? (
+              <Link href="/admin/users" className={`flex items-center justify-center px-2 py-2 rounded-xl font-medium transition-colors ${
+                isActive("/admin")
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`} data-testid="link-admin">
+                <Shield className="w-6 h-6" />
+              </Link>
+            ) : (
+              <Collapsible open={adminOpen} onOpenChange={setAdminOpen}>
+                <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">
+                  <div className="flex items-center space-x-2">
+                    <Shield className="w-4 h-4" />
+                    <span>Administration</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${adminOpen ? "rotate-180" : ""}`} />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="ml-6 space-y-1">
+                  <Link href="/admin/users" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                    isActive("/admin/users")
+                      ? "text-primary bg-primary/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`} data-testid="link-admin-users">
+                    <Users className="w-4 h-4" />
+                    <span>Utilisateurs</span>
+                  </Link>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </div>
         )}
 

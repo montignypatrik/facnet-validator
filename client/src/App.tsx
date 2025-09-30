@@ -15,7 +15,7 @@ import Codes from "./pages/database/Codes";
 import Contexts from "./pages/database/Contexts";
 import Establishments from "./pages/database/Establishments";
 import Rules from "./pages/database/Rules";
-import Users from "./pages/Users";
+import Users from "./pages/admin/Users";
 import Settings from "./pages/Settings";
 import NotFound from "@/pages/not-found";
 import { useAuth0 } from "@auth0/auth0-react";
@@ -96,7 +96,10 @@ function Router() {
       <Route path="/database/rules" component={Rules} />
 
       {/* Admin routes */}
-      <Route path="/users" component={Users} />
+      <Route path="/admin">
+        <Redirect to="/admin/users" />
+      </Route>
+      <Route path="/admin/users" component={Users} />
 
       {/* Settings */}
       <Route path="/settings" component={Settings} />
