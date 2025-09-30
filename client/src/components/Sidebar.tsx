@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -172,6 +173,20 @@ export function Sidebar() {
               )}
             </div>
           </>
+        )}
+
+        {/* Admin Section - Only visible for admins */}
+        {user?.role === "admin" && (
+          <div className="pt-4">
+            <Link href="/users" className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-xl font-medium transition-colors ${
+              isActive("/users")
+                ? "text-primary bg-primary/10"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`} data-testid="link-users">
+              <Users className={`${sidebarCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
+              {!sidebarCollapsed && <span>Utilisateurs</span>}
+            </Link>
+          </div>
         )}
 
         {/* Settings - Always visible */}
