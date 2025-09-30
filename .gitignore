@@ -1,9 +1,4 @@
-node_modules
-dist
-.DS_Store
-server/public
-vite.config.ts.*
-*.tar.gz# dependencies / builds / caches
+# dependencies / builds / caches
 node_modules/
 dist/
 build/
@@ -19,3 +14,14 @@ uploads/
 client/.env
 .claude/
 *.local.json
+
+# data & imports (excluded from version control)
+data/
+
+# legacy & system files
+.DS_Store
+server/public
+vite.config.ts.*
+*.tar.gz
+*.png
+nul
