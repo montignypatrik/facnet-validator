@@ -43,9 +43,24 @@ const roleLabels = {
 };
 
 export default function Users() {
-  const { apiRequest } = useAuth();
+  const { apiRequest, user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Only admins can access this page
+  if (currentUser?.role !== "admin") {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center space-y-4">
+          <Shield className="w-16 h-16 mx-auto text-muted-foreground" />
+          <h2 className="text-2xl font-bold text-foreground">Accès refusé</h2>
+          <p className="text-muted-foreground">
+            Vous devez être administrateur pour accéder à cette page.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const { data: users, isLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
