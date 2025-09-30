@@ -48,14 +48,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/verify", authenticateToken, async (req: AuthenticatedRequest, res) => {
     try {
       let user = await storage.getUserByEmail(req.user!.email!);
-      
+
       if (!user) {
+        // Determine role based on email
+        let role = "pending"; // Default for new users
+        if (req.user!.email === "patrik.montigny@facturation.net") {
+          role = "admin";
+        }
+
         // Create user if doesn't exist
         user = await storage.createUser({
           id: req.user!.uid,
           email: req.user!.email!,
           name: req.user!.claims.name || req.user!.email!.split("@")[0],
-          role: req.user!.role,
+          role: role,
         });
       }
 

@@ -45,21 +45,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             scope: "openid profile email offline_access"
           }
         })
-        .then((accessToken) => {
+        .then(async (accessToken) => {
           console.log("Got Auth0 access token");
 
-          // Create user object from Auth0 data
-          const userData: User = {
-            id: auth0User.sub || "",
-            email: auth0User.email || "",
-            name: auth0User.name || auth0User.email || "",
-            role: "admin" // Default role for now
-          };
+          // Verify token with backend and get user with role
+          try {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api"}/auth/verify`, {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${accessToken}`,
+                "Content-Type": "application/json"
+              }
+            });
 
-          setUser(userData);
-          setToken(accessToken);
-          localStorage.setItem("authToken", accessToken);
-          console.log("Auth0 user authenticated:", userData);
+            if (!response.ok) {
+              throw new Error("Failed to verify user with backend");
+            }
+
+            const { user: backendUser } = await response.json();
+
+            // Create user object with role from backend
+            const userData: User = {
+              id: backendUser.id,
+              email: backendUser.email,
+              name: backendUser.name || backendUser.email,
+              role: backendUser.role
+            };
+
+            setUser(userData);
+            setToken(accessToken);
+            localStorage.setItem("authToken", accessToken);
+            console.log("Auth0 user authenticated:", userData);
+          } catch (error) {
+            console.error("Error verifying user with backend:", error);
+            throw error;
+          }
         })
         .catch((error) => {
           console.error("Error getting access token:", error);

@@ -86,7 +86,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className={`flex-1 ${sidebarCollapsed ? 'p-2' : 'p-4'} space-y-2 overflow-y-auto`}>
-        {/* Dashboard */}
+        {/* Dashboard - Always visible */}
         <Link href="/" className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-xl font-medium transition-colors ${
           isActive("/") && location === "/"
             ? "text-primary bg-primary/10"
@@ -96,76 +96,81 @@ export function Sidebar() {
           {!sidebarCollapsed && <span>Tableau de Bord</span>}
         </Link>
 
-        {/* Validator Section */}
-        <div className="pt-4">
-          <Link href="/validator" className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-xl font-medium transition-colors ${
-            isActive("/validator")
-              ? "text-primary bg-primary/10"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          }`} data-testid="link-validator">
-            <ShieldCheck className={`${sidebarCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
-            {!sidebarCollapsed && <span>Validateur</span>}
-          </Link>
-        </div>
+        {/* Only show these sections if user is not pending */}
+        {user?.role !== "pending" && (
+          <>
+            {/* Validator Section */}
+            <div className="pt-4">
+              <Link href="/validator" className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-xl font-medium transition-colors ${
+                isActive("/validator")
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`} data-testid="link-validator">
+                <ShieldCheck className={`${sidebarCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
+                {!sidebarCollapsed && <span>Validateur</span>}
+              </Link>
+            </div>
 
-        {/* Database Section */}
-        <div className="pt-4">
-          {sidebarCollapsed ? (
-            <Link href="/database/codes" className={`flex items-center justify-center px-2 py-2 rounded-xl font-medium transition-colors ${
-              isActive("/database")
-                ? "text-primary bg-primary/10"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`} data-testid="link-database">
-              <Database className="w-6 h-6" />
-            </Link>
-          ) : (
-            <Collapsible open={databaseOpen} onOpenChange={setDatabaseOpen}>
-              <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">
-                <div className="flex items-center space-x-2">
-                  <Database className="w-4 h-4" />
-                  <span>Base de Données</span>
-                </div>
-                <ChevronDown className={`w-4 h-4 transition-transform ${databaseOpen ? "rotate-180" : ""}`} />
-              </CollapsibleTrigger>
-              <CollapsibleContent className="ml-6 space-y-1">
-                <Link href="/database/codes" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                  isActive("/database/codes")
+            {/* Database Section */}
+            <div className="pt-4">
+              {sidebarCollapsed ? (
+                <Link href="/database/codes" className={`flex items-center justify-center px-2 py-2 rounded-xl font-medium transition-colors ${
+                  isActive("/database")
                     ? "text-primary bg-primary/10"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`} data-testid="link-database-codes">
-                  <Code className="w-4 h-4" />
-                  <span>Codes</span>
+                }`} data-testid="link-database">
+                  <Database className="w-6 h-6" />
                 </Link>
-                <Link href="/database/contexts" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                  isActive("/database/contexts")
-                    ? "text-primary bg-primary/10"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`} data-testid="link-database-contexts">
-                  <Layers className="w-4 h-4" />
-                  <span>Contextes</span>
-                </Link>
-                <Link href="/database/establishments" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                  isActive("/database/establishments")
-                    ? "text-primary bg-primary/10"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`} data-testid="link-database-establishments">
-                  <Building className="w-4 h-4" />
-                  <span>Établissements</span>
-                </Link>
-                <Link href="/database/rules" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                  isActive("/database/rules")
-                    ? "text-primary bg-primary/10"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`} data-testid="link-database-rules">
-                  <Zap className="w-4 h-4" />
-                  <span>Règles</span>
-                </Link>
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-        </div>
+              ) : (
+                <Collapsible open={databaseOpen} onOpenChange={setDatabaseOpen}>
+                  <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">
+                    <div className="flex items-center space-x-2">
+                      <Database className="w-4 h-4" />
+                      <span>Base de Données</span>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${databaseOpen ? "rotate-180" : ""}`} />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="ml-6 space-y-1">
+                    <Link href="/database/codes" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                      isActive("/database/codes")
+                        ? "text-primary bg-primary/10"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`} data-testid="link-database-codes">
+                      <Code className="w-4 h-4" />
+                      <span>Codes</span>
+                    </Link>
+                    <Link href="/database/contexts" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                      isActive("/database/contexts")
+                        ? "text-primary bg-primary/10"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`} data-testid="link-database-contexts">
+                      <Layers className="w-4 h-4" />
+                      <span>Contextes</span>
+                    </Link>
+                    <Link href="/database/establishments" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                      isActive("/database/establishments")
+                        ? "text-primary bg-primary/10"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`} data-testid="link-database-establishments">
+                      <Building className="w-4 h-4" />
+                      <span>Établissements</span>
+                    </Link>
+                    <Link href="/database/rules" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                      isActive("/database/rules")
+                        ? "text-primary bg-primary/10"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`} data-testid="link-database-rules">
+                      <Zap className="w-4 h-4" />
+                      <span>Règles</span>
+                    </Link>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+            </div>
+          </>
+        )}
 
-        {/* Settings */}
+        {/* Settings - Always visible */}
         <div className="pt-4">
           <Link href="/settings" className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-lg transition-colors ${
             isActive("/settings")

@@ -39,27 +39,50 @@ export default function Dashboard() {
 
       {/* Dashboard Content */}
       <div className="flex-1 p-6 overflow-y-auto">
-        {/* Compressed Validator Module */}
-        <div className="max-w-md mx-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-center">{translations.compressedValidator}</CardTitle>
-            </CardHeader>
-            <CardContent className="text-center py-8">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Upload className="w-8 h-8 text-primary" />
-              </div>
-              <h3 className="text-lg font-medium text-foreground mb-2">{translations.uploadFirstFile}</h3>
-              <p className="text-muted-foreground mb-6">Commencez par télécharger un fichier CSV pour validation</p>
-              <Link href="/validator/upload">
-                <Button className="w-full" data-testid="button-upload-validate">
-                  <Upload className="w-5 h-5 mr-2" />
-                  {translations.uploadAndValidate}
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
+        {user?.role === "pending" ? (
+          /* Pending Access Message */
+          <div className="max-w-md mx-auto">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-center">Accès en attente</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center py-8">
+                <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-3xl">⏳</span>
+                </div>
+                <h3 className="text-lg font-medium text-foreground mb-2">Votre compte est en attente d'activation</h3>
+                <p className="text-muted-foreground mb-6">
+                  Un administrateur doit approuver votre accès. Vous serez notifié par courriel une fois votre compte activé.
+                </p>
+                <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800">
+                  Statut: En attente
+                </Badge>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          /* Compressed Validator Module */
+          <div className="max-w-md mx-auto">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-center">{translations.compressedValidator}</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center py-8">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Upload className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="text-lg font-medium text-foreground mb-2">{translations.uploadFirstFile}</h3>
+                <p className="text-muted-foreground mb-6">Commencez par télécharger un fichier CSV pour validation</p>
+                <Link href="/validator/upload">
+                  <Button className="w-full" data-testid="button-upload-validate">
+                    <Upload className="w-5 h-5 mr-2" />
+                    {translations.uploadAndValidate}
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

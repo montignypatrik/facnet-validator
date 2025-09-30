@@ -59,9 +59,17 @@ export async function authenticateToken(req: AuthenticatedRequest, res: Response
       }
 
       // Extract user information from the decoded token
+      const email = decoded.email;
+
+      // Validate @facturation.net email domain
+      if (!email || !email.endsWith("@facturation.net")) {
+        console.error("Invalid email domain:", email);
+        return res.status(403).json({ error: "Access restricted to @facturation.net email addresses" });
+      }
+
       req.user = {
         uid: decoded.sub,
-        email: decoded.email,
+        email: email,
         role: decoded[`${process.env.AUTH0_AUDIENCE}/role`] || "viewer", // Custom claim for role
         claims: decoded
       };

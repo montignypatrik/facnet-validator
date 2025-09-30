@@ -243,9 +243,17 @@ export default function SettingsPage() {
                   <div>
                     <Label>Role</Label>
                     <div className="mt-2">
-                      <Badge variant="outline" className="capitalize">
+                      <Badge
+                        variant="outline"
+                        className={`capitalize ${user?.role === "pending" ? "bg-yellow-50 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800" : ""}`}
+                      >
                         {user?.role || "viewer"}
                       </Badge>
+                      {user?.role === "pending" && (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Votre compte est en attente d'approbation par un administrateur.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -512,6 +520,25 @@ export default function SettingsPage() {
                     <div>
                       <h4 className="font-medium mb-2">Current Role: {user?.role}</h4>
                       <div className="space-y-2 text-sm">
+                        {user?.role === "pending" && (
+                          <>
+                            <div className="flex items-center text-yellow-600">
+                              <AlertCircle className="w-4 h-4 mr-2" />
+                              Account pending approval
+                            </div>
+                            <div className="flex items-center text-red-600">
+                              <AlertCircle className="w-4 h-4 mr-2" />
+                              No access to modules
+                            </div>
+                            <div className="flex items-center text-red-600">
+                              <AlertCircle className="w-4 h-4 mr-2" />
+                              Cannot view or edit data
+                            </div>
+                            <p className="text-muted-foreground mt-2">
+                              Un administrateur doit approuver votre compte pour activer l'accès.
+                            </p>
+                          </>
+                        )}
                         {user?.role === "admin" && (
                           <>
                             <div className="flex items-center text-green-600">

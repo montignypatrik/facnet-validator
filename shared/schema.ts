@@ -8,7 +8,7 @@ export const users = pgTable("users", {
   id: varchar("id").primaryKey(),
   email: text("email").notNull().unique(),
   name: text("name"),
-  role: text("role").notNull().default("viewer"), // viewer, editor, admin
+  role: text("role").notNull().default("pending"), // pending, viewer, editor, admin
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
