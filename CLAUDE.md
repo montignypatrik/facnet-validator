@@ -841,6 +841,33 @@ This demonstrates the system correctly handles Quebec's billing structure where 
 
 ## Latest UI/UX Updates (January 2025)
 
+### Dash Design System Theme Implementation (September 2025)
+✅ **Theme System**: Implemented comprehensive light/dark/system theme support
+- **Design Tokens**: Exact Dash Design System color tokens with CSS variables
+- **Theme Modes**: Light, Dark, and System (follows OS preference)
+- **Theme Selector**: Located in User Settings → Profile tab with live preview
+- **Persistence**: Saves theme preference to localStorage as "dash-theme"
+- **Instant Application**: Theme changes apply without page reload
+- **System Detection**: Automatically responds to OS theme changes when in System mode
+- **Accessibility**: WCAG AA compliant, supports prefers-reduced-motion
+- **Branding Update**: Rebranded from "DashValidator" to "DASH" with custom logo
+- **Dark Mode Logo**: Black logo automatically inverts to white in dark mode using CSS filter
+
+**Technical Implementation**:
+- `client/src/lib/theme.ts`: Theme utilities and useTheme() hook
+- `client/src/index.css`: Dash Design System CSS variables for light/dark modes
+- `client/src/pages/Settings.tsx`: Theme selector with three-button interface and live preview
+- `tailwind.config.ts`: Updated with Dash Design System tokens
+- `client/src/main.tsx`: Theme initialization to prevent flash
+- `client/public/logo.png`: Custom DASH logo with dark mode support
+
+**Color System**:
+- Neutrals: --ink-* (text colors), --paper-* (background colors)
+- Accent: --accent-* (primary brand colors)
+- Semantic: --bg-app, --bg-surface, --text, --border, --focus, --primary
+- Motion: --transition-timing, --transition-fast, --transition-normal
+- Shadows: --shadow-sm, --shadow-md, --shadow-lg (different alpha for light/dark)
+
 ### Dashboard Redesign
 ✅ **Simplified Interface**: Removed complex dashboard components as per user requirements
 - **Removed**: KPI cards, recent activity section, system status cards, export cards, analytics section
