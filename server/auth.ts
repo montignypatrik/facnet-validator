@@ -52,14 +52,31 @@ export async function authenticateToken(req: AuthenticatedRequest, res: Response
     jwt.verify(token, getKey, {
       issuer: issuerUrl,
       algorithms: ['RS256']
-    }, (err, decoded: any) => {
+    }, async (err, decoded: any) => {
       if (err) {
         console.error("JWT verification error:", err);
         return res.status(401).json({ error: "Invalid token" });
       }
 
-      // Extract user information from the decoded token
-      const email = decoded.email;
+      // Get user email from Auth0 userinfo endpoint if not in token
+      let email = decoded.email;
+
+      if (!email) {
+        try {
+          const userInfoResponse = await fetch(`${process.env.AUTH0_ISSUER_BASE_URL}/userinfo`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          if (userInfoResponse.ok) {
+            const userInfo = await userInfoResponse.json();
+            email = userInfo.email;
+          }
+        } catch (fetchError) {
+          console.error("Error fetching user info:", fetchError);
+        }
+      }
 
       // Validate @facturation.net email domain
       if (!email || !email.endsWith("@facturation.net")) {
