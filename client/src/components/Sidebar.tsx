@@ -56,7 +56,6 @@ export function Sidebar() {
           {!sidebarCollapsed && (
             <div>
               <h1 className="text-xl font-bold text-foreground tracking-wider">DASH</h1>
-              <p className="text-xs text-muted-foreground">Design System</p>
             </div>
           )}
         </div>
