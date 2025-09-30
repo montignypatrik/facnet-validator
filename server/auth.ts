@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import jwksClient from "jwks-client";
+import { storage } from "./storage";
 
 // Auth0 JWKS client
 const client = jwksClient({
@@ -84,10 +85,21 @@ export async function authenticateToken(req: AuthenticatedRequest, res: Response
         return res.status(403).json({ error: "Access restricted to @facturation.net email addresses" });
       }
 
+      // Fetch user role from database
+      let role = "viewer"; // Default role
+      try {
+        const dbUser = await storage.getUserByEmail(email);
+        if (dbUser) {
+          role = dbUser.role;
+        }
+      } catch (dbError) {
+        console.error("Error fetching user role from database:", dbError);
+      }
+
       req.user = {
         uid: decoded.sub,
         email: email,
-        role: decoded[`${process.env.AUTH0_AUDIENCE}/role`] || "viewer", // Custom claim for role
+        role: role, // Use role from database
         claims: decoded
       };
 

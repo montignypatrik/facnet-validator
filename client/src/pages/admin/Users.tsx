@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Users as UsersIcon, Shield, Edit, Eye, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import client from "@/api/client";
 
 type User = {
   id: string;
@@ -43,9 +44,19 @@ const roleLabels = {
 };
 
 export default function Users() {
-  const { apiRequest, user: currentUser } = useAuth();
+  const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Fetch users - hook must be called before any conditional returns
+  const { data: users, isLoading } = useQuery<User[]>({
+    queryKey: ["/users"],
+    queryFn: async () => {
+      const response = await client.get("/users");
+      return response.data;
+    },
+    enabled: currentUser?.role === "admin", // Only run query if user is admin
+  });
 
   // Only admins can access this page
   if (currentUser?.role !== "admin") {
@@ -62,27 +73,13 @@ export default function Users() {
     );
   }
 
-  const { data: users, isLoading } = useQuery<User[]>({
-    queryKey: ["/api/users"],
-    queryFn: async () => {
-      const response = await apiRequest("/api/users");
-      if (!response.ok) throw new Error("Failed to fetch users");
-      return response.json();
-    },
-  });
-
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      const response = await apiRequest(`/api/users/${userId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role }),
-      });
-      if (!response.ok) throw new Error("Failed to update user role");
-      return response.json();
+      const response = await client.patch(`/users/${userId}`, { role });
+      return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/users"] });
       toast({
         title: "Rôle mis à jour",
         description: "Le rôle de l'utilisateur a été modifié avec succès.",
