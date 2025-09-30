@@ -337,11 +337,153 @@ sudo tail -f /var/log/nginx/access.log | grep :3001
 sudo tail -f /var/log/nginx/error.log
 ```
 
-#### Common Issues
-1. **Port 3001 not responding**: Check PM2 status and restart if needed
-2. **Database connection errors**: Verify staging database exists and permissions
-3. **Build failures**: Check Node.js dependencies and build logs
-4. **SSL certificate issues**: Ensure shared certificates are accessible
+#### Critical Troubleshooting: 502 Bad Gateway Errors
+
+**IMPORTANT**: If staging returns 502 errors, the root cause is usually PM2 process configuration issues.
+
+##### Architecture Understanding
+- **Nginx (External)**: Listens on port **3001** (HTTPS)
+- **Node App (Internal)**: Must run on port **3002**
+- **Nginx Proxy**: Forwards `https://148.113.196.245:3001` → `http://localhost:3002`
+
+##### Complete Staging Reset Procedure
+
+When staging is broken with 502 errors, follow this complete reset:
+
+```bash
+# 1. SSH to server (use ubuntu, NOT root)
+ssh ubuntu@148.113.196.245
+
+# 2. Navigate to staging
+cd /var/www/facnet/staging
+
+# 3. Verify and update code
+sudo -u facnet git fetch origin
+sudo -u facnet git checkout feature/your-branch-name
+sudo -u facnet git pull origin feature/your-branch-name
+
+# 4. Rebuild application
+sudo -u facnet npm install
+sudo -u facnet npm run build
+
+# 5. Delete any broken PM2 processes
+sudo -u facnet pm2 delete facnet-validator-staging 2>/dev/null || true
+sudo -u facnet pm2 delete ecosystem.staging 2>/dev/null || true
+
+# 6. Start with DIRECT COMMAND (bypass ecosystem config)
+# This is the most reliable method
+sudo -u facnet PORT=3002 \
+  NODE_ENV=staging \
+  DATABASE_URL='postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator_staging' \
+  AUTH0_ISSUER_BASE_URL='https://dev-x63i3b6hf5kch7ab.ca.auth0.com' \
+  AUTH0_AUDIENCE='facnet-validator-api' \
+  AUTH0_CLIENT_SECRET='fNxeP-Gq0kSe6EjEcgCYaHoCPoIYOKheH2sh0NjdefrlhOk9n6PUSg4te3likmk' \
+  pm2 start dist/server/index.js --name facnet-validator-staging
+
+# 7. Save PM2 configuration
+sudo -u facnet pm2 save
+
+# 8. Verify deployment
+sudo ss -tlnp | grep ':3002'  # Should show node process
+curl http://localhost:3002/api/health  # Should return JSON
+curl -k https://localhost:3001/api/health  # Should return JSON through Nginx
+
+# 9. If still failing, check logs
+sudo -u facnet pm2 logs facnet-validator-staging --lines 100
+```
+
+##### Why ecosystem.staging.cjs Can Fail
+
+**Problem**: `pm2 start ecosystem.staging.cjs` often fails because:
+1. PM2 may execute the config file itself instead of the script it defines
+2. Environment variables in the config may not load properly
+3. Wrong process name gets created (e.g., "ecosystem.staging" instead of "facnet-validator-staging")
+
+**Solution**: Always use direct script execution with inline environment variables.
+
+##### Port Configuration Issues
+
+**Wrong Configuration** (causes 502):
+```bash
+PORT=3001  # ❌ Conflicts with Nginx
+pm2 start ecosystem.staging.cjs  # ❌ Unreliable
+```
+
+**Correct Configuration**:
+```bash
+PORT=3002  # ✅ Correct internal port
+pm2 start dist/server/index.js --name facnet-validator-staging  # ✅ Direct script
+```
+
+##### Verification Checklist
+
+After restarting staging, verify these points:
+
+```bash
+# 1. Check PM2 process is running
+sudo -u facnet pm2 status
+# Should show: facnet-validator-staging | online | fork
+
+# 2. Check correct ports are listening
+sudo ss -tlnp | grep -E ':(3001|3002)'
+# Should show:
+#   - nginx on 3001 (external access)
+#   - node on 3002 (internal app)
+
+# 3. Test internal app (port 3002)
+curl http://localhost:3002/api/health
+# Should return: {"status":"healthy","timestamp":"..."}
+
+# 4. Test Nginx proxy (port 3001)
+curl -k https://localhost:3001/api/health
+# Should return: {"status":"healthy","timestamp":"..."}
+
+# 5. Test external access
+curl -k https://148.113.196.245:3001/api/health
+# Should return: {"status":"healthy","timestamp":"..."}
+
+# 6. Check PM2 logs for errors
+sudo -u facnet pm2 logs facnet-validator-staging --lines 50
+# Should show: "[express] serving on port 3002"
+# Should NOT show: port conflicts, auth errors, or crashes
+```
+
+##### Common Mistakes to Avoid
+
+1. ❌ **Using root for SSH**: `ssh root@148.113.196.245`
+   - ✅ **Use ubuntu**: `ssh ubuntu@148.113.196.245`
+
+2. ❌ **Wrong port**: `PORT=3001`
+   - ✅ **Correct port**: `PORT=3002`
+
+3. ❌ **Using ecosystem config**: `pm2 start ecosystem.staging.cjs`
+   - ✅ **Direct script**: `pm2 start dist/server/index.js --name facnet-validator-staging`
+
+4. ❌ **Not pulling code**: Git checkout without pull
+   - ✅ **Always pull**: `git pull origin feature/branch-name`
+
+5. ❌ **Skipping rebuild**: Restart PM2 without `npm run build`
+   - ✅ **Always rebuild**: `npm run build` before PM2 restart
+
+6. ❌ **Wrong user for operations**: Running commands as ubuntu or root
+   - ✅ **Use facnet**: All PM2/npm commands must use `sudo -u facnet`
+
+##### What We Learned (Incident Analysis)
+
+**Date**: September 29-30, 2025
+**Issue**: Staging environment returned 502 Bad Gateway errors
+**Root Causes**:
+1. Ecosystem config file had PORT=3001 (should be 3002)
+2. PM2 was executing the config file itself, not the app script
+3. Environment variables weren't loading from ecosystem config
+4. Staging directory was on main branch instead of feature branch
+
+**Resolution**: Use direct PM2 script execution with inline environment variables instead of ecosystem config file.
+
+#### Other Common Issues
+1. **Build failures**: Check Node.js dependencies and build logs
+2. **SSL certificate issues**: Ensure shared certificates are accessible
+3. **Database connection errors**: Verify staging database exists with correct permissions
 
 ### Benefits for Quebec Healthcare System
 

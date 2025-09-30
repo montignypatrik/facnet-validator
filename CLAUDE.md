@@ -292,7 +292,7 @@ git push origin feature/new-validation-rule
 
 #### 2. Staging Deployment (Manual Testing)
 ```bash
-# SSH to server
+# SSH to server (use ubuntu user, NOT root)
 ssh ubuntu@148.113.196.245
 
 # Navigate to staging
@@ -301,17 +301,113 @@ cd /var/www/facnet/staging
 # Switch to your feature branch
 sudo -u facnet git fetch origin
 sudo -u facnet git checkout feature/new-validation-rule
+sudo -u facnet git pull origin feature/new-validation-rule
 
 # Install dependencies and build
 sudo -u facnet npm install
 sudo -u facnet npm run build
 sudo -u facnet npm run db:push  # Apply any database changes
 
-# Restart staging app
+# Restart staging app (see troubleshooting below if this fails)
 sudo -u facnet pm2 restart facnet-validator-staging
 
 # Test at https://148.113.196.245:3001
 # Verify Quebec healthcare data validation works correctly
+```
+
+#### Staging Troubleshooting Guide
+
+**IMPORTANT**: If staging fails to start or shows 502 errors, follow this complete reset procedure:
+
+##### Problem: Staging Returns 502 Bad Gateway
+**Root Cause**: PM2 process not running on correct port or environment variables not loaded
+
+**Solution - Complete Staging Reset**:
+```bash
+# 1. SSH to server
+ssh ubuntu@148.113.196.245
+
+# 2. Navigate to staging directory
+cd /var/www/facnet/staging
+
+# 3. Ensure you're on the correct branch
+sudo -u facnet git fetch origin
+sudo -u facnet git checkout feature/your-branch-name
+sudo -u facnet git pull origin feature/your-branch-name
+
+# 4. Rebuild application
+sudo -u facnet npm install
+sudo -u facnet npm run build
+
+# 5. Delete any existing staging PM2 processes
+sudo -u facnet pm2 delete facnet-validator-staging 2>/dev/null || true
+sudo -u facnet pm2 delete ecosystem.staging 2>/dev/null || true
+
+# 6. Start with direct command (bypass ecosystem config issues)
+sudo -u facnet PORT=3002 \
+  NODE_ENV=staging \
+  DATABASE_URL='postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator_staging' \
+  AUTH0_ISSUER_BASE_URL='https://dev-x63i3b6hf5kch7ab.ca.auth0.com' \
+  AUTH0_AUDIENCE='facnet-validator-api' \
+  AUTH0_CLIENT_SECRET='fNxeP-Gq0kSe6EjEcgCYaHoCPoIYOKheH2sh0NjdefrlhOk9n6PUSg4te3likmk' \
+  pm2 start dist/server/index.js --name facnet-validator-staging
+
+# 7. Save PM2 configuration
+sudo -u facnet pm2 save
+
+# 8. Verify process is running on port 3002
+sudo ss -tlnp | grep ':3002'
+
+# 9. Test health endpoint
+curl http://localhost:3002/api/health
+curl -k https://localhost:3001/api/health  # Through Nginx
+
+# 10. Check PM2 logs if issues persist
+sudo -u facnet pm2 logs facnet-validator-staging --lines 50
+```
+
+##### Key Points About Staging Environment:
+- **Internal Port**: App must run on port **3002** (NOT 3001)
+- **External Port**: Nginx listens on port **3001** and proxies to 3002
+- **Database**: Uses `dashvalidator_staging` (separate from production)
+- **User**: Always use `ubuntu` for SSH, `facnet` for file operations
+- **PM2 Config**: ecosystem.staging.cjs can fail to load env vars, use direct command instead
+- **Process Name**: Must be exactly `facnet-validator-staging`
+
+##### Common Mistakes to Avoid:
+1. ❌ **Wrong Port**: Setting PORT=3001 (conflicts with Nginx)
+   - ✅ **Correct**: PORT=3002 (Nginx proxies 3001 → 3002)
+
+2. ❌ **Using ecosystem config directly**: `pm2 start ecosystem.staging.cjs`
+   - ✅ **Correct**: Use direct script start with environment variables
+
+3. ❌ **Using root user**: `ssh root@148.113.196.245`
+   - ✅ **Correct**: `ssh ubuntu@148.113.196.245`
+
+4. ❌ **Not pulling latest code**: Checking out branch without pull
+   - ✅ **Correct**: Always git pull after checkout
+
+5. ❌ **Forgetting to rebuild**: Restarting PM2 without running `npm run build`
+   - ✅ **Correct**: Always build before restarting
+
+##### Verify Staging Deployment:
+```bash
+# Check PM2 status
+sudo -u facnet pm2 status
+
+# Should show:
+# facnet-validator-staging | online | port 3002
+
+# Check ports
+sudo ss -tlnp | grep -E ':(3001|3002)'
+
+# Should show:
+# nginx on 3001 (external)
+# node on 3002 (internal app)
+
+# Test endpoints
+curl -k https://148.113.196.245:3001/api/health
+# Should return: {"status":"healthy","timestamp":"..."}
 ```
 
 #### 3. Production Deployment (Automatic)
