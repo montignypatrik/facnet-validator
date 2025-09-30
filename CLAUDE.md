@@ -149,13 +149,19 @@ The application is fully internationalized in French, reflecting its Quebec heal
 > **Important**: These credentials are stored in the `.env` file and should be kept secure. The database user has full permissions on the `dashvalidator` database and `public` schema.
 
 ### Required Environment Variables
+
+**CRITICAL**: All `VITE_*` variables must be present in `.env` file at build time. Vite embeds these values into the JavaScript bundle during build. The `vite.config.ts` has `envDir` configured to load `.env` from project root (not from `client/` subdirectory).
+
 ```env
 # Database
 DATABASE_URL=postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator
 
-# Auth0
+# Auth0 - Frontend (VITE_* prefix required for client-side access)
 VITE_AUTH0_DOMAIN=dev-x63i3b6hf5kch7ab.ca.auth0.com
 VITE_AUTH0_CLIENT_ID=ECieaY4IiPbZNbWMoGJTPmD4pGsEi2rr
+VITE_AUTH0_AUDIENCE=facnet-validator-api
+
+# Auth0 - Backend (server-side only)
 AUTH0_CLIENT_SECRET=fNxeP-Gq0kSe6EjEcgCYaHoCPoIYOKheH2sh0NjdefrlhOk9n6PUSg4te3likmk
 AUTH0_ISSUER_BASE_URL=https://dev-x63i3b6hf5kch7ab.ca.auth0.com
 AUTH0_AUDIENCE=facnet-validator-api
@@ -163,6 +169,28 @@ AUTH0_AUDIENCE=facnet-validator-api
 # Client API Base URL
 VITE_API_BASE_URL=http://localhost:5000/api
 ```
+
+### Environment Variable Troubleshooting
+
+**Problem**: Auth0 shows "undefined" domain or authentication fails
+**Symptoms**: Browser redirects to `https://undefined/authorize`
+**Root Cause**: `VITE_AUTH0_DOMAIN` (or other `VITE_*` variables) missing or not loaded during build
+
+**Solution**:
+1. Verify `.env` file exists in **project root** (not in `client/` subdirectory)
+2. Ensure all `VITE_*` variables are present with correct values
+3. **Rebuild the application** after adding/changing environment variables:
+   ```bash
+   npm run build
+   ```
+4. Verify variables are embedded in built JavaScript:
+   ```bash
+   grep -o "dev-x63i3b6hf5kch7ab.ca.auth0.com" dist/public/assets/index-*.js
+   ```
+   - If no output, variables weren't loaded during build
+   - Check `vite.config.ts` has `envDir: path.resolve(import.meta.dirname)`
+
+**Why this matters**: Unlike backend environment variables (loaded at runtime), Vite frontend variables are **embedded at build time**. Changing `.env` requires rebuilding to take effect.
 
 ## Development Commands
 
