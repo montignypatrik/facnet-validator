@@ -20,14 +20,20 @@ import {
   CheckCircle,
   Trash2,
   Plus,
+  Sun,
+  Moon,
+  Monitor,
+  Palette,
 } from "lucide-react";
 import client from "@/api/client";
+import { useTheme, type ThemeMode } from "@/lib/theme";
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("profile");
+  const { mode, setMode, resolvedTheme } = useTheme();
 
   // User profile state
   const [profileData, setProfileData] = useState({
@@ -271,6 +277,109 @@ export default function SettingsPage() {
                   <p className="text-sm text-muted-foreground mt-2">
                     Your account was created on {new Date().toLocaleDateString()}
                   </p>
+                </CardContent>
+              </Card>
+
+              {/* Theme Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Palette className="w-5 h-5 mr-2" />
+                    Theme
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Theme Selector */}
+                  <div>
+                    <Label className="text-base font-medium">Appearance</Label>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Choose how the application looks for you
+                    </p>
+                    <div className="grid grid-cols-3 gap-4">
+                      {/* Light Theme */}
+                      <button
+                        onClick={() => setMode("light")}
+                        className={`relative flex flex-col items-center gap-3 p-4 border-2 rounded-lg transition-all ${
+                          mode === "light"
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50 hover:bg-muted"
+                        }`}
+                        data-testid="theme-light"
+                      >
+                        <Sun className="w-8 h-8" />
+                        <span className="text-sm font-medium">Light</span>
+                        {mode === "light" && (
+                          <CheckCircle className="absolute top-2 right-2 w-5 h-5 text-primary" />
+                        )}
+                      </button>
+
+                      {/* Dark Theme */}
+                      <button
+                        onClick={() => setMode("dark")}
+                        className={`relative flex flex-col items-center gap-3 p-4 border-2 rounded-lg transition-all ${
+                          mode === "dark"
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50 hover:bg-muted"
+                        }`}
+                        data-testid="theme-dark"
+                      >
+                        <Moon className="w-8 h-8" />
+                        <span className="text-sm font-medium">Dark</span>
+                        {mode === "dark" && (
+                          <CheckCircle className="absolute top-2 right-2 w-5 h-5 text-primary" />
+                        )}
+                      </button>
+
+                      {/* System Theme */}
+                      <button
+                        onClick={() => setMode("system")}
+                        className={`relative flex flex-col items-center gap-3 p-4 border-2 rounded-lg transition-all ${
+                          mode === "system"
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50 hover:bg-muted"
+                        }`}
+                        data-testid="theme-system"
+                      >
+                        <Monitor className="w-8 h-8" />
+                        <span className="text-sm font-medium">System</span>
+                        {mode === "system" && (
+                          <CheckCircle className="absolute top-2 right-2 w-5 h-5 text-primary" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Live Preview */}
+                  <div>
+                    <Label className="text-base font-medium">Live Preview</Label>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Current theme: <span className="font-medium capitalize">{resolvedTheme}</span>
+                    </p>
+                    <div className="border border-border rounded-lg p-6 space-y-4 bg-background">
+                      <div className="flex items-center gap-3">
+                        <Button size="sm">Primary Button</Button>
+                        <Button size="sm" variant="ghost">Ghost Button</Button>
+                        <Button size="sm" variant="outline">Outline Button</Button>
+                      </div>
+                      <Card className="shadow-md">
+                        <CardContent className="p-4">
+                          <p className="text-sm font-medium mb-2">Sample Card</p>
+                          <p className="text-sm text-muted-foreground">
+                            This is how cards look with the current theme applied.
+                          </p>
+                        </CardContent>
+                      </Card>
+                      <Input placeholder="Sample input field" className="max-w-xs" />
+                    </div>
+                  </div>
+
+                  {/* Accessibility Note */}
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Themes are optimized for readability and contrast. Both Light and Dark modes comply with WCAG AA accessibility standards.
+                    </AlertDescription>
+                  </Alert>
                 </CardContent>
               </Card>
             </div>

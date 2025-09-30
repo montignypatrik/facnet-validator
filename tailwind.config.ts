@@ -11,6 +11,7 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       colors: {
+        // Legacy Tailwind tokens
         background: "var(--background)",
         foreground: "var(--foreground)",
         card: {
@@ -50,6 +51,7 @@ export default {
           "3": "var(--chart-3)",
           "4": "var(--chart-4)",
           "5": "var(--chart-5)",
+          "6": "var(--chart-6)",
         },
         sidebar: {
           DEFAULT: "var(--sidebar-background)",
@@ -61,6 +63,39 @@ export default {
           border: "var(--sidebar-border)",
           ring: "var(--sidebar-ring)",
         },
+        // Dash Design System semantic tokens
+        "bg-app": "var(--bg-app)",
+        "bg-surface": "var(--bg-surface)",
+        text: "var(--text)",
+        "text-muted": "var(--text-muted)",
+        focus: "var(--focus)",
+        // Dash Design System neutrals
+        ink: {
+          "900": "var(--ink-900)",
+          "700": "var(--ink-700)",
+          "500": "var(--ink-500)",
+        },
+        paper: {
+          "0": "var(--paper-0)",
+          "50": "var(--paper-50)",
+          "100": "var(--paper-100)",
+        },
+        // Dash Design System feedback
+        success: "var(--success-600)",
+        warning: "var(--warning-600)",
+        danger: "var(--danger-600)",
+      },
+      boxShadow: {
+        "dash-sm": "var(--shadow-sm)",
+        "dash-md": "var(--shadow-md)",
+        "dash-lg": "var(--shadow-lg)",
+      },
+      transitionTimingFunction: {
+        "dash": "var(--transition-timing)",
+      },
+      transitionDuration: {
+        "dash-fast": "var(--transition-fast)",
+        "dash-normal": "var(--transition-normal)",
       },
       fontFamily: {
         sans: ["var(--font-sans)"],
