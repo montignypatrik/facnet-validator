@@ -20,8 +20,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="max-w-md w-full space-y-8 p-8">
           <div className="text-center">
-            <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl font-bold text-primary-foreground tracking-wider">D</span>
+            <div className="w-24 h-24 flex items-center justify-center mx-auto mb-4">
+              <img
+                src="/logo.svg"
+                alt="DASH Logo"
+                className="w-full h-full object-contain dark:invert transition-all"
+              />
             </div>
             <h2 className="text-3xl font-bold text-foreground tracking-wide">Welcome to DASH</h2>
             <p className="mt-2 text-muted-foreground">

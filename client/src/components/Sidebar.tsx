@@ -46,8 +46,12 @@ export function Sidebar() {
       {/* Brand Header */}
       <div className={`${sidebarCollapsed ? 'p-3' : 'p-6'} border-b border-border`}>
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
-            <span className="text-xl font-bold text-primary-foreground">D</span>
+          <div className={`${sidebarCollapsed ? 'w-10 h-10' : 'w-12 h-12'} flex items-center justify-center`}>
+            <img
+              src="/logo.svg"
+              alt="DASH Logo"
+              className="w-full h-full object-contain dark:invert transition-all"
+            />
           </div>
           {!sidebarCollapsed && (
             <div>
