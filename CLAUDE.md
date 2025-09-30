@@ -449,6 +449,55 @@ git push origin main
 # Application available at https://148.113.196.245
 ```
 
+##### Post-Deployment Verification (Critical!)
+
+After GitHub Actions deployment completes, **always verify** production is working:
+
+```bash
+# 1. Check production health endpoint
+curl -k https://148.113.196.245/api/health
+# Should return: {"status":"healthy","timestamp":"..."}
+
+# 2. If you get 502 Bad Gateway, check PM2 status
+ssh ubuntu@148.113.196.245
+sudo -u facnet pm2 status
+
+# 3. If processes are stopped, restart them
+cd /var/www/facnet/app
+sudo -u facnet pm2 restart ecosystem.config.cjs
+
+# 4. If you see "Cannot find package 'vite'" error:
+# Install all dependencies (including devDependencies needed at runtime)
+sudo -u facnet npm install
+sudo -u facnet pm2 restart ecosystem.config.cjs
+
+# 5. Verify Auth0 variables are embedded in JavaScript bundle
+curl -k https://148.113.196.245/ | grep -o 'src="/assets/index-[^"]*\.js"'
+# Get the filename, then check:
+grep -o "dev-x63i3b6hf5kch7ab.ca.auth0.com" /var/www/facnet/app/dist/public/assets/index-XXXXX.js
+# Should output: dev-x63i3b6hf5kch7ab.ca.auth0.com
+
+# 6. Test authentication flow in browser
+# Visit https://148.113.196.245 and click "Sign In"
+# Should redirect to Auth0 (NOT to "undefined")
+```
+
+##### Common Production Issues After Deployment
+
+**Problem 1: 502 Bad Gateway after deployment**
+- **Cause**: GitHub Actions stopped PM2 processes but they didn't restart
+- **Solution**: `cd /var/www/facnet/app && sudo -u facnet pm2 restart ecosystem.config.cjs`
+
+**Problem 2: "Cannot find package 'vite'" error**
+- **Cause**: Production dependencies installed without devDependencies, but Vite is needed at runtime
+- **Solution**: `sudo -u facnet npm install` (not `npm install --production`)
+- **Why**: The bundled server code has some runtime dependencies on Vite
+
+**Problem 3: Auth0 domain shows "undefined" in production**
+- **Cause**: Frontend was built without `VITE_AUTH0_AUDIENCE` or `vite.config.ts` missing `envDir`
+- **Solution**: Ensure `.env` in production has all `VITE_*` variables and rebuild
+- **Verification**: `grep -o "dev-x63i3b6hf5kch7ab" dist/public/assets/index-*.js`
+
 ### Branch Protection Strategy
 
 For your Quebec healthcare system, implement these **GitHub branch protection rules**:

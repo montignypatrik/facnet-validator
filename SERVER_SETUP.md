@@ -166,6 +166,127 @@ pm2 logs facnet-validator
 
 # Restart production application
 pm2 restart facnet-validator
+
+# Check if production is responding
+curl -k https://localhost/api/health
+```
+
+#### Production Deployment Troubleshooting
+
+**Critical**: After GitHub Actions deployment, production may need manual intervention.
+
+##### Issue 1: 502 Bad Gateway After Deployment
+
+**Symptoms**: Production returns 502, staging works fine
+
+**Diagnosis**:
+```bash
+# Check PM2 status
+sudo -u facnet pm2 status facnet-validator
+
+# If all processes show "stopped" status with 0 uptime:
+```
+
+**Root Cause**: GitHub Actions deployment script stops PM2 processes but sometimes fails to restart them.
+
+**Solution**:
+```bash
+cd /var/www/facnet/app
+sudo -u facnet pm2 restart ecosystem.config.cjs
+sleep 3
+curl -k https://localhost/api/health
+# Should return: {"status":"healthy","timestamp":"..."}
+```
+
+##### Issue 2: "Cannot find package 'vite'" Error
+
+**Symptoms**: PM2 logs show: `Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'vite'`
+
+**Diagnosis**:
+```bash
+sudo -u facnet pm2 logs facnet-validator --err --lines 20
+```
+
+**Root Cause**: Production `npm install --production` excludes devDependencies, but the bundled server has runtime dependencies on Vite.
+
+**Solution**:
+```bash
+cd /var/www/facnet/app
+sudo -u facnet npm install  # Install ALL dependencies, not just production
+sudo -u facnet pm2 restart ecosystem.config.cjs
+```
+
+**Why This Happens**: The esbuild bundler doesn't completely inline all Vite dependencies, leaving some runtime imports that need Vite to be present in `node_modules`.
+
+##### Issue 3: Auth0 Domain "undefined" in Production
+
+**Symptoms**: Login redirects to `https://undefined/authorize`
+
+**Diagnosis**:
+```bash
+# Check if Auth0 domain is embedded in JavaScript bundle
+cd /var/www/facnet/app/dist/public/assets
+grep -o "dev-x63i3b6hf5kch7ab.ca.auth0.com" index-*.js
+# No output = variables not embedded
+```
+
+**Root Cause**: `.env` file missing `VITE_AUTH0_AUDIENCE` or `vite.config.ts` missing `envDir` configuration.
+
+**Solution**:
+```bash
+# 1. Verify .env has all VITE_* variables
+cd /var/www/facnet/app
+cat .env | grep VITE
+
+# Should show:
+# VITE_AUTH0_DOMAIN=dev-x63i3b6hf5kch7ab.ca.auth0.com
+# VITE_AUTH0_CLIENT_ID=ECieaY4IiPbZNbWMoGJTPmD4pGsEi2rr
+# VITE_AUTH0_AUDIENCE=facnet-validator-api
+# VITE_API_BASE_URL=https://148.113.196.245/api
+
+# 2. If missing, add them:
+echo "VITE_AUTH0_AUDIENCE=facnet-validator-api" >> .env
+
+# 3. Rebuild application (Vite embeds vars at build time)
+sudo -u facnet npm run build
+
+# 4. Restart PM2
+sudo -u facnet pm2 restart ecosystem.config.cjs
+
+# 5. Verify variables are now embedded
+grep -o "dev-x63i3b6hf5kch7ab.ca.auth0.com" dist/public/assets/index-*.js
+```
+
+##### Production Health Check Checklist
+
+After any deployment, verify:
+
+```bash
+# 1. PM2 processes running
+sudo -u facnet pm2 status
+# All facnet-validator instances should show "online"
+
+# 2. Port 5000 listening
+sudo ss -tlnp | grep ':5000'
+# Should show node processes
+
+# 3. API health endpoint
+curl -k https://localhost/api/health
+# {"status":"healthy","timestamp":"..."}
+
+# 4. Frontend loads
+curl -k https://148.113.196.245/ | grep -o '<title>[^<]*</title>'
+# Should return page title
+
+# 5. Auth0 domain embedded
+curl -k https://148.113.196.245/ | grep -o 'src="/assets/index-[^"]*\.js"'
+# Get JS filename
+grep "dev-x63i3b6hf5kch7ab" /var/www/facnet/app/dist/public/assets/index-*.js
+# Should find the domain
+
+# 6. Database connection works
+sudo -u facnet pm2 logs facnet-validator --lines 50 | grep -i "database\|postgres"
+# Should not show authentication errors
 ```
 
 #### Staging Environment
