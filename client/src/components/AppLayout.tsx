@@ -22,7 +22,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="text-center">
             <div className="w-24 h-24 flex items-center justify-center mx-auto mb-4">
               <img
-                src="/logo.svg"
+                src="/logo.png"
                 alt="DASH Logo"
                 className="w-full h-full object-contain dark:invert transition-all"
               />
