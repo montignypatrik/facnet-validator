@@ -32,10 +32,10 @@
 - **Production Database**: `dashvalidator`
 - **Staging Database**: `dashvalidator_staging`
 - **Database User**: `dashvalidator_user`
-- **Database Password**: `dashvalidator123!`
+- **Database Password**: `DashValidator2024`
 - **Permissions**: Full access to both databases and `public` schema
-- **Production Connection**: `postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator`
-- **Staging Connection**: `postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator_staging`
+- **Production Connection**: `postgresql://dashvalidator_user:DashValidator2024@localhost:5432/dashvalidator`
+- **Staging Connection**: `postgresql://dashvalidator_user:DashValidator2024@localhost:5432/dashvalidator_staging`
 
 ### Database Commands
 ```bash
@@ -323,7 +323,7 @@ pm2 monit
 ### Environment Variables Template
 ```bash
 # Database
-DATABASE_URL=postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator
+DATABASE_URL=postgresql://dashvalidator_user:DashValidator2024@localhost:5432/dashvalidator
 
 # Auth0 Configuration
 VITE_AUTH0_DOMAIN=dev-x63i3b6hf5kch7ab.ca.auth0.com
@@ -363,7 +363,7 @@ VITE_API_BASE_URL=https://148.113.196.245/api
   env: {
     NODE_ENV: 'staging',
     PORT: 3001,           // Different port from production
-    DATABASE_URL: 'postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator_staging'
+    DATABASE_URL: 'postgresql://dashvalidator_user:DashValidator2024@localhost:5432/dashvalidator_staging'
   }
 }
 ```
@@ -495,7 +495,7 @@ sudo -u facnet pm2 delete ecosystem.staging 2>/dev/null || true
 # This is the most reliable method
 sudo -u facnet PORT=3002 \
   NODE_ENV=staging \
-  DATABASE_URL='postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator_staging' \
+  DATABASE_URL='postgresql://dashvalidator_user:DashValidator2024@localhost:5432/dashvalidator_staging' \
   AUTH0_ISSUER_BASE_URL='https://dev-x63i3b6hf5kch7ab.ca.auth0.com' \
   AUTH0_AUDIENCE='facnet-validator-api' \
   AUTH0_CLIENT_SECRET='fNxeP-Gq0kSe6EjEcgCYaHoCPoIYOKheH2sh0NjdefrlhOk9n6PUSg4te3likmk' \

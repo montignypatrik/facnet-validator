@@ -155,7 +155,7 @@ The application is fully internationalized in French for Quebec market focus.
 ### Database Credentials
 **Database Name**: `dashvalidator`
 **Username**: `dashvalidator_user`
-**Password**: `dashvalidator123!`
+**Password**: `DashValidator2024`
 **Host**: `localhost`
 **Port**: `5432`
 
@@ -167,7 +167,7 @@ The application is fully internationalized in French for Quebec market focus.
 
 ```env
 # Database
-DATABASE_URL=postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator
+DATABASE_URL=postgresql://dashvalidator_user:DashValidator2024@localhost:5432/dashvalidator
 
 # Auth0 - Frontend (VITE_* prefix required for client-side access)
 VITE_AUTH0_DOMAIN=dev-x63i3b6hf5kch7ab.ca.auth0.com
@@ -387,7 +387,7 @@ sudo -u facnet pm2 delete ecosystem.staging 2>/dev/null || true
 # 6. Start with direct command (bypass ecosystem config issues)
 sudo -u facnet PORT=3002 \
   NODE_ENV=staging \
-  DATABASE_URL='postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator_staging' \
+  DATABASE_URL='postgresql://dashvalidator_user:DashValidator2024@localhost:5432/dashvalidator_staging' \
   AUTH0_ISSUER_BASE_URL='https://dev-x63i3b6hf5kch7ab.ca.auth0.com' \
   AUTH0_AUDIENCE='facnet-validator-api' \
   AUTH0_CLIENT_SECRET='fNxeP-Gq0kSe6EjEcgCYaHoCPoIYOKheH2sh0NjdefrlhOk9n6PUSg4te3likmk' \
