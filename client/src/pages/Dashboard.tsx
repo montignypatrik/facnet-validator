@@ -9,7 +9,10 @@ import {
   ShieldCheck,
   MessageSquare,
   CheckSquare,
-  FileText
+  FileText,
+  Database,
+  Shield,
+  Settings
 } from "lucide-react";
 import client from "@/api/client";
 
@@ -160,6 +163,86 @@ export default function Dashboard() {
                     Créer une facture
                   </Button>
                   <Link href="/hors-ramq">
+                    <Button variant="outline" className="w-full">
+                      Voir le module complet
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              {/* Base de Données Card */}
+              <Card className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="w-5 h-5 text-primary" />
+                    Base de Données
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Gestion des codes, contextes, établissements et règles
+                  </p>
+                  <Link href="/database/codes">
+                    <Button className="w-full">
+                      <Database className="w-4 h-4 mr-2" />
+                      Gérer les codes
+                    </Button>
+                  </Link>
+                  <Link href="/database">
+                    <Button variant="outline" className="w-full">
+                      Voir le module complet
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              {/* Administration Card - Only for admins */}
+              {user?.role === "admin" && (
+                <Card className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-primary" />
+                      Administration
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Gestion des utilisateurs et des permissions
+                    </p>
+                    <Link href="/admin/users">
+                      <Button className="w-full">
+                        <Shield className="w-4 h-4 mr-2" />
+                        Gérer les utilisateurs
+                      </Button>
+                    </Link>
+                    <Link href="/admin">
+                      <Button variant="outline" className="w-full">
+                        Voir le module complet
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Paramètres Card */}
+              <Card className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="w-5 h-5 text-primary" />
+                    Paramètres
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Configuration du système et personnalisation
+                  </p>
+                  <Link href="/settings">
+                    <Button className="w-full">
+                      <Settings className="w-4 h-4 mr-2" />
+                      Configurer
+                    </Button>
+                  </Link>
+                  <Link href="/settings">
                     <Button variant="outline" className="w-full">
                       Voir le module complet
                     </Button>
