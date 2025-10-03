@@ -5,7 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import {
-  Upload
+  Upload,
+  ShieldCheck,
+  MessageSquare,
+  CheckSquare,
+  FileText
 } from "lucide-react";
 import client from "@/api/client";
 
@@ -61,26 +65,109 @@ export default function Dashboard() {
             </Card>
           </div>
         ) : (
-          /* Compressed Validator Module */
-          <div className="max-w-md mx-auto">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-center">{translations.compressedValidator}</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center py-8">
-                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Upload className="w-8 h-8 text-primary" />
-                </div>
-                <h3 className="text-lg font-medium text-foreground mb-2">{translations.uploadFirstFile}</h3>
-                <p className="text-muted-foreground mb-6">Commencez par télécharger un fichier CSV pour validation</p>
-                <Link href="/validator/upload">
-                  <Button className="w-full" data-testid="button-upload-validate">
-                    <Upload className="w-5 h-5 mr-2" />
-                    {translations.uploadAndValidate}
+          /* Module Cards Grid */
+          <div className="max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+              {/* Validateur Card */}
+              <Card className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-primary" />
+                    Validateur
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Validation des données de facturation RAMQ du Québec
+                  </p>
+                  <Link href="/validator/upload">
+                    <Button className="w-full" data-testid="button-upload-validate">
+                      <Upload className="w-4 h-4 mr-2" />
+                      Télécharger un fichier
+                    </Button>
+                  </Link>
+                  <Link href="/validator">
+                    <Button variant="outline" className="w-full">
+                      Voir le module complet
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              {/* Chatbot Card */}
+              <Card className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-primary" />
+                    Chatbot
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Assistant intelligent pour répondre à vos questions
+                  </p>
+                  <Button className="w-full" disabled>
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Démarrer une conversation
                   </Button>
-                </Link>
-              </CardContent>
-            </Card>
+                  <Link href="/chatbot">
+                    <Button variant="outline" className="w-full">
+                      Voir le module complet
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              {/* Tâche Card */}
+              <Card className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckSquare className="w-5 h-5 text-primary" />
+                    Tâche
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Gestion de tâches et workflows pour votre équipe
+                  </p>
+                  <Button className="w-full" disabled>
+                    <CheckSquare className="w-4 h-4 mr-2" />
+                    Créer une tâche
+                  </Button>
+                  <Link href="/tache">
+                    <Button variant="outline" className="w-full">
+                      Voir le module complet
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              {/* Hors-RAMQ Card */}
+              <Card className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-primary" />
+                    Hors-RAMQ
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Facturation des services médicaux non couverts par la RAMQ
+                  </p>
+                  <Button className="w-full" disabled>
+                    <FileText className="w-4 h-4 mr-2" />
+                    Créer une facture
+                  </Button>
+                  <Link href="/hors-ramq">
+                    <Button variant="outline" className="w-full">
+                      Voir le module complet
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+            </div>
           </div>
         )}
       </div>
