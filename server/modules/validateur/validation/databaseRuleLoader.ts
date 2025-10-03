@@ -1,6 +1,6 @@
-import { storage } from "../storage";
+import { storage } from "../../../core/storage";
 import { ValidationRule } from "./engine";
-import { BillingRecord, InsertValidationResult } from "../../shared/schema";
+import { BillingRecord, InsertValidationResult } from "@shared/schema";
 
 export interface DatabaseRule {
   id: string;

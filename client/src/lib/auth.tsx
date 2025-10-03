@@ -30,13 +30,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   useEffect(() => {
     console.log("Auth0 State:", { isAuthenticated, isLoading, auth0User });
 
     if (!isLoading) {
-      if (isAuthenticated && auth0User) {
+      if (isAuthenticated && auth0User && !isVerifying) {
         console.log("User is authenticated, getting access token...");
+        setIsVerifying(true);
 
         // Get real Auth0 access token
         getAccessTokenSilently({
@@ -79,6 +81,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } catch (error) {
             console.error("Error verifying user with backend:", error);
             throw error;
+          } finally {
+            setIsVerifying(false);
           }
         })
         .catch((error) => {
@@ -86,15 +90,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(null);
           setToken(null);
           localStorage.removeItem("authToken");
+          setIsVerifying(false);
         });
-      } else {
+      } else if (!isAuthenticated) {
         console.log("Not authenticated, clearing state");
         setUser(null);
         setToken(null);
         localStorage.removeItem("authToken");
+        setIsVerifying(false);
       }
     }
-  }, [isAuthenticated, auth0User, isLoading, getAccessTokenSilently]);
+  }, [isAuthenticated, auth0User, isLoading]);
 
   const login = () => {
     loginWithRedirect();

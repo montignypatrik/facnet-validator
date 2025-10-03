@@ -1,14 +1,17 @@
-# FacNet Validator - Project Structure
+# Dash - Project Structure
 
-**Last Updated**: September 29, 2025
+**Last Updated**: October 3, 2025
 **Version**: 1.0
+**Architecture**: Modular SAAS Platform
 
-This document provides a comprehensive overview of the project structure, file organization, and architectural decisions for the FacNet Validator healthcare billing validation system.
+This document provides a comprehensive overview of the project structure, file organization, and architectural decisions for Dash - a modular business operations platform.
 
 ## Table of Contents
 - [Overview](#overview)
+- [Modular Architecture](#modular-architecture)
 - [Directory Structure](#directory-structure)
 - [Key Directories](#key-directories)
+- [Module System](#module-system)
 - [Configuration Files](#configuration-files)
 - [Data Management](#data-management)
 - [Development Workflow](#development-workflow)
@@ -17,7 +20,15 @@ This document provides a comprehensive overview of the project structure, file o
 
 ## Overview
 
-FacNet Validator is a full-stack web application for validating Quebec healthcare billing data against RAMQ (Régie de l'assurance maladie du Québec) rules. The project uses a monorepo structure with separate client and server directories, shared TypeScript types, and comprehensive data import capabilities.
+Dash is a modular SAAS platform designed to centralize business operations. The platform uses a plug-and-play module architecture where each business function (Validateur, Base de Données, Administration, Chatbot, Tâche, etc.) operates as a self-contained module.
+
+**Current Active Modules:**
+- **Validateur**: Quebec healthcare billing validation (RAMQ)
+- **Base de Données**: Manage codes, contexts, establishments, and rules
+- **Administration**: User management with RBAC
+- **Paramètres**: System configuration
+
+The project uses a monorepo structure with separate client and server directories, shared TypeScript types, and a module registry system for scalability.
 
 ### Technology Stack Summary
 - **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui
@@ -31,8 +42,8 @@ FacNet Validator is a full-stack web application for validating Quebec healthcar
 ## Directory Structure
 
 ```
-facnet-validator/
-├── client/                      # React frontend application
+dash/
+├── client/                      # React frontend application (Vite + React 18)
 │   ├── src/
 │   │   ├── api/                 # API client configuration (Axios)
 │   │   ├── components/          # Reusable UI components

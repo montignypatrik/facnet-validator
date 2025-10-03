@@ -2,7 +2,7 @@ import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { migrateOfficeFeeRule } from "./migrate-rules";
+import { migrateOfficeFeeRule } from "./modules/validateur/migrate-rules";
 
 const app = express();
 app.use(express.json());

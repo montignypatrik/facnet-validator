@@ -1,4 +1,4 @@
-import { BillingRecord, ValidationResult, InsertValidationResult } from "../../shared/schema";
+import { BillingRecord, ValidationResult, InsertValidationResult } from "@shared/schema";
 
 export interface ValidationRule {
   id: string;

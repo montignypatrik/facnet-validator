@@ -1,6 +1,7 @@
 {
-  "name": "rest-express",
+  "name": "dash",
   "version": "1.0.0",
+  "description": "Dash - Modular SAAS Platform for Business Operations",
   "type": "module",
   "license": "MIT",
   "scripts": {

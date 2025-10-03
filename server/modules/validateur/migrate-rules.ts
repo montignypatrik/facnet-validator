@@ -1,5 +1,5 @@
 // Migration script to populate rules table with office fee validation
-import { storage } from './storage';
+import { storage } from '../../core/storage';
 
 async function migrateOfficeFeeRule() {
   try {

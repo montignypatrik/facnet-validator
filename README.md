@@ -1,6 +1,6 @@
-# FacNet Validator
+# Dash - Modular Business Operations Platform
 
-Quebec healthcare billing validation system for RAMQ (Régie de l'assurance maladie du Québec) data management.
+A SAAS platform with plug-and-play modules for healthcare billing validation, database management, AI assistance, and more. Everything your business needs, centralized in one dashboard.
 
 **Production**: https://148.113.196.245
 **Repository**: https://github.com/montignypatrik/facnet-validator
@@ -9,15 +9,23 @@ Quebec healthcare billing validation system for RAMQ (Régie de l'assurance mala
 
 ## Overview
 
-FacNet Validator is a comprehensive web application for validating Quebec healthcare billing data against RAMQ medical codes and business rules. The system helps healthcare administrators upload CSV billing files, validate against official Quebec regulations, and identify billing errors before submission.
+Dash is a modular SAAS platform designed to sit at the center of your business operations. Each module is self-contained and purpose-built for specific business needs. Currently featuring:
+
+- **Validateur**: Quebec healthcare billing validation (RAMQ) with intelligent error detection
+- **Base de Données**: Comprehensive data management for codes, contexts, establishments, and business rules
+- **Administration**: User management with role-based access control
+- **Paramètres**: System configuration and theme customization
+
+Coming soon: **Chatbot** (AI assistant), **Tâche** (task management), **Hors-RAMQ** (extended billing features)
 
 ### Key Features
+- 🧩 **Modular Architecture**: Each business function is a self-contained, plug-and-play module
 - 📊 **Data Management**: Manage 6,740+ RAMQ billing codes, service contexts, and healthcare establishments
-- ✅ **Validation Engine**: Database-driven validation rules for Quebec billing regulations
+- ✅ **Intelligent Validation**: Database-driven validation rules with real-time error detection
 - 📁 **File Processing**: CSV upload with drag-and-drop, asynchronous processing, and error reporting
-- 📈 **Analytics**: Usage metrics, KPI dashboards, and validation result visualization
-- 🔐 **Authentication**: Auth0 integration with role-based access control (Viewer/Editor/Admin)
-- 🇫🇷 **Fully in French**: Interface localized for Quebec healthcare administrators
+- 📈 **Analytics Dashboard**: Usage metrics, KPI tracking, and visualization
+- 🔐 **Role-Based Access**: Auth0 integration with granular permissions (Viewer/Editor/Admin)
+- 🇫🇷 **Fully Localized**: French interface tailored for Quebec business operations
 
 ---
 
@@ -33,7 +41,7 @@ FacNet Validator is a comprehensive web application for validating Quebec health
 ```bash
 # Clone repository
 git clone https://github.com/montignypatrik/facnet-validator.git
-cd facnet-validator
+cd dash
 
 # Install dependencies
 npm install
@@ -85,15 +93,17 @@ See [.env.example](.env.example) for complete template.
 ## Project Structure
 
 ```
-facnet-validator/
+dash/
 ├── client/          # React frontend (Vite + TypeScript)
+│   ├── pages/       # Core pages (Dashboard, Settings)
+│   ├── modules/     # Modular features (validateur, database, admin)
+│   └── components/  # Shared UI components
 ├── server/          # Express backend API
-├── shared/          # Shared TypeScript types
+│   ├── modules/     # Module-specific routes and logic
+│   └── core/        # Shared infrastructure (auth, db, storage)
+├── shared/          # Shared TypeScript types and schemas
 ├── scripts/         # Data import utilities
 ├── data/            # RAMQ reference data (gitignored)
-│   ├── imports/     # Official CSV files
-│   └── samples/     # Test billing data
-├── uploads/         # Temporary file uploads (gitignored)
 └── .github/         # CI/CD workflows
 ```
 

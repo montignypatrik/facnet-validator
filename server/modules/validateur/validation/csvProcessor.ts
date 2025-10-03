@@ -1,8 +1,9 @@
 import csv from 'csv-parser';
 import fs from 'fs';
-import { BillingRecord, InsertBillingRecord } from "../../shared/schema";
+import { BillingRecord, InsertBillingRecord } from "@shared/schema";
 import { validationEngine } from './engine';
 import { loadDatabaseRules } from './databaseRuleLoader';
+import { storage } from '../../../core/storage';
 
 // Database rules will be loaded dynamically
 

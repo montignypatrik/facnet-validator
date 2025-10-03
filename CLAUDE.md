@@ -1,10 +1,23 @@
-# FacNet Validator - CLAUDE.md
+# Dash - CLAUDE.md
 
 ## Project Overview
 
-**FacNet Validator** is a comprehensive web application designed for managing and validating Quebec's healthcare billing system data, specifically RAMQ (Régie de l'assurance maladie du Québec) medical billing codes and related healthcare data. The application serves as a data management platform for healthcare administrators to upload, validate, and process CSV files containing medical billing codes, manage healthcare establishment data, and perform analytics on healthcare billing patterns.
+**Dash** is a modular SAAS platform designed to centralize business operations. The platform features a plug-and-play module architecture where each business function (billing validation, database management, AI assistance, task management, etc.) operates as a self-contained module.
 
-The application is fully internationalized in French, reflecting its Quebec healthcare system focus.
+**Current Flagship Module: Validateur**
+A comprehensive Quebec healthcare billing validation system for RAMQ (Régie de l'assurance maladie du Québec) medical billing codes. Healthcare administrators upload CSV billing files, validate against official Quebec regulations, and identify errors before submission.
+
+**Other Active Modules:**
+- **Base de Données**: Manage codes, contexts, establishments, and validation rules
+- **Administration**: User management with role-based access control (pending, viewer, editor, admin)
+- **Paramètres**: System configuration and theme customization
+
+**Planned Modules:**
+- **Chatbot**: AI-powered business assistant
+- **Tâche**: Task and workflow management
+- **Hors-RAMQ**: Extended billing features beyond RAMQ
+
+The application is fully internationalized in French for Quebec market focus.
 
 ## Technology Stack
 
