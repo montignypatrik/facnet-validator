@@ -274,9 +274,11 @@ export default function SettingsPage() {
                     <CheckCircle className="w-5 h-5 text-green-600" />
                     <span className="text-sm">Account is active and verified</span>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Your account was created on {new Date().toLocaleDateString()}
-                  </p>
+                  {user?.createdAt && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Your account was created on {new Date(user.createdAt).toLocaleDateString()}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 

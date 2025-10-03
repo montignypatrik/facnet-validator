@@ -32,6 +32,7 @@ router.post("/api/auth/verify", authenticateToken, async (req: AuthenticatedRequ
       });
     }
 
+    console.log("[AUTH DEBUG] Returning user:", JSON.stringify(user, null, 2));
     res.json({ user });
   } catch (error) {
     console.error("Auth verification error:", error);

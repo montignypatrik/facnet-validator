@@ -6,6 +6,7 @@ interface User {
   email: string;
   name: string;
   role: string;
+  createdAt?: string;
 }
 
 interface AuthContextType {
@@ -71,7 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               id: backendUser.id,
               email: backendUser.email,
               name: backendUser.name || backendUser.email,
-              role: backendUser.role
+              role: backendUser.role,
+              createdAt: backendUser.createdAt
             };
 
             setUser(userData);

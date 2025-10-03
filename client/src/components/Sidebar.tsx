@@ -15,6 +15,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
+  MessageSquare,
+  CheckSquare,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -115,6 +118,42 @@ export function Sidebar() {
               }`} data-testid="link-validator">
                 <ShieldCheck className={`${sidebarCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
                 {!sidebarCollapsed && <span>Validateur</span>}
+              </Link>
+            </div>
+
+            {/* Chatbot Section */}
+            <div className="pt-4">
+              <Link href="/chatbot" className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-xl font-medium transition-colors ${
+                isActive("/chatbot")
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`} data-testid="link-chatbot">
+                <MessageSquare className={`${sidebarCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
+                {!sidebarCollapsed && <span>Chatbot</span>}
+              </Link>
+            </div>
+
+            {/* Tâche Section */}
+            <div className="pt-4">
+              <Link href="/tache" className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-xl font-medium transition-colors ${
+                isActive("/tache")
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`} data-testid="link-tache">
+                <CheckSquare className={`${sidebarCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
+                {!sidebarCollapsed && <span>Tâche</span>}
+              </Link>
+            </div>
+
+            {/* Hors-RAMQ Section */}
+            <div className="pt-4">
+              <Link href="/hors-ramq" className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-xl font-medium transition-colors ${
+                isActive("/hors-ramq")
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`} data-testid="link-hors-ramq">
+                <FileText className={`${sidebarCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
+                {!sidebarCollapsed && <span>Hors-RAMQ</span>}
               </Link>
             </div>
 

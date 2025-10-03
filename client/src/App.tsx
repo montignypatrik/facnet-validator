@@ -17,6 +17,9 @@ import Establishments from "./pages/database/Establishments";
 import Rules from "./pages/database/Rules";
 import Users from "./pages/admin/Users";
 import Settings from "./pages/Settings";
+import Chatbot from "./pages/Chatbot";
+import Tache from "./pages/Tache";
+import HorsRamq from "./pages/HorsRamq";
 import NotFound from "@/pages/not-found";
 import { useAuth0 } from "@auth0/auth0-react";
 
@@ -85,7 +88,12 @@ function Router() {
       <Route path="/validator/runs" component={Runs} />
       <Route path="/validator/runs/:id" component={RunDetails} />
       <Route path="/validator/analytics" component={Analytics} />
-      
+
+      {/* Module routes */}
+      <Route path="/chatbot" component={Chatbot} />
+      <Route path="/tache" component={Tache} />
+      <Route path="/hors-ramq" component={HorsRamq} />
+
       {/* Database routes */}
       <Route path="/database">
         <Redirect to="/database/codes" />
