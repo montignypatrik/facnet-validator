@@ -54,7 +54,7 @@ async function importContexts() {
   console.log('Starting BD element de contexte import...');
   
   try {
-    const csvText = fs.readFileSync('../attached_assets/BD element de contexte - ramq_elements_contexte_1758943164184.csv', 'utf8');
+    const csvText = fs.readFileSync('data/imports/RAMQ-contexts.csv', 'utf8');
     const records = parseCSV(csvText);
     
     console.log(`Parsed ${records.length} records`);

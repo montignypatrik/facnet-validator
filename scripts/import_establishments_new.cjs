@@ -75,9 +75,15 @@ async function importEstablishments() {
 
         if (!numero) continue;
 
-        // Store all sector info and codes in custom_fields
-        const customFields = {
+        // Use numero and nom to create unique name
+        const name = nom ? `${numero} - ${nom}` : numero;
+
+        values.push({
+          name: name,
           numero: numero,
+          nom: nom || '',
+          type: 'Healthcare Facility',
+          region: record.region || '',
           secteur_0: record.secteur_0 === 'True',
           secteur_1: record.secteur_1 === 'True',
           secteur_2: record.secteur_2 === 'True',
@@ -87,44 +93,59 @@ async function importEstablishments() {
           secteur_6: record.secteur_6 === 'True',
           secteur_7: record.secteur_7 === 'True',
           secteur_8: record.secteur_8 === 'True',
-          EP_29: record.EP_29 === 'True',
-          LE_327: record.LE_327 === 'True',
-          EP_33: record.EP_33 === 'True',
-          EP_54: record.EP_54 === 'True',
-          EP_42_GMFU: record.EP_42_GMFU || '',
-          EP_42_List: record.EP_42_List || ''
-        };
-
-        // Use numero and nom to create unique name
-        const name = nom ? `${numero} - ${nom}` : numero;
-
-        values.push({
-          name: name,
-          type: 'Healthcare Facility',
-          region: record.region || '',
-          custom_fields: JSON.stringify(customFields)
+          ep_29: record.EP_29 === 'True',
+          le_327: record.LE_327 === 'True',
+          ep_33: record.EP_33 === 'True',
+          ep_54: record.EP_54 === 'True',
+          ep_42_gmfu: record.EP_42_GMFU || '',
+          ep_42_list: record.EP_42_List || ''
         });
       }
 
       if (values.length === 0) continue;
 
-      // Build bulk insert query
+      // Build bulk insert query with all establishment fields
       const placeholders = values.map((_, index) => {
-        const base = index * 4;
-        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}::jsonb, NOW(), 'system_import')`;
+        const base = index * 20;
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, $${base + 13}, $${base + 14}, $${base + 15}, $${base + 16}, $${base + 17}, $${base + 18}, $${base + 19}, $${base + 20}, NOW(), 'system_import')`;
       }).join(', ');
 
       const queryParams = values.flatMap(v => [
-        v.name, v.type, v.region, v.custom_fields
+        v.name, v.numero, v.nom, v.type, v.region,
+        v.secteur_0, v.secteur_1, v.secteur_2, v.secteur_3, v.secteur_4,
+        v.secteur_5, v.secteur_6, v.secteur_7, v.secteur_8,
+        v.ep_29, v.le_327, v.ep_33, v.ep_54, v.ep_42_gmfu, v.ep_42_list
       ]);
 
       const query = `
-        INSERT INTO establishments (name, type, region, custom_fields, updated_at, updated_by)
+        INSERT INTO establishments (
+          name, numero, nom, type, region,
+          secteur_0, secteur_1, secteur_2, secteur_3, secteur_4,
+          secteur_5, secteur_6, secteur_7, secteur_8,
+          ep_29, le_327, ep_33, ep_54, ep_42_gmfu, ep_42_list,
+          updated_at, updated_by
+        )
         VALUES ${placeholders}
         ON CONFLICT (name) DO UPDATE SET
+          numero = EXCLUDED.numero,
+          nom = EXCLUDED.nom,
           type = EXCLUDED.type,
           region = EXCLUDED.region,
-          custom_fields = EXCLUDED.custom_fields,
+          secteur_0 = EXCLUDED.secteur_0,
+          secteur_1 = EXCLUDED.secteur_1,
+          secteur_2 = EXCLUDED.secteur_2,
+          secteur_3 = EXCLUDED.secteur_3,
+          secteur_4 = EXCLUDED.secteur_4,
+          secteur_5 = EXCLUDED.secteur_5,
+          secteur_6 = EXCLUDED.secteur_6,
+          secteur_7 = EXCLUDED.secteur_7,
+          secteur_8 = EXCLUDED.secteur_8,
+          ep_29 = EXCLUDED.ep_29,
+          le_327 = EXCLUDED.le_327,
+          ep_33 = EXCLUDED.ep_33,
+          ep_54 = EXCLUDED.ep_54,
+          ep_42_gmfu = EXCLUDED.ep_42_gmfu,
+          ep_42_list = EXCLUDED.ep_42_list,
           updated_at = EXCLUDED.updated_at,
           updated_by = EXCLUDED.updated_by
       `;

@@ -200,10 +200,7 @@ router.post("/api/validations/cleanup-old", authenticateToken, async (req, res) 
 
 async function processBillingValidation(runId: string, fileName: string) {
   try {
-    console.log(`[DEBUG] Processing billing validation for run ${runId}, file: ${fileName}`);
-
     const filePath = path.join(uploadDir, fileName);
-    console.log(`[DEBUG] File path: ${filePath}`);
 
     if (!fs.existsSync(filePath)) {
       throw new Error(`File not found: ${filePath}`);
@@ -214,22 +211,20 @@ async function processBillingValidation(runId: string, fileName: string) {
     const processor = new BillingCSVProcessor();
     const { records, errors } = await processor.processBillingCSV(filePath, runId);
 
-    console.log(`[DEBUG] Parsed ${records.length} records with ${errors.length} errors`);
-
     // Save billing records to database
     if (records.length > 0) {
       await storage.createBillingRecords(records);
-      console.log(`[DEBUG] Saved ${records.length} billing records to database`);
     }
 
-    // Run validation
-    const validationResults = await processor.validateBillingRecords(records, runId);
-    console.log(`[DEBUG] Validation produced ${validationResults.length} results`);
+    // Fetch saved billing records with their database IDs
+    const savedRecords = await storage.getBillingRecords(runId);
+
+    // Run validation with records that have database IDs
+    const validationResults = await processor.validateBillingRecords(savedRecords, runId);
 
     // Save validation results
     if (validationResults.length > 0) {
       await storage.createValidationResults(validationResults);
-      console.log(`[DEBUG] Saved ${validationResults.length} validation results`);
     }
 
     // Clean up uploaded file after processing

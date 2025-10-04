@@ -9,7 +9,7 @@ async function importCodes() {
   console.log('Starting BD Code RAMQ import...');
   
   // Read CSV file
-  const csvData = readFileSync('attached_assets/BD Code RAMQ - ramq_all (1)_1758943164183.csv', 'utf8');
+  const csvData = readFileSync('data/imports/RAMQ-codes.csv', 'utf8');
   
   const records = [];
   

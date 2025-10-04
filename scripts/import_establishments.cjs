@@ -54,7 +54,7 @@ async function importEstablishments() {
   console.log('Starting RAMQ establishments import...');
   
   try {
-    const csvText = fs.readFileSync('../attached_assets/ramq_etablissements_18regions_fixed_1758943164184.csv', 'utf8');
+    const csvText = fs.readFileSync('data/imports/RAMQ-establishments.csv', 'utf8');
     const records = parseCSV(csvText);
     
     console.log(`Parsed ${records.length} records`);
