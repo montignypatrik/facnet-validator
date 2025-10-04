@@ -13,8 +13,7 @@ import { log } from "../../vite";
 
 const router = Router();
 
-// Apply authentication to all chat routes
-router.use(authenticateToken);
+// Authentication is applied per-route below (not globally to avoid blocking non-API routes)
 
 /**
  * GET /api/chat/conversations
@@ -34,9 +33,9 @@ router.use(authenticateToken);
  *   ]
  * }
  */
-router.get("/api/chat/conversations", async (req: AuthenticatedRequest, res: Response) => {
+router.get("/api/chat/conversations", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.auth!.id;
+    const userId = req.user!.uid;
     const conversations = await storage.getUserConversations(userId);
 
     res.json({ conversations });
@@ -71,9 +70,9 @@ router.get("/api/chat/conversations", async (req: AuthenticatedRequest, res: Res
  *   }
  * }
  */
-router.post("/api/chat/conversation/new", async (req: AuthenticatedRequest, res: Response) => {
+router.post("/api/chat/conversation/new", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.auth!.id;
+    const userId = req.user!.uid;
     const { title } = req.body;
 
     const conversation = await storage.createConversation({
@@ -121,9 +120,9 @@ router.post("/api/chat/conversation/new", async (req: AuthenticatedRequest, res:
  *   ]
  * }
  */
-router.get("/api/chat/conversation/:id/messages", async (req: AuthenticatedRequest, res: Response) => {
+router.get("/api/chat/conversation/:id/messages", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.auth!.id;
+    const userId = req.user!.uid;
     const conversationId = req.params.id;
 
     const messages = await storage.getConversationMessages(conversationId, userId);
@@ -179,9 +178,9 @@ router.get("/api/chat/conversation/:id/messages", async (req: AuthenticatedReque
  *   }
  * }
  */
-router.post("/api/chat/message", async (req: AuthenticatedRequest, res: Response) => {
+router.post("/api/chat/message", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.auth!.id;
+    const userId = req.user!.uid;
     const { conversationId, message } = req.body;
 
     // Validate request
@@ -271,9 +270,9 @@ router.post("/api/chat/message", async (req: AuthenticatedRequest, res: Response
  *   "success": true
  * }
  */
-router.delete("/api/chat/conversation/:id", async (req: AuthenticatedRequest, res: Response) => {
+router.delete("/api/chat/conversation/:id", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.auth!.id;
+    const userId = req.user!.uid;
     const conversationId = req.params.id;
 
     await storage.deleteConversation(conversationId, userId);
@@ -306,9 +305,9 @@ router.delete("/api/chat/conversation/:id", async (req: AuthenticatedRequest, re
  *   "success": true
  * }
  */
-router.patch("/api/chat/conversation/:id/title", async (req: AuthenticatedRequest, res: Response) => {
+router.patch("/api/chat/conversation/:id/title", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.auth!.id;
+    const userId = req.user!.uid;
     const conversationId = req.params.id;
     const { title } = req.body;
 
