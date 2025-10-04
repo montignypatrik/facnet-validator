@@ -170,15 +170,21 @@ export default function ContextsPage() {
     {
       key: "name",
       label: "Name",
+      width: 150,
+      minWidth: 100,
     },
     {
-      key: "description", 
+      key: "description",
       label: "Description",
+      width: 400,
+      minWidth: 200,
       render: (value: string) => value || "-",
     },
     {
       key: "tags",
       label: "Tags",
+      width: 250,
+      minWidth: 150,
       render: (value: string[]) => {
         if (!value || value.length === 0) return "-";
         return (
@@ -198,9 +204,33 @@ export default function ContextsPage() {
       },
     },
     {
+      key: "customFields",
+      label: "Custom Fields",
+      width: 200,
+      minWidth: 150,
+      render: (value: Record<string, any>) => {
+        if (!value || Object.keys(value).length === 0) return "-";
+        const fieldCount = Object.keys(value).length;
+        return (
+          <Badge variant="outline" className="text-xs">
+            {fieldCount} field{fieldCount !== 1 ? 's' : ''}
+          </Badge>
+        );
+      },
+    },
+    {
       key: "updatedAt",
       label: "Last Updated",
+      width: 150,
+      minWidth: 120,
       type: "date" as const,
+    },
+    {
+      key: "updatedBy",
+      label: "Updated By",
+      width: 150,
+      minWidth: 100,
+      render: (value: string) => value || "-",
     },
   ];
 

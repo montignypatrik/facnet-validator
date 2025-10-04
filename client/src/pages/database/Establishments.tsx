@@ -172,26 +172,65 @@ export default function EstablishmentsPage() {
     {
       key: "name",
       label: "Name",
+      width: 300,
+      minWidth: 200,
     },
     {
-      key: "type", 
+      key: "type",
       label: "Type",
+      width: 200,
+      minWidth: 120,
       render: (value: string) => value || "-",
     },
     {
       key: "region",
       label: "Region",
+      width: 120,
+      minWidth: 80,
       render: (value: string) => value || "-",
     },
     {
       key: "active",
       label: "Active",
+      width: 100,
+      minWidth: 80,
       type: "boolean" as const,
+    },
+    {
+      key: "notes",
+      label: "Notes",
+      width: 300,
+      minWidth: 150,
+      render: (value: string) => value || "-",
+    },
+    {
+      key: "customFields",
+      label: "Custom Fields",
+      width: 200,
+      minWidth: 150,
+      render: (value: Record<string, any>) => {
+        if (!value || Object.keys(value).length === 0) return "-";
+        const fieldCount = Object.keys(value).length;
+        return (
+          <Badge variant="outline" className="text-xs">
+            {fieldCount} field{fieldCount !== 1 ? 's' : ''}
+          </Badge>
+        );
+      },
     },
     {
       key: "updatedAt",
       label: "Last Updated",
+      width: 150,
+      minWidth: 120,
       type: "date" as const,
+    },
+    {
+      key: "updatedBy",
+      label: "Updated By",
+      width: 150,
+      minWidth: 100,
+      render: (value: string) => value || "-",
     },
   ];
 
