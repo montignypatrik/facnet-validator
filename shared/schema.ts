@@ -51,8 +51,25 @@ export const contexts = pgTable("contexts", {
 export const establishments = pgTable("establishments", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").unique().notNull(),
+  numero: text("numero"),
+  nom: text("nom"),
   type: text("type"),
   region: text("region"),
+  secteur0: boolean("secteur_0"),
+  secteur1: boolean("secteur_1"),
+  secteur2: boolean("secteur_2"),
+  secteur3: boolean("secteur_3"),
+  secteur4: boolean("secteur_4"),
+  secteur5: boolean("secteur_5"),
+  secteur6: boolean("secteur_6"),
+  secteur7: boolean("secteur_7"),
+  secteur8: boolean("secteur_8"),
+  ep29: boolean("ep_29"),
+  le327: boolean("le_327"),
+  ep33: boolean("ep_33"),
+  ep54: boolean("ep_54"),
+  ep42Gmfu: text("ep_42_gmfu"),
+  ep42List: text("ep_42_list"),
   active: boolean("active").default(true).notNull(),
   notes: text("notes"),
   customFields: jsonb("custom_fields").default({}).notNull(),
@@ -157,6 +174,7 @@ export const validationResults = pgTable("validation_results", {
   message: text("message").notNull(), // Human-readable error message
   affectedRecords: jsonb("affected_records"), // Array of record IDs involved
   ruleData: jsonb("rule_data"), // Additional data about the rule violation
+  idRamq: text("id_ramq"), // RAMQ ID(s) for grouping validation results
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
