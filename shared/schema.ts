@@ -81,10 +81,14 @@ export const establishments = pgTable("establishments", {
 export const rules = pgTable("rules", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").unique().notNull(),
+  description: text("description"),
+  ruleType: varchar("rule_type", { length: 100 }),
   condition: jsonb("condition").notNull(),
   threshold: numeric("threshold"),
+  severity: varchar("severity", { length: 20 }).default("error").notNull(),
   enabled: boolean("enabled").default(true).notNull(),
   customFields: jsonb("custom_fields").default({}).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   updatedBy: text("updated_by"),
 });
