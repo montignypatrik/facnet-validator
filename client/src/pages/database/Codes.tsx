@@ -43,11 +43,11 @@ export default function CodesPage() {
   const [selectedCode, setSelectedCode] = useState<Code | null>(null);
 
   const { data: codesData, isLoading } = useQuery({
-    queryKey: ["/codes", { search, page, pageSize: 50 }],
+    queryKey: ["/codes", { search }],
     queryFn: async () => {
       const params = new URLSearchParams({
-        page: page.toString(),
-        pageSize: "50",
+        page: "1",
+        pageSize: "10000", // Load all data for filtering
       });
       if (search) params.append("search", search);
 
@@ -182,19 +182,34 @@ export default function CodesPage() {
     {
       key: "code",
       label: "Code",
+      width: 100,
+      minWidth: 80,
     },
     {
       key: "description",
       label: "Description",
+      width: 300,
+      minWidth: 150,
+    },
+    {
+      key: "category",
+      label: "Category",
+      width: 200,
+      minWidth: 100,
+      render: (value: string) => value || "-",
     },
     {
       key: "place",
       label: "Place",
+      width: 120,
+      minWidth: 80,
       render: (value: string) => value || "-",
     },
     {
       key: "tariffValue",
       label: "Tariff Value",
+      width: 120,
+      minWidth: 100,
       render: (value: string | number) => {
         if (!value) return "-";
         const numValue = typeof value === "string" ? parseFloat(value) : value;
@@ -202,24 +217,92 @@ export default function CodesPage() {
       },
     },
     {
+      key: "extraUnitValue",
+      label: "Extra Unit Value",
+      width: 140,
+      minWidth: 100,
+      render: (value: string | number) => {
+        if (!value) return "-";
+        const numValue = typeof value === "string" ? parseFloat(value) : value;
+        return isNaN(numValue) ? "-" : `$${numValue.toFixed(2)}`;
+      },
+    },
+    {
+      key: "unitRequire",
+      label: "Unit Required",
+      width: 120,
+      minWidth: 100,
+      type: "boolean" as const,
+    },
+    {
+      key: "sourceFile",
+      label: "Source File",
+      width: 200,
+      minWidth: 150,
+      render: (value: string) => value || "-",
+    },
+    {
+      key: "topLevel",
+      label: "Top Level",
+      width: 200,
+      minWidth: 150,
+      render: (value: string) => value || "-",
+    },
+    {
       key: "level1Group",
       label: "Level 1 Group",
+      width: 200,
+      minWidth: 150,
       render: (value: string) => value || "-",
     },
     {
       key: "level2Group",
       label: "Level 2 Group",
+      width: 200,
+      minWidth: 150,
+      render: (value: string) => value || "-",
+    },
+    {
+      key: "leaf",
+      label: "Leaf",
+      width: 200,
+      minWidth: 150,
+      render: (value: string) => value || "-",
+    },
+    {
+      key: "indicators",
+      label: "Indicators",
+      width: 150,
+      minWidth: 100,
+      render: (value: string) => value || "-",
+    },
+    {
+      key: "anchorId",
+      label: "Anchor ID",
+      width: 120,
+      minWidth: 100,
       render: (value: string) => value || "-",
     },
     {
       key: "active",
       label: "Active",
+      width: 100,
+      minWidth: 80,
       type: "boolean" as const,
     },
     {
       key: "updatedAt",
       label: "Last Updated",
+      width: 150,
+      minWidth: 120,
       type: "date" as const,
+    },
+    {
+      key: "updatedBy",
+      label: "Updated By",
+      width: 150,
+      minWidth: 100,
+      render: (value: string) => value || "-",
     },
   ];
 
