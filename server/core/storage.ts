@@ -496,9 +496,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getValidationResults(validationRunId: string): Promise<ValidationResult[]> {
-    return await db.select().from(validationResults)
+    const results = await db
+      .select({
+        id: validationResults.id,
+        validationRunId: validationResults.validationRunId,
+        ruleId: validationResults.ruleId,
+        billingRecordId: validationResults.billingRecordId,
+        severity: validationResults.severity,
+        category: validationResults.category,
+        message: validationResults.message,
+        affectedRecords: validationResults.affectedRecords,
+        ruleData: validationResults.ruleData,
+        createdAt: validationResults.createdAt,
+        ruleName: rules.name,
+        idRamq: validationResults.idRamq, // Fixed: read from validation_results table, not billing_records
+      })
+      .from(validationResults)
+      .leftJoin(rules, sql`${validationResults.ruleId}::uuid = ${rules.id}`)
+      .leftJoin(billingRecords, eq(validationResults.billingRecordId, billingRecords.id))
       .where(eq(validationResults.validationRunId, validationRunId))
       .orderBy(asc(validationResults.createdAt));
+
+    return results as any;
   }
 
   // Rules
