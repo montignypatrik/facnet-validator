@@ -357,83 +357,124 @@ export default function RunDetailsPage() {
           )}
 
           {/* Validation Results Details */}
-          {run.status === "completed" && validationResults && validationResults.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <AlertTriangle className="w-5 h-5 mr-2 text-amber-600" />
-                  Validation Issues ({validationResults.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {validationResults.map((result: any, index: number) => (
-                    <div key={result.id || index} className="border border-border rounded-lg p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <Badge
-                              variant={result.severity === 'error' ? 'destructive' : 'secondary'}
-                              className="text-xs"
-                            >
-                              {result.severity}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {result.category}
-                            </Badge>
-                            {result.ruleId && (
-                              <Badge variant="outline" className="text-xs">
-                                {result.ruleId}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm font-medium text-foreground mb-1">
-                            {result.message}
-                          </p>
-                          {result.ruleData && (
-                            <div className="text-xs text-muted-foreground space-y-1">
-                              {result.ruleData.code && (
-                                <p><span className="font-medium">Code:</span> {result.ruleData.code}</p>
-                              )}
-                              {result.ruleData.doctor && (
-                                <p><span className="font-medium">Doctor:</span> {result.ruleData.doctor}</p>
-                              )}
-                              {result.ruleData.date && (
-                                <p><span className="font-medium">Date:</span> {result.ruleData.date}</p>
-                              )}
-                              {result.ruleData.type && (
-                                <p><span className="font-medium">Type:</span> {result.ruleData.type}</p>
-                              )}
-                              {result.ruleData.required !== undefined && (
-                                <p><span className="font-medium">Required:</span> {result.ruleData.required}</p>
-                              )}
-                              {result.ruleData.actual !== undefined && (
-                                <p><span className="font-medium">Actual:</span> {result.ruleData.actual}</p>
-                              )}
-                              {result.ruleData.totalAmount !== undefined && (
-                                <p><span className="font-medium">Total Amount:</span> ${result.ruleData.totalAmount}</p>
-                              )}
-                              {result.ruleData.maximum !== undefined && (
-                                <p><span className="font-medium">Maximum:</span> ${result.ruleData.maximum}</p>
-                              )}
-                            </div>
-                          )}
-                          {result.affectedRecords && result.affectedRecords.length > 0 && (
-                            <div className="text-xs text-muted-foreground mt-2">
-                              <span className="font-medium">Affected Records:</span> {result.affectedRecords.length} record(s)
-                            </div>
-                          )}
+          {run.status === "completed" && validationResults && validationResults.length > 0 && (() => {
+            // Group results by RAMQ ID
+            const groupedResults = validationResults.reduce((acc: Record<string, any[]>, result: any) => {
+              const ramqId = result.idRamq || "n'existe pas";
+              if (!acc[ramqId]) {
+                acc[ramqId] = [];
+              }
+              acc[ramqId].push(result);
+              return acc;
+            }, {});
+
+            return (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <AlertTriangle className="w-5 h-5 mr-2 text-amber-600" />
+                      Issues détectées ({validationResults.length})
+                    </div>
+                    <Button variant="outline" size="sm">
+                      <Download className="w-4 h-4 mr-2" />
+                      Exporter la liste
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-8">
+                    {Object.entries(groupedResults).map(([ramqId, results]: [string, any[]]) => (
+                      <div key={ramqId} className="space-y-4">
+                        {/* RAMQ ID Header */}
+                        <div className="flex items-center space-x-2 pb-2 border-b-2 border-gray-300 dark:border-gray-700">
+                          <FileText className="w-5 h-5 text-primary" />
+                          <h3 className="text-lg font-bold text-foreground">
+                            RAMQ ID: <span className="font-mono">{ramqId}</span>
+                          </h3>
+                          <Badge variant="secondary">{results.length} problème{results.length > 1 ? 's' : ''}</Badge>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {new Date(result.createdAt).toLocaleString()}
+
+                        {/* Issues for this RAMQ ID */}
+                        <div className="space-y-4 pl-4">
+                          {results.map((result: any, index: number) => (
+                            <div key={result.id || index} className="border-l-4 border-red-500 bg-red-50 dark:bg-red-950/20 p-4 rounded-r-lg">
+                              {/* Issue Header - Rule Name First */}
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex items-center space-x-2">
+                                  <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                                  <h4 className="font-semibold text-red-900 dark:text-red-100">
+                                    {result.ruleName || "Règle de validation"}
+                                  </h4>
+                                </div>
+                              </div>
+
+                              {/* What's Wrong */}
+                              <div className="mb-3">
+                                <h5 className="text-sm font-semibold text-foreground mb-1 flex items-center">
+                                  <AlertCircle className="w-4 h-4 mr-1.5 text-red-600" />
+                                  Ce qui ne va pas
+                                </h5>
+                                <p className="text-sm text-foreground pl-5">
+                                  {result.message}
+                                </p>
+                              </div>
+
+                              {/* Details - Simplified */}
+                              <div className="mb-3 bg-white dark:bg-gray-900 rounded p-3">
+                                <h5 className="text-sm font-semibold text-foreground mb-2">Détails</h5>
+                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                  {result.ruleData?.code && (
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Code:</span>
+                                      <span className="font-mono font-medium">{result.ruleData.code}</span>
+                                    </div>
+                                  )}
+                                  {result.ruleData?.date && (
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Date:</span>
+                                      <span className="font-medium">{result.ruleData.date}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* How to Fix - Improved Translation */}
+                              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded p-3">
+                                <h5 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1 flex items-center">
+                                  <CheckCircle className="w-4 h-4 mr-1.5" />
+                                  Comment corriger
+                                </h5>
+                                <p className="text-sm text-blue-800 dark:text-blue-200 pl-5">
+                                  {result.ruleData?.establishment && !result.ruleData.establishment.startsWith('5')
+                                    ? `Vérifiez que le code ${result.ruleData.code} est utilisé dans un cabinet (établissement commençant par 5). L'établissement actuel (${result.ruleData.establishment}) ne correspond pas à un cabinet.`
+                                    : result.ruleData?.type === 'registered' && result.ruleData?.required && result.ruleData?.actual
+                                    ? `Vous avez facturé le code ${result.ruleData.code} mais le minimum de ${result.ruleData.required} patients n'a pas été atteint. Notre analyse reconnait ${result.ruleData.actual} patients. S'il vous plaît annuler le code ${result.ruleData.code}.`
+                                    : result.ruleData?.type === 'walk_in' && result.ruleData?.required && result.ruleData?.actual
+                                    ? `Vous avez facturé le code ${result.ruleData.code} mais le minimum de ${result.ruleData.required} patients n'a pas été atteint. Notre analyse reconnait ${result.ruleData.actual} patients. S'il vous plaît annuler le code ${result.ruleData.code}.`
+                                    : result.ruleData?.totalAmount && result.ruleData?.maximum
+                                    ? `Le montant total de ${result.ruleData.totalAmount}$ dépasse le maximum quotidien de ${result.ruleData.maximum}$. Vérifiez vos facturation et retirez les codes en trop.`
+                                    : "Corrigez les données selon les règles de validation RAMQ."
+                                  }
+                                </p>
+                              </div>
+
+                              {/* Affected Records */}
+                              {result.affectedRecords && result.affectedRecords.length > 0 && (
+                                <div className="mt-3 text-xs text-muted-foreground">
+                                  <span className="font-medium">Dossiers affectés:</span> {result.affectedRecords.length} enregistrement(s)
+                                </div>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* No Issues Found */}
           {run.status === "completed" && (!validationResults || validationResults.length === 0) && (
