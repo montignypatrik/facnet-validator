@@ -211,8 +211,26 @@ async function processBillingValidation(runId: string, fileName: string) {
 
     await storage.updateValidationRun(runId, { status: "processing" });
 
-    const processor = new BillingCSVProcessor(runId);
-    await processor.processFile(filePath);
+    const processor = new BillingCSVProcessor();
+    const { records, errors } = await processor.processBillingCSV(filePath, runId);
+
+    console.log(`[DEBUG] Parsed ${records.length} records with ${errors.length} errors`);
+
+    // Save billing records to database
+    if (records.length > 0) {
+      await storage.createBillingRecords(records);
+      console.log(`[DEBUG] Saved ${records.length} billing records to database`);
+    }
+
+    // Run validation
+    const validationResults = await processor.validateBillingRecords(records, runId);
+    console.log(`[DEBUG] Validation produced ${validationResults.length} results`);
+
+    // Save validation results
+    if (validationResults.length > 0) {
+      await storage.createValidationResults(validationResults);
+      console.log(`[DEBUG] Saved ${validationResults.length} validation results`);
+    }
 
     // Clean up uploaded file after processing
     try {

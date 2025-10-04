@@ -85,6 +85,54 @@ async function validateWithDatabaseRule(
   return results;
 }
 
+// Determine if a billing record is a registered or walk-in visit
+function determineVisitType(record: BillingRecord): 'registered' | 'walk-in' | null {
+  const code = record.code;
+  const category = (record as any).category || '';
+  const elementContexte = record.elementContexte || '';
+
+  // Check context tags for walk-in indicators
+  const hasWalkInContext = elementContexte.includes('#G160') || elementContexte.includes('#AR');
+
+  // Special handling for codes 8857/8859 - context tags are REQUIRED to differentiate
+  if (code === '8857' || code === '8859') {
+    if (hasWalkInContext) {
+      return 'walk-in';
+    } else {
+      return 'registered';
+    }
+  }
+
+  // For all other codes, use category to determine type
+  // Context tags are optional (category already defines the type)
+
+  // Registered visit categories
+  const registeredCategories = [
+    'Visites sur rendez-vous (patient inscrit ou non inscrit, sans égard à l\'âge)',
+    'Visites sur rendez-vous ou sans rendez-vous (patient inscrit ou non inscrit, sans égard à l\'âge)',
+    'Visites sur rendez-vous (patient de moins de 80 ans)',
+    'Visites sur rendez-vous (patient de 80 ans ou plus)'
+  ];
+
+  if (registeredCategories.some(cat => category.includes(cat))) {
+    return 'registered';
+  }
+
+  // Walk-in visit categories
+  const walkInCategories = [
+    'Visites sans rendez vous, ou sur rendez vous pour un patient non inscrit (patient de moins de 80 ans inscrit ou non inscrit)',
+    'Visites sans rendez vous, ou sur rendez vous pour un patient non inscrit (patient de 80 ans ou plus inscrit ou non inscrit)',
+    'Visites sans rendez vous'
+  ];
+
+  if (walkInCategories.some(cat => category.includes(cat))) {
+    return 'walk-in';
+  }
+
+  // Not a visit code we care about for office fee validation
+  return null;
+}
+
 // Office fee validation using database configuration
 async function validateOfficeFeeFromDatabase(
   rule: DatabaseRule,
@@ -132,16 +180,15 @@ async function validateOfficeFeeFromDatabase(
       dayData.officeFees.push(record);
       dayData.totalAmount += Number(record.montantPreliminaire || 0);
     } else if (record.patient) {
-      // Track patient visits
-      const hasWalkInContext = config.walkInContexts.some(ctx =>
-        record.elementContexte?.includes(ctx)
-      );
+      // Track patient visits based on code category AND context tags
+      const visitType = determineVisitType(record);
 
-      if (hasWalkInContext) {
+      if (visitType === 'walk-in') {
         dayData.walkInPatients.add(record.patient);
-      } else {
+      } else if (visitType === 'registered') {
         dayData.registeredPatients.add(record.patient);
       }
+      // If visitType is null, ignore this record (not a valid visit code)
     }
   }
 
@@ -152,6 +199,29 @@ async function validateOfficeFeeFromDatabase(
 
     // Check each office fee claim
     for (const officeFee of dayData.officeFees) {
+      console.log(`[OFFICE FEE DEBUG] Code: ${officeFee.code}, Establishment: ${officeFee.lieuPratique}, Doctor: ${dayData.doctor}, Date: ${dayData.date}`);
+
+      // Establishment validation: codes 19928/19929 are for cabinet only (establishment number starts with 5)
+      if (officeFee.lieuPratique && !officeFee.lieuPratique.startsWith('5')) {
+        results.push({
+          validationRunId,
+          ruleId: rule.id,
+          billingRecordId: officeFee.id,
+          severity: "error",
+          category: "office_fees",
+          message: `Code ${officeFee.code} is for cabinet only (establishment must start with 5), but found establishment ${officeFee.lieuPratique}`,
+          affectedRecords: [officeFee.id],
+          ruleData: {
+            code: officeFee.code,
+            establishment: officeFee.lieuPratique,
+            expectedPattern: "5XXXX",
+            doctor: dayData.doctor,
+            date: dayData.date
+          }
+        });
+        continue; // Skip further validation for this record
+      }
+
       const hasWalkInContext = config.walkInContexts.some(ctx =>
         officeFee.elementContexte?.includes(ctx)
       );

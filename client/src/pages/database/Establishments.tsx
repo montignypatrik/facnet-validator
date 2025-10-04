@@ -13,8 +13,25 @@ import client from "@/api/client";
 interface Establishment {
   id: string;
   name: string;
+  numero?: string;
+  nom?: string;
   type?: string;
   region?: string;
+  secteur0?: boolean;
+  secteur1?: boolean;
+  secteur2?: boolean;
+  secteur3?: boolean;
+  secteur4?: boolean;
+  secteur5?: boolean;
+  secteur6?: boolean;
+  secteur7?: boolean;
+  secteur8?: boolean;
+  ep29?: boolean;
+  le327?: boolean;
+  ep33?: boolean;
+  ep54?: boolean;
+  ep42Gmfu?: string;
+  ep42List?: string;
   active: boolean;
   notes?: string;
   customFields: Record<string, any>;
@@ -176,6 +193,20 @@ export default function EstablishmentsPage() {
       minWidth: 200,
     },
     {
+      key: "numero",
+      label: "Numero",
+      width: 120,
+      minWidth: 80,
+      render: (value: string) => value || "-",
+    },
+    {
+      key: "nom",
+      label: "Nom",
+      width: 250,
+      minWidth: 150,
+      render: (value: string) => value || "-",
+    },
+    {
       key: "type",
       label: "Type",
       width: 200,
@@ -187,6 +218,111 @@ export default function EstablishmentsPage() {
       label: "Region",
       width: 120,
       minWidth: 80,
+      render: (value: string) => value || "-",
+    },
+    {
+      key: "secteur0",
+      label: "Secteur 0",
+      width: 100,
+      minWidth: 80,
+      type: "boolean" as const,
+    },
+    {
+      key: "secteur1",
+      label: "Secteur 1",
+      width: 100,
+      minWidth: 80,
+      type: "boolean" as const,
+    },
+    {
+      key: "secteur2",
+      label: "Secteur 2",
+      width: 100,
+      minWidth: 80,
+      type: "boolean" as const,
+    },
+    {
+      key: "secteur3",
+      label: "Secteur 3",
+      width: 100,
+      minWidth: 80,
+      type: "boolean" as const,
+    },
+    {
+      key: "secteur4",
+      label: "Secteur 4",
+      width: 100,
+      minWidth: 80,
+      type: "boolean" as const,
+    },
+    {
+      key: "secteur5",
+      label: "Secteur 5",
+      width: 100,
+      minWidth: 80,
+      type: "boolean" as const,
+    },
+    {
+      key: "secteur6",
+      label: "Secteur 6",
+      width: 100,
+      minWidth: 80,
+      type: "boolean" as const,
+    },
+    {
+      key: "secteur7",
+      label: "Secteur 7",
+      width: 100,
+      minWidth: 80,
+      type: "boolean" as const,
+    },
+    {
+      key: "secteur8",
+      label: "Secteur 8",
+      width: 100,
+      minWidth: 80,
+      type: "boolean" as const,
+    },
+    {
+      key: "ep29",
+      label: "EP 29",
+      width: 100,
+      minWidth: 80,
+      type: "boolean" as const,
+    },
+    {
+      key: "le327",
+      label: "LE 327",
+      width: 100,
+      minWidth: 80,
+      type: "boolean" as const,
+    },
+    {
+      key: "ep33",
+      label: "EP 33",
+      width: 100,
+      minWidth: 80,
+      type: "boolean" as const,
+    },
+    {
+      key: "ep54",
+      label: "EP 54",
+      width: 100,
+      minWidth: 80,
+      type: "boolean" as const,
+    },
+    {
+      key: "ep42Gmfu",
+      label: "EP 42 GMFU",
+      width: 150,
+      minWidth: 100,
+      render: (value: string) => value || "-",
+    },
+    {
+      key: "ep42List",
+      label: "EP 42 List",
+      width: 150,
+      minWidth: 100,
       render: (value: string) => value || "-",
     },
     {
@@ -202,21 +338,6 @@ export default function EstablishmentsPage() {
       width: 300,
       minWidth: 150,
       render: (value: string) => value || "-",
-    },
-    {
-      key: "customFields",
-      label: "Custom Fields",
-      width: 200,
-      minWidth: 150,
-      render: (value: Record<string, any>) => {
-        if (!value || Object.keys(value).length === 0) return "-";
-        const fieldCount = Object.keys(value).length;
-        return (
-          <Badge variant="outline" className="text-xs">
-            {fieldCount} field{fieldCount !== 1 ? 's' : ''}
-          </Badge>
-        );
-      },
     },
     {
       key: "updatedAt",
