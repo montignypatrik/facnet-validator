@@ -11,6 +11,7 @@ uploads/
 
 # env & local configs
 .env
+.env.test
 client/.env
 .claude/
 *.local.json
