@@ -119,9 +119,19 @@ export class DatabaseStorage implements IStorage {
     let countQuery = db.select({ count: count() }).from(codes);
 
     if (search) {
-      const searchCondition = like(codes.code, `%${search}%`);
-      query = query.where(searchCondition);
-      countQuery = countQuery.where(searchCondition);
+      // Support comma-separated search values
+      const searchTerms = search.split(',').map(term => term.trim()).filter(term => term.length > 0);
+
+      if (searchTerms.length > 0) {
+        // Build OR conditions for multiple search terms
+        const searchConditions = searchTerms.map(term => like(codes.code, `%${term}%`));
+        const combinedCondition = searchConditions.length === 1
+          ? searchConditions[0]
+          : or(...searchConditions);
+
+        query = query.where(combinedCondition);
+        countQuery = countQuery.where(combinedCondition);
+      }
     }
 
     const [data, totalResult] = await Promise.all([
@@ -176,9 +186,18 @@ export class DatabaseStorage implements IStorage {
     let countQuery = db.select({ count: count() }).from(contexts);
 
     if (search) {
-      const searchCondition = like(contexts.name, `%${search}%`);
-      query = query.where(searchCondition);
-      countQuery = countQuery.where(searchCondition);
+      // Support comma-separated search values
+      const searchTerms = search.split(',').map(term => term.trim()).filter(term => term.length > 0);
+
+      if (searchTerms.length > 0) {
+        const searchConditions = searchTerms.map(term => like(contexts.name, `%${term}%`));
+        const combinedCondition = searchConditions.length === 1
+          ? searchConditions[0]
+          : or(...searchConditions);
+
+        query = query.where(combinedCondition);
+        countQuery = countQuery.where(combinedCondition);
+      }
     }
 
     const [data, totalResult] = await Promise.all([
@@ -237,9 +256,18 @@ export class DatabaseStorage implements IStorage {
     let countQuery = db.select({ count: count() }).from(establishments);
 
     if (search) {
-      const searchCondition = like(establishments.name, `%${search}%`);
-      query = query.where(searchCondition);
-      countQuery = countQuery.where(searchCondition);
+      // Support comma-separated search values
+      const searchTerms = search.split(',').map(term => term.trim()).filter(term => term.length > 0);
+
+      if (searchTerms.length > 0) {
+        const searchConditions = searchTerms.map(term => like(establishments.name, `%${term}%`));
+        const combinedCondition = searchConditions.length === 1
+          ? searchConditions[0]
+          : or(...searchConditions);
+
+        query = query.where(combinedCondition);
+        countQuery = countQuery.where(combinedCondition);
+      }
     }
 
     const [data, totalResult] = await Promise.all([
@@ -300,9 +328,18 @@ export class DatabaseStorage implements IStorage {
     let countQuery = db.select({ count: count() }).from(rules);
 
     if (search) {
-      const searchCondition = like(rules.name, `%${search}%`);
-      query = query.where(searchCondition);
-      countQuery = countQuery.where(searchCondition);
+      // Support comma-separated search values
+      const searchTerms = search.split(',').map(term => term.trim()).filter(term => term.length > 0);
+
+      if (searchTerms.length > 0) {
+        const searchConditions = searchTerms.map(term => like(rules.name, `%${term}%`));
+        const combinedCondition = searchConditions.length === 1
+          ? searchConditions[0]
+          : or(...searchConditions);
+
+        query = query.where(combinedCondition);
+        countQuery = countQuery.where(combinedCondition);
+      }
     }
 
     const [data, totalResult] = await Promise.all([

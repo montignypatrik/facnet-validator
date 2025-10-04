@@ -14,6 +14,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Popover,
@@ -21,7 +24,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { Search, MoreHorizontal, Plus, Upload, Download, RefreshCw, Filter, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Search, MoreHorizontal, Plus, Upload, Download, RefreshCw, Filter, X, Columns } from "lucide-react";
 
 interface Column {
   key: string;
@@ -45,8 +49,8 @@ interface DataTableProps {
   searchValue?: string;
   onSearchChange?: (value: string) => void;
   title?: string;
-  columnFilters?: Record<string, string>;
-  onColumnFiltersChange?: (filters: Record<string, string>) => void;
+  columnFilters?: Record<string, string[]>;
+  onColumnFiltersChange?: (filters: Record<string, string[]>) => void;
   allData?: any[]; // For getting unique values from all data, not just current page
 }
 
@@ -76,7 +80,16 @@ export function DataTable({
   });
 
   const [resizing, setResizing] = useState<{ key: string; startX: number; startWidth: number } | null>(null);
-  const [internalColumnFilters, setInternalColumnFilters] = useState<Record<string, string>>({});
+  const [internalColumnFilters, setInternalColumnFilters] = useState<Record<string, string[]>>({});
+
+  // Column visibility state - all visible by default
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() => {
+    const initialVisibility: Record<string, boolean> = {};
+    columns.forEach((col) => {
+      initialVisibility[col.key] = true;
+    });
+    return initialVisibility;
+  });
 
   // Use external filters if provided, otherwise use internal state
   const columnFilters = externalColumnFilters !== undefined ? externalColumnFilters : internalColumnFilters;
@@ -125,8 +138,8 @@ export function DataTable({
   const filteredData = onColumnFiltersChange
     ? data // Server-side filtering - don't filter client-side
     : data.filter((row) => {
-        return Object.entries(columnFilters).every(([key, filterValue]) => {
-          if (!filterValue) return true;
+        return Object.entries(columnFilters).every(([key, filterValues]) => {
+          if (!filterValues || filterValues.length === 0) return true;
           const cellValue = row[key];
           if (cellValue === null || cellValue === undefined) return false;
 
@@ -135,16 +148,28 @@ export function DataTable({
             ? JSON.stringify(cellValue).toLowerCase()
             : String(cellValue).toLowerCase();
 
-          return cellString.includes(filterValue.toLowerCase());
+          // Check if cell value matches ANY of the selected filter values
+          return filterValues.some(filterValue =>
+            cellString.includes(filterValue.toLowerCase())
+          );
         });
       });
 
-  const handleFilterChange = (columnKey: string, value: string) => {
+  const handleFilterToggle = (columnKey: string, value: string) => {
     const newFilters = { ...columnFilters };
-    if (!value) {
-      delete newFilters[columnKey];
+    const currentValues = newFilters[columnKey] || [];
+
+    if (currentValues.includes(value)) {
+      // Remove value
+      const updatedValues = currentValues.filter(v => v !== value);
+      if (updatedValues.length === 0) {
+        delete newFilters[columnKey];
+      } else {
+        newFilters[columnKey] = updatedValues;
+      }
     } else {
-      newFilters[columnKey] = value;
+      // Add value
+      newFilters[columnKey] = [...currentValues, value];
     }
 
     if (onColumnFiltersChange) {
@@ -162,7 +187,18 @@ export function DataTable({
     }
   };
 
-  const activeFilterCount = Object.keys(columnFilters).length;
+  const activeFilterCount = Object.values(columnFilters).reduce((sum, values) => sum + values.length, 0);
+
+  // Toggle column visibility
+  const toggleColumnVisibility = (columnKey: string) => {
+    setColumnVisibility(prev => ({
+      ...prev,
+      [columnKey]: !prev[columnKey]
+    }));
+  };
+
+  // Get visible columns
+  const visibleColumns = columns.filter(col => columnVisibility[col.key]);
 
   // Get unique values for a column
   const getUniqueValues = (columnKey: string): string[] => {
@@ -250,6 +286,27 @@ export function DataTable({
               Clear Filters ({activeFilterCount})
             </Button>
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" data-testid="button-columns">
+                <Columns className="w-4 h-4 mr-2" />
+                Columns
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {columns.map((column) => (
+                <DropdownMenuCheckboxItem
+                  key={column.key}
+                  checked={columnVisibility[column.key]}
+                  onCheckedChange={() => toggleColumnVisibility(column.key)}
+                >
+                  {column.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
           {onExport && (
             <Button variant="outline" onClick={onExport} data-testid="button-export">
               <Download className="w-4 h-4" />
@@ -268,7 +325,7 @@ export function DataTable({
         <Table style={{ minWidth: 'max-content' }}>
           <TableHeader>
             <TableRow>
-              {columns.map((column) => (
+              {visibleColumns.map((column) => (
                 <TableHead
                   key={column.key}
                   style={{
@@ -294,11 +351,19 @@ export function DataTable({
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">Filter {column.label}</span>
-                            {columnFilters[column.key] && (
+                            {columnFilters[column.key] && columnFilters[column.key].length > 0 && (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleFilterChange(column.key, '')}
+                                onClick={() => {
+                                  const newFilters = { ...columnFilters };
+                                  delete newFilters[column.key];
+                                  if (onColumnFiltersChange) {
+                                    onColumnFiltersChange(newFilters);
+                                  } else {
+                                    setInternalColumnFilters(newFilters);
+                                  }
+                                }}
                                 className="h-6 px-2"
                               >
                                 <X className="w-3 h-3" />
@@ -312,19 +377,25 @@ export function DataTable({
                               </div>
                             ) : (
                               <div className="divide-y">
-                                {getUniqueValues(column.key).map((value) => (
-                                  <button
-                                    key={value}
-                                    onClick={() => handleFilterChange(column.key, value)}
-                                    className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors ${
-                                      columnFilters[column.key] === value ? 'bg-accent font-medium' : ''
-                                    }`}
-                                  >
-                                    <div className="truncate" title={value}>
-                                      {value || "(empty)"}
+                                {getUniqueValues(column.key).map((value) => {
+                                  const isChecked = columnFilters[column.key]?.includes(value) || false;
+                                  return (
+                                    <div
+                                      key={value}
+                                      className="flex items-center gap-2 px-3 py-2 hover:bg-accent cursor-pointer"
+                                      onClick={() => handleFilterToggle(column.key, value)}
+                                    >
+                                      <Checkbox
+                                        checked={isChecked}
+                                        onCheckedChange={() => handleFilterToggle(column.key, value)}
+                                        onClick={(e) => e.stopPropagation()}
+                                      />
+                                      <div className="flex-1 truncate text-sm" title={value}>
+                                        {value || "(empty)"}
+                                      </div>
                                     </div>
-                                  </button>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
@@ -351,7 +422,7 @@ export function DataTable({
             {loading ? (
               Array.from({ length: 5 }).map((_, index) => (
                 <TableRow key={index}>
-                  {columns.map((column) => (
+                  {visibleColumns.map((column) => (
                     <TableCell key={column.key}>
                       <div className="h-4 bg-muted rounded animate-pulse" />
                     </TableCell>
@@ -365,7 +436,7 @@ export function DataTable({
               ))
             ) : filteredData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={columns.length + (onEdit || onDelete ? 1 : 0)} className="text-center py-8">
+                <TableCell colSpan={visibleColumns.length + (onEdit || onDelete ? 1 : 0)} className="text-center py-8">
                   <div className="text-muted-foreground">
                     {data.length === 0 ? (
                       <>
@@ -402,7 +473,7 @@ export function DataTable({
             ) : (
               filteredData.map((row, index) => (
                 <TableRow key={row.id || index} data-testid={`row-${index}`}>
-                  {columns.map((column) => (
+                  {visibleColumns.map((column) => (
                     <TableCell
                       key={column.key}
                       data-testid={`cell-${column.key}-${index}`}

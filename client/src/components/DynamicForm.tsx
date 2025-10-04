@@ -49,36 +49,58 @@ export function DynamicForm({ tableName, initialData, onSubmit, onCancel, isLoad
     },
   });
 
+  // Get all field keys from initialData
+  const getAllFieldKeys = () => {
+    if (!initialData) return [];
+    const excludedFields = ['id', 'createdAt', 'updatedAt', 'updatedBy', 'customFields'];
+    return Object.keys(initialData).filter(key => !excludedFields.includes(key));
+  };
+
   // Build dynamic schema
   const buildSchema = () => {
     const schemaShape: Record<string, z.ZodType> = {};
 
-    // Add core fields based on table
-    switch (tableName) {
-      case "codes":
-        schemaShape.code = z.string().min(1, "Code is required");
-        schemaShape.description = z.string().min(1, "Description is required");
-        schemaShape.category = z.string().optional();
-        schemaShape.active = z.boolean().default(true);
-        break;
-      case "contexts":
-        schemaShape.name = z.string().min(1, "Name is required");
-        schemaShape.description = z.string().optional();
-        schemaShape.tags = z.array(z.string()).optional();
-        break;
-      case "establishments":
-        schemaShape.name = z.string().min(1, "Name is required");
-        schemaShape.type = z.string().optional();
-        schemaShape.region = z.string().optional();
-        schemaShape.active = z.boolean().default(true);
-        schemaShape.notes = z.string().optional();
-        break;
-      case "rules":
-        schemaShape.name = z.string().min(1, "Name is required");
-        schemaShape.condition = z.string().min(1, "Condition is required");
-        schemaShape.threshold = z.string().optional();
-        schemaShape.enabled = z.boolean().default(true);
-        break;
+    // Add all fields from initialData dynamically
+    if (initialData) {
+      getAllFieldKeys().forEach(key => {
+        const value = initialData[key];
+
+        if (typeof value === 'boolean') {
+          schemaShape[key] = z.boolean().optional();
+        } else if (typeof value === 'number') {
+          schemaShape[key] = z.union([z.string(), z.number()]).optional();
+        } else {
+          schemaShape[key] = z.string().optional();
+        }
+      });
+    } else {
+      // Fallback to hardcoded required fields for creation
+      switch (tableName) {
+        case "codes":
+          schemaShape.code = z.string().min(1, "Code is required");
+          schemaShape.description = z.string().min(1, "Description is required");
+          schemaShape.category = z.string().optional();
+          schemaShape.active = z.boolean().default(true);
+          break;
+        case "contexts":
+          schemaShape.name = z.string().min(1, "Name is required");
+          schemaShape.description = z.string().optional();
+          schemaShape.tags = z.array(z.string()).optional();
+          break;
+        case "establishments":
+          schemaShape.name = z.string().min(1, "Name is required");
+          schemaShape.type = z.string().optional();
+          schemaShape.region = z.string().optional();
+          schemaShape.active = z.boolean().default(true);
+          schemaShape.notes = z.string().optional();
+          break;
+        case "rules":
+          schemaShape.name = z.string().min(1, "Name is required");
+          schemaShape.condition = z.string().min(1, "Condition is required");
+          schemaShape.threshold = z.string().optional();
+          schemaShape.enabled = z.boolean().default(true);
+          break;
+      }
     }
 
     // Add custom fields from catalog
@@ -156,9 +178,22 @@ export function DynamicForm({ tableName, initialData, onSubmit, onCancel, isLoad
     });
   };
 
+  // Format field key to readable label
+  const formatLabel = (key: string) => {
+    return key
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/_/g, ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+      .trim();
+  };
+
   const renderField = (fieldKey: string, field: FieldCatalogItem | null, isCore = false) => {
     const name = isCore ? fieldKey : `customFields.${fieldKey}`;
-    
+    const value = initialData?.[fieldKey];
+    const fieldType = field?.type || (typeof value === 'boolean' ? 'boolean' : 'text');
+
     return (
       <FormField
         key={name}
@@ -167,7 +202,7 @@ export function DynamicForm({ tableName, initialData, onSubmit, onCancel, isLoad
         render={({ field: formField }) => (
           <FormItem>
             <FormLabel>
-              {field?.label || fieldKey}
+              {field?.label || formatLabel(fieldKey)}
               {field?.required && <span className="text-red-500 ml-1">*</span>}
               {field?.uniqueField && (
                 <Badge variant="outline" className="ml-2">
@@ -177,12 +212,12 @@ export function DynamicForm({ tableName, initialData, onSubmit, onCancel, isLoad
             </FormLabel>
             <FormControl>
               {(() => {
-                switch (field?.type) {
+                switch (fieldType) {
                   case "textarea":
                     return (
                       <Textarea
                         {...formField}
-                        placeholder={field.defaultValue}
+                        placeholder={field?.defaultValue}
                         data-testid={`input-${fieldKey}`}
                       />
                     );
@@ -190,7 +225,7 @@ export function DynamicForm({ tableName, initialData, onSubmit, onCancel, isLoad
                     return (
                       <div className="flex items-center space-x-2">
                         <Checkbox
-                          checked={formField.value}
+                          checked={formField.value === true || formField.value === 'true'}
                           onCheckedChange={formField.onChange}
                           data-testid={`checkbox-${fieldKey}`}
                         />
@@ -207,7 +242,7 @@ export function DynamicForm({ tableName, initialData, onSubmit, onCancel, isLoad
                           <SelectValue placeholder="Select an option" />
                         </SelectTrigger>
                         <SelectContent>
-                          {field.options?.map((option) => (
+                          {field?.options?.map((option) => (
                             <SelectItem key={option} value={option}>
                               {option}
                             </SelectItem>
@@ -218,7 +253,7 @@ export function DynamicForm({ tableName, initialData, onSubmit, onCancel, isLoad
                   case "multiselect":
                     return (
                       <div className="space-y-2">
-                        {field.options?.map((option) => (
+                        {field?.options?.map((option) => (
                           <div key={option} className="flex items-center space-x-2">
                             <Checkbox
                               checked={(formField.value as string[])?.includes(option)}
@@ -237,13 +272,24 @@ export function DynamicForm({ tableName, initialData, onSubmit, onCancel, isLoad
                         ))}
                       </div>
                     );
+                  case "number":
+                    return (
+                      <Input
+                        {...formField}
+                        type="number"
+                        step="any"
+                        placeholder={field?.defaultValue}
+                        data-testid={`input-${fieldKey}`}
+                      />
+                    );
                   default:
                     return (
                       <Input
                         {...formField}
-                        type={field?.type === "number" ? "number" : "text"}
+                        type="text"
                         placeholder={field?.defaultValue}
                         data-testid={`input-${fieldKey}`}
+                        value={formField.value || ''}
                       />
                     );
                 }
@@ -263,45 +309,60 @@ export function DynamicForm({ tableName, initialData, onSubmit, onCancel, isLoad
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Core fields */}
-          {tableName === "codes" && (
+          {/* If editing (initialData exists), show ALL fields from the row */}
+          {initialData ? (
             <>
-              {renderField("code", null, true)}
-              {renderField("description", null, true)}
-              {renderField("category", null, true)}
-              {renderField("active", { type: "boolean" } as any, true)}
+              {getAllFieldKeys().map((fieldKey) =>
+                renderField(fieldKey, null, true)
+              )}
+              {/* Custom fields */}
+              {fieldCatalog.map((field) =>
+                renderField(field.fieldKey, field)
+              )}
             </>
-          )}
-
-          {tableName === "contexts" && (
+          ) : (
+            /* If creating new, show only required fields */
             <>
-              {renderField("name", null, true)}
-              {renderField("description", { type: "textarea" } as any, true)}
-            </>
-          )}
+              {tableName === "codes" && (
+                <>
+                  {renderField("code", null, true)}
+                  {renderField("description", null, true)}
+                  {renderField("category", null, true)}
+                  {renderField("active", { type: "boolean" } as any, true)}
+                </>
+              )}
 
-          {tableName === "establishments" && (
-            <>
-              {renderField("name", null, true)}
-              {renderField("type", null, true)}
-              {renderField("region", null, true)}
-              {renderField("active", { type: "boolean" } as any, true)}
-              {renderField("notes", { type: "textarea" } as any, true)}
-            </>
-          )}
+              {tableName === "contexts" && (
+                <>
+                  {renderField("name", null, true)}
+                  {renderField("description", { type: "textarea" } as any, true)}
+                </>
+              )}
 
-          {tableName === "rules" && (
-            <>
-              {renderField("name", null, true)}
-              {renderField("condition", { type: "textarea" } as any, true)}
-              {renderField("threshold", null, true)}
-              {renderField("enabled", { type: "boolean" } as any, true)}
-            </>
-          )}
+              {tableName === "establishments" && (
+                <>
+                  {renderField("name", null, true)}
+                  {renderField("type", null, true)}
+                  {renderField("region", null, true)}
+                  {renderField("active", { type: "boolean" } as any, true)}
+                  {renderField("notes", { type: "textarea" } as any, true)}
+                </>
+              )}
 
-          {/* Custom fields */}
-          {fieldCatalog.map((field) => 
-            renderField(field.fieldKey, field)
+              {tableName === "rules" && (
+                <>
+                  {renderField("name", null, true)}
+                  {renderField("condition", { type: "textarea" } as any, true)}
+                  {renderField("threshold", null, true)}
+                  {renderField("enabled", { type: "boolean" } as any, true)}
+                </>
+              )}
+
+              {/* Custom fields */}
+              {fieldCatalog.map((field) =>
+                renderField(field.fieldKey, field)
+              )}
+            </>
           )}
         </div>
 
