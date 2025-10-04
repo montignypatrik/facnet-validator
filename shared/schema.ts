@@ -161,6 +161,45 @@ export const validationResults = pgTable("validation_results", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ==================== CHATBOT MODULE ====================
+
+// Conversations table - stores chat conversation metadata
+export const conversations = pgTable("conversations", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(), // Auto-generated from first message or user-defined
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Messages table - stores individual messages in conversations
+export const messageRoleEnum = pgEnum("message_role", ["user", "assistant"]);
+
+export const messages = pgTable("messages", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: uuid("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  role: messageRoleEnum("role").notNull(), // user or assistant
+  content: text("content").notNull(), // Message text
+  metadata: jsonb("metadata").default({}).notNull(), // Store response time, model used, etc.
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Relations
+export const conversationsRelations = relations(conversations, ({ many, one }) => ({
+  messages: many(messages),
+  user: one(users, {
+    fields: [conversations.userId],
+    references: [users.id],
+  }),
+}));
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  conversation: one(conversations, {
+    fields: [messages.conversationId],
+    references: [conversations.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCodeSchema = createInsertSchema(codes).omit({ updatedAt: true });
@@ -172,6 +211,8 @@ export const insertValidationRunSchema = createInsertSchema(validationRuns).omit
 export const insertFileSchema = createInsertSchema(files).omit({ id: true, uploadedAt: true });
 export const insertBillingRecordSchema = createInsertSchema(billingRecords).omit({ id: true, createdAt: true });
 export const insertValidationResultSchema = createInsertSchema(validationResults).omit({ id: true, createdAt: true });
+export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
 
 // Select schemas
 export const selectUserSchema = createSelectSchema(users);
@@ -184,6 +225,8 @@ export const selectValidationRunSchema = createSelectSchema(validationRuns);
 export const selectFileSchema = createSelectSchema(files);
 export const selectBillingRecordSchema = createSelectSchema(billingRecords);
 export const selectValidationResultSchema = createSelectSchema(validationResults);
+export const selectConversationSchema = createSelectSchema(conversations);
+export const selectMessageSchema = createSelectSchema(messages);
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -206,3 +249,7 @@ export type InsertBillingRecord = z.infer<typeof insertBillingRecordSchema>;
 export type BillingRecord = typeof billingRecords.$inferSelect;
 export type InsertValidationResult = z.infer<typeof insertValidationResultSchema>;
 export type ValidationResult = typeof validationResults.$inferSelect;
+export type InsertConversation = z.infer<typeof insertConversationSchema>;
+export type Conversation = typeof conversations.$inferSelect;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type Message = typeof messages.$inferSelect;

@@ -30,6 +30,7 @@ export async function registerModules(app: Express): Promise<void> {
   const databaseRoutes = (await import("./modules/database/routes")).default;
   const administrationRoutes = (await import("./modules/administration/routes")).default;
   const chatbotRoutes = (await import("./modules/chatbot/routes")).default;
+  const chatbotChatRoutes = (await import("./modules/chatbot/routes-chat")).default;
 
   // Define modules
   const modules: DashModule[] = [
@@ -67,6 +68,13 @@ export async function registerModules(app: Express): Promise<void> {
       version: "1.0.0",
       description: "AI-powered medical billing assistant (Ollama)",
       router: chatbotRoutes,
+      enabled: true,
+    },
+    {
+      name: "chatbot-chat",
+      version: "1.0.0",
+      description: "Chatbot conversation and message management",
+      router: chatbotChatRoutes,
       enabled: true,
     },
   ];
