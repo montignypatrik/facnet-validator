@@ -29,6 +29,7 @@ export async function registerModules(app: Express): Promise<void> {
   const validateurRoutes = (await import("./modules/validateur/routes")).default;
   const databaseRoutes = (await import("./modules/database/routes")).default;
   const administrationRoutes = (await import("./modules/administration/routes")).default;
+  const chatbotRoutes = (await import("./modules/chatbot/routes")).default;
 
   // Define modules
   const modules: DashModule[] = [
@@ -60,6 +61,13 @@ export async function registerModules(app: Express): Promise<void> {
       router: administrationRoutes,
       enabled: true,
       requiredRole: "admin",
+    },
+    {
+      name: "chatbot",
+      version: "1.0.0",
+      description: "AI-powered medical billing assistant (Ollama)",
+      router: chatbotRoutes,
+      enabled: true,
     },
   ];
 
@@ -103,8 +111,8 @@ export async function getModuleList(): Promise<Array<{ name: string; version: st
     {
       name: "chatbot",
       version: "1.0.0",
-      description: "AI-powered business assistant",
-      enabled: false, // Coming soon
+      description: "AI-powered medical billing assistant",
+      enabled: true,
     },
     {
       name: "tache",
