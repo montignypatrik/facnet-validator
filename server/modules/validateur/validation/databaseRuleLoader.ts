@@ -197,28 +197,38 @@ async function validateOfficeFeeFromDatabase(
     const registeredCount = dayData.registeredPatients.size;
     const walkInCount = dayData.walkInPatients.size;
 
-    // Check each office fee claim
+    // Group office fees by error type and RAMQ ID for consolidated error messages
+    const errorGroups = new Map<string, {
+      ramqIds: Set<string>;
+      billingRecordIds: string[];
+      code: string;
+      type: string;
+      required: number;
+      actual: number;
+      establishment?: string;
+    }>();
+
+    // Check each office fee claim and group by error type
     for (const officeFee of dayData.officeFees) {
       console.log(`[OFFICE FEE DEBUG] Code: ${officeFee.code}, Establishment: ${officeFee.lieuPratique}, Doctor: ${dayData.doctor}, Date: ${dayData.date}`);
 
       // Establishment validation: codes 19928/19929 are for cabinet only (establishment number starts with 5)
       if (officeFee.lieuPratique && !officeFee.lieuPratique.startsWith('5')) {
-        results.push({
-          validationRunId,
-          ruleId: rule.id,
-          billingRecordId: officeFee.id,
-          severity: "error",
-          category: "office_fees",
-          message: `Code ${officeFee.code} is for cabinet only (establishment must start with 5), but found establishment ${officeFee.lieuPratique}`,
-          affectedRecords: [officeFee.id],
-          ruleData: {
+        const errorKey = `establishment_${officeFee.code}`;
+        if (!errorGroups.has(errorKey)) {
+          errorGroups.set(errorKey, {
+            ramqIds: new Set(),
+            billingRecordIds: [],
             code: officeFee.code,
-            establishment: officeFee.lieuPratique,
-            expectedPattern: "5XXXX",
-            doctor: dayData.doctor,
-            date: dayData.date
-          }
-        });
+            type: 'establishment',
+            required: 0,
+            actual: 0,
+            establishment: officeFee.lieuPratique
+          });
+        }
+        const group = errorGroups.get(errorKey)!;
+        group.ramqIds.add(officeFee.idRamq || "N'existe pas");
+        group.billingRecordIds.push(officeFee.id);
         continue; // Skip further validation for this record
       }
 
@@ -232,60 +242,131 @@ async function validateOfficeFeeFromDatabase(
       if (hasWalkInContext) {
         // Walk-in validation
         if (walkInCount < codeThresholds.walkIn) {
-          results.push({
-            validationRunId,
-            ruleId: rule.id,
-            billingRecordId: officeFee.id,
-            severity: "error",
-            category: "office_fees",
-            message: `Code ${officeFee.code} (walk-in) requires minimum ${codeThresholds.walkIn} walk-in patients but only ${walkInCount} found for ${dayData.doctor} on ${dayData.date}`,
-            affectedRecords: [officeFee.id],
-            ruleData: {
+          const errorKey = `walk_in_${officeFee.code}`;
+          if (!errorGroups.has(errorKey)) {
+            errorGroups.set(errorKey, {
+              ramqIds: new Set(),
+              billingRecordIds: [],
               code: officeFee.code,
-              type: "walk_in",
+              type: 'walk_in',
               required: codeThresholds.walkIn,
-              actual: walkInCount,
-              doctor: dayData.doctor,
-              date: dayData.date
-            }
-          });
+              actual: walkInCount
+            });
+          }
+          const group = errorGroups.get(errorKey)!;
+          group.ramqIds.add(officeFee.idRamq || "N'existe pas");
+          group.billingRecordIds.push(officeFee.id);
         }
       } else {
         // Registered patient validation
         if (registeredCount < codeThresholds.registered) {
-          results.push({
-            validationRunId,
-            ruleId: rule.id,
-            billingRecordId: officeFee.id,
-            severity: "error",
-            category: "office_fees",
-            message: `Code ${officeFee.code} (registered) requires minimum ${codeThresholds.registered} registered patients but only ${registeredCount} found for ${dayData.doctor} on ${dayData.date}`,
-            affectedRecords: [officeFee.id],
-            ruleData: {
+          const errorKey = `registered_${officeFee.code}`;
+          if (!errorGroups.has(errorKey)) {
+            errorGroups.set(errorKey, {
+              ramqIds: new Set(),
+              billingRecordIds: [],
               code: officeFee.code,
-              type: "registered",
+              type: 'registered',
               required: codeThresholds.registered,
-              actual: registeredCount,
-              doctor: dayData.doctor,
-              date: dayData.date
-            }
-          });
+              actual: registeredCount
+            });
+          }
+          const group = errorGroups.get(errorKey)!;
+          group.ramqIds.add(officeFee.idRamq || "N'existe pas");
+          group.billingRecordIds.push(officeFee.id);
         }
+      }
+    }
+
+    // Create one validation result per error group (grouped by RAMQ ID)
+    for (const [errorKey, group] of errorGroups.entries()) {
+      const ramqList = Array.from(group.ramqIds).sort().join(', ');
+      const count = group.billingRecordIds.length;
+
+      if (group.type === 'establishment') {
+        results.push({
+          validationRunId,
+          ruleId: rule.id,
+          billingRecordId: group.billingRecordIds[0], // Use first record ID
+          idRamq: ramqList, // Add RAMQ ID at top level
+          severity: "error",
+          category: "office_fees",
+          message: `Code ${group.code} (${count}×) is for cabinet only (establishment must start with 5), but found establishment ${group.establishment}. RAMQ IDs: ${ramqList}`,
+          affectedRecords: group.billingRecordIds,
+          ruleData: {
+            code: group.code,
+            count: count,
+            ramqIds: ramqList,
+            establishment: group.establishment,
+            expectedPattern: "5XXXX",
+            doctor: dayData.doctor,
+            date: dayData.date
+          }
+        });
+      } else if (group.type === 'walk_in') {
+        results.push({
+          validationRunId,
+          ruleId: rule.id,
+          billingRecordId: group.billingRecordIds[0], // Use first record ID
+          idRamq: ramqList, // Add RAMQ ID at top level
+          severity: "error",
+          category: "office_fees",
+          message: `Code ${group.code} (${count}×) walk-in requires minimum ${group.required} walk-in patients but only ${group.actual} found for ${dayData.doctor} on ${dayData.date}. RAMQ IDs: ${ramqList}`,
+          affectedRecords: group.billingRecordIds,
+          ruleData: {
+            code: group.code,
+            count: count,
+            ramqIds: ramqList,
+            type: "walk_in",
+            required: group.required,
+            actual: group.actual,
+            doctor: dayData.doctor,
+            date: dayData.date
+          }
+        });
+      } else if (group.type === 'registered') {
+        results.push({
+          validationRunId,
+          ruleId: rule.id,
+          billingRecordId: group.billingRecordIds[0], // Use first record ID
+          idRamq: ramqList, // Add RAMQ ID at top level
+          severity: "error",
+          category: "office_fees",
+          message: `Code ${group.code} (${count}×) registered requires minimum ${group.required} registered patients but only ${group.actual} found for ${dayData.doctor} on ${dayData.date}. RAMQ IDs: ${ramqList}`,
+          affectedRecords: group.billingRecordIds,
+          ruleData: {
+            code: group.code,
+            count: count,
+            ramqIds: ramqList,
+            type: "registered",
+            required: group.required,
+            actual: group.actual,
+            doctor: dayData.doctor,
+            date: dayData.date
+          }
+        });
       }
     }
 
     // Check daily maximum
     if (dayData.totalAmount > config.dailyMaximum) {
       const affectedIds = dayData.officeFees.map(fee => fee.id).filter(id => id !== null) as string[];
+      const ramqIds = dayData.officeFees.map(fee => fee.idRamq || "N'existe pas");
+      const uniqueRamqIds = Array.from(new Set(ramqIds)).sort().join(', ');
+      const count = dayData.officeFees.length;
+
       results.push({
         validationRunId,
         ruleId: rule.id,
-        billingRecordId: null,
+        billingRecordId: dayData.officeFees[0]?.id || null,
+        idRamq: uniqueRamqIds, // Add RAMQ ID at top level
         severity: "error",
         category: "office_fees",
-        message: `Daily office fee maximum of $${config.dailyMaximum.toFixed(2)} exceeded for ${dayData.doctor} on ${dayData.date} (total: $${dayData.totalAmount.toFixed(2)})`,
+        message: `Daily office fee maximum of $${config.dailyMaximum.toFixed(2)} exceeded for ${dayData.doctor} on ${dayData.date} (total: $${dayData.totalAmount.toFixed(2)}, ${count}× office fees). RAMQ IDs: ${uniqueRamqIds}`,
         affectedRecords: affectedIds,
         ruleData: {
+          count: count,
+          ramqIds: uniqueRamqIds,
           doctor: dayData.doctor,
           date: dayData.date,
           totalAmount: dayData.totalAmount,
