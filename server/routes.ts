@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import cors from "cors";
 import { registerModules, getModuleList } from "./moduleRegistry";
+import { cacheService } from "./cache/index.js";
 
 /**
  * Dash Application Routes
@@ -45,6 +46,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching modules:", error);
       res.status(500).json({ error: "Failed to fetch modules" });
+    }
+  });
+
+  // Cache statistics endpoint
+  app.get("/api/cache/stats", (req, res) => {
+    try {
+      const stats = cacheService.getStats();
+      res.json({
+        status: "success",
+        data: stats,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error fetching cache stats:", error);
+      res.status(500).json({ error: "Failed to fetch cache statistics" });
     }
   });
 
