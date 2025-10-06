@@ -24,6 +24,9 @@ import {
   Moon,
   Monitor,
   Palette,
+  Eye,
+  EyeOff,
+  Lock,
 } from "lucide-react";
 import client from "@/api/client";
 import { useTheme, type ThemeMode } from "@/lib/theme";
@@ -39,6 +42,35 @@ export default function SettingsPage() {
   const [profileData, setProfileData] = useState({
     name: user?.name || "",
     email: user?.email || "",
+  });
+
+  // PHI redaction state
+  const [phiRedactionEnabled, setPhiRedactionEnabled] = useState(user?.phiRedactionEnabled ?? true);
+
+  // PHI preference mutation
+  const updatePhiPreferenceMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const response = await client.patch(`/users/${user?.id}`, {
+        phiRedactionEnabled: enabled
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/user"] });
+      toast({
+        title: "Success",
+        description: "PHI visibility preference updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.response?.data?.error || "Failed to update PHI preference",
+        variant: "destructive",
+      });
+      // Revert on error
+      setPhiRedactionEnabled(user?.phiRedactionEnabled ?? true);
+    },
   });
 
   // Field catalog management
@@ -699,6 +731,90 @@ export default function SettingsPage() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* PHI Redaction Settings - Admin Only */}
+              {user?.role === "admin" && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Lock className="w-5 h-5 mr-2" />
+                      PHI Visibility
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Alert className="mb-4">
+                      <Shield className="h-4 w-4" />
+                      <AlertDescription>
+                        <strong>Protected Health Information (PHI) Redaction</strong>
+                        <br />
+                        By default, patient IDs and doctor information are redacted for privacy.
+                        As an admin, you can disable redaction to view full PHI when needed for support or debugging.
+                      </AlertDescription>
+                    </Alert>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-4 border border-border rounded-lg">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            {phiRedactionEnabled ? (
+                              <EyeOff className="w-5 h-5 text-green-600" />
+                            ) : (
+                              <Eye className="w-5 h-5 text-amber-600" />
+                            )}
+                            <h4 className="font-medium">
+                              {phiRedactionEnabled ? "PHI Redaction Enabled" : "PHI Visible (Redaction Disabled)"}
+                            </h4>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {phiRedactionEnabled
+                              ? "Patient IDs and doctor information are currently redacted for privacy compliance."
+                              : "You are viewing full unredacted PHI data. All access is logged for audit purposes."}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={!phiRedactionEnabled}
+                          onCheckedChange={(checked) => {
+                            const newValue = !checked;
+                            setPhiRedactionEnabled(newValue);
+                            updatePhiPreferenceMutation.mutate(newValue);
+                          }}
+                          disabled={updatePhiPreferenceMutation.isPending}
+                          data-testid="switch-phi-visibility"
+                        />
+                      </div>
+
+                      {/* Info about what gets redacted */}
+                      <div className="bg-muted p-4 rounded-lg space-y-2 text-sm">
+                        <h5 className="font-medium">What gets redacted:</h5>
+                        <ul className="space-y-1 ml-4">
+                          <li className="flex items-start">
+                            <CheckCircle className="w-4 h-4 mr-2 mt-0.5 text-green-600" />
+                            <span><strong>Patient IDs:</strong> Hashed for privacy (e.g., [PATIENT-A1B2C3D4])</span>
+                          </li>
+                          <li className="flex items-start">
+                            <CheckCircle className="w-4 h-4 mr-2 mt-0.5 text-green-600" />
+                            <span><strong>Doctor Info:</strong> Fully redacted ([REDACTED])</span>
+                          </li>
+                          <li className="flex items-start">
+                            <AlertCircle className="w-4 h-4 mr-2 mt-0.5 text-blue-600" />
+                            <span><strong>RAMQ IDs:</strong> Never redacted (billing data, not PHI)</span>
+                          </li>
+                        </ul>
+                      </div>
+
+                      {!phiRedactionEnabled && (
+                        <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            <strong>Warning:</strong> PHI redaction is currently disabled.
+                            You are viewing patient identifiable information. All access is being logged for compliance and audit purposes.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
 

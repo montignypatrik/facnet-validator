@@ -9,6 +9,8 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   name: text("name"),
   role: text("role").notNull().default("pending"), // pending, viewer, editor, admin
+  phiRedactionEnabled: boolean("phi_redaction_enabled").default(true).notNull(), // PHI redaction preference
+  redactionLevel: text("redaction_level").default("full").notNull(), // 'full' or 'none'
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -80,11 +82,16 @@ export const establishments = pgTable("establishments", {
 // Rules table
 export const rules = pgTable("rules", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  ruleId: text("rule_id").unique(), // Human-readable unique identifier (e.g., "OFFICE_FEE_19928")
   name: text("name").unique().notNull(),
+  description: text("description"),
+  ruleType: varchar("rule_type", { length: 100 }),
   condition: jsonb("condition").notNull(),
   threshold: numeric("threshold"),
+  severity: varchar("severity", { length: 20 }).default("error").notNull(),
   enabled: boolean("enabled").default(true).notNull(),
   customFields: jsonb("custom_fields").default({}).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   updatedBy: text("updated_by"),
 });
@@ -117,6 +124,9 @@ export const validationRuns = pgTable("validation_runs", {
   totalRows: numeric("total_rows"),
   processedRows: numeric("processed_rows"),
   errorCount: numeric("error_count"),
+  errorMessage: text("error_message"), // Error details when status is "failed"
+  progress: numeric("progress").default("0").notNull(), // Progress percentage (0-100)
+  jobId: text("job_id"), // BullMQ job ID for tracking background jobs
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   createdBy: text("created_by"),
@@ -172,10 +182,23 @@ export const validationResults = pgTable("validation_results", {
   severity: text("severity").notNull(), // error, warning, info
   category: text("category").notNull(), // office_fees, context_missing, etc.
   message: text("message").notNull(), // Human-readable error message
+  solution: text("solution"), // Human-readable solution message
   affectedRecords: jsonb("affected_records"), // Array of record IDs involved
   ruleData: jsonb("rule_data"), // Additional data about the rule violation
   idRamq: text("id_ramq"), // RAMQ ID(s) for grouping validation results
 
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Validation logs table - stores detailed execution logs for debugging
+export const validationLogs = pgTable("validation_logs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  validationRunId: uuid("validation_run_id").notNull().references(() => validationRuns.id, { onDelete: "cascade" }),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  level: text("level").notNull(), // DEBUG, INFO, WARN, ERROR
+  source: text("source").notNull(), // routes, csvProcessor, engine, rule:officeFee
+  message: text("message").notNull(),
+  metadata: jsonb("metadata"), // Safe metadata only (counts, stats, technical info - NO CSV data)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -231,6 +254,7 @@ export const insertBillingRecordSchema = createInsertSchema(billingRecords).omit
 export const insertValidationResultSchema = createInsertSchema(validationResults).omit({ id: true, createdAt: true });
 export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
+export const insertValidationLogSchema = createInsertSchema(validationLogs).omit({ id: true, createdAt: true });
 
 // Select schemas
 export const selectUserSchema = createSelectSchema(users);
@@ -245,6 +269,7 @@ export const selectBillingRecordSchema = createSelectSchema(billingRecords);
 export const selectValidationResultSchema = createSelectSchema(validationResults);
 export const selectConversationSchema = createSelectSchema(conversations);
 export const selectMessageSchema = createSelectSchema(messages);
+export const selectValidationLogSchema = createSelectSchema(validationLogs);
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -271,3 +296,5 @@ export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Conversation = typeof conversations.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
+export type InsertValidationLog = z.infer<typeof insertValidationLogSchema>;
+export type ValidationLog = typeof validationLogs.$inferSelect;

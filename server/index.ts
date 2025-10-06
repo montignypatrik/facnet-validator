@@ -3,6 +3,9 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { migrateOfficeFeeRule } from "./modules/validateur/migrate-rules";
+import { startWorker, stopWorker } from "./queue/validationWorker";
+import { closeQueue } from "./queue/validationQueue";
+import { closeRedisConnection } from "./queue/redis";
 
 const app = express();
 app.use(express.json());
@@ -65,6 +68,11 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
+  // Initialize background job worker
+  console.log('[STARTUP] Starting validation worker...');
+  startWorker();
+  console.log('[STARTUP] Validation worker initialized');
+
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
@@ -73,4 +81,37 @@ app.use((req, res, next) => {
   server.listen(port, "localhost", () => {
     log(`serving on port ${port}`);
   });
+
+  // Graceful shutdown handling
+  const gracefulShutdown = async (signal: string) => {
+    console.log(`\n[SHUTDOWN] ${signal} received, shutting down gracefully...`);
+
+    // Stop accepting new requests
+    server.close(async () => {
+      console.log('[SHUTDOWN] HTTP server closed');
+
+      // Stop worker and close queue
+      try {
+        await stopWorker();
+        await closeQueue();
+        await closeRedisConnection();
+        console.log('[SHUTDOWN] Background jobs and Redis connection closed');
+      } catch (error) {
+        console.error('[SHUTDOWN] Error during cleanup:', error);
+      }
+
+      console.log('[SHUTDOWN] Shutdown complete');
+      process.exit(0);
+    });
+
+    // Force shutdown after 30 seconds
+    setTimeout(() => {
+      console.error('[SHUTDOWN] Forced shutdown after timeout');
+      process.exit(1);
+    }, 30000);
+  };
+
+  // Handle shutdown signals
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 })();

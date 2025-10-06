@@ -126,3 +126,107 @@ export function requireRole(roles: string[]) {
     next();
   };
 }
+
+/**
+ * Ownership middleware for PHI access control
+ *
+ * Protects resources by ensuring users can only access their own data,
+ * unless they are admins. Critical for Quebec healthcare RAMQ validator
+ * to prevent unauthorized PHI (Protected Health Information) access.
+ *
+ * @param getResourceOwner - Async function to fetch the resource owner ID
+ * @returns Express middleware that checks ownership before allowing access
+ *
+ * @example
+ * router.get("/api/validations/:id",
+ *   authenticateToken,
+ *   requireOwnership(async (id) => {
+ *     const run = await storage.getValidationRun(id);
+ *     return run?.createdBy || null;
+ *   }),
+ *   handler
+ * );
+ */
+export function requireOwnership(
+  getResourceOwner: (resourceId: string) => Promise<string | null>
+) {
+  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      // Ensure user is authenticated
+      if (!req.user) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const resourceId = req.params.id;
+      if (!resourceId) {
+        return res.status(400).json({ error: "Resource ID is required" });
+      }
+
+      // Fetch resource owner
+      const ownerId = await getResourceOwner(resourceId);
+
+      // Resource not found
+      if (ownerId === null) {
+        return res.status(404).json({ error: "Resource not found" });
+      }
+
+      // Admins can access any resource
+      const isAdmin = req.user.role === "admin";
+
+      // User owns the resource
+      const isOwner = ownerId === req.user.uid;
+
+      if (isAdmin) {
+        // Audit log: Admin accessing another user's data
+        if (!isOwner && ownerId) {
+          // Import logger dynamically to avoid circular dependencies
+          const { logger } = await import("../modules/validateur/logger.js");
+          await logger.info(
+            resourceId,
+            "SECURITY",
+            `Admin ${req.user.email} (${req.user.uid}) accessed resource owned by ${ownerId}`,
+            {
+              userId: req.user.uid,
+              resourceId: resourceId,
+              resourceOwnerId: ownerId,
+              endpoint: req.path,
+              method: req.method,
+              ipAddress: req.ip,
+              userAgent: req.headers["user-agent"],
+            }
+          );
+        }
+        return next();
+      }
+
+      // Check ownership
+      if (isOwner) {
+        return next();
+      }
+
+      // Unauthorized access attempt - log for security monitoring
+      const { logger } = await import("../modules/validateur/logger.js");
+      await logger.warn(
+        resourceId,
+        "SECURITY",
+        `Unauthorized access attempt: User ${req.user.email} (${req.user.uid}) tried to access resource owned by ${ownerId}`,
+        {
+          userId: req.user.uid,
+          resourceId: resourceId,
+          resourceOwnerId: ownerId,
+          endpoint: req.path,
+          method: req.method,
+          ipAddress: req.ip,
+          userAgent: req.headers["user-agent"],
+        }
+      );
+
+      return res.status(403).json({
+        error: "Access denied: You do not have permission to access this resource"
+      });
+    } catch (error) {
+      console.error("Ownership check error:", error);
+      return res.status(500).json({ error: "Failed to verify resource ownership" });
+    }
+  };
+}

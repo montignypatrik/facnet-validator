@@ -4,8 +4,11 @@ import fs from "fs";
 import path from "path";
 import csv from "csv-parser";
 import { storage } from "../../core/storage";
-import { authenticateToken, requireRole, type AuthenticatedRequest } from "../../core/auth";
+import { authenticateToken, requireRole, requireOwnership, type AuthenticatedRequest } from "../../core/auth";
 import { BillingCSVProcessor } from "./validation/csvProcessor";
+import { logger } from "./logger";
+import { enqueueValidation } from "../../queue/validationQueue";
+import { redactBillingRecord, redactValidationResult, shouldRedactPhi } from "./validation/phiRedaction";
 
 // Configure multer for file uploads
 const uploadDir = "./uploads";
@@ -28,6 +31,16 @@ const router = Router();
  * - Validation runs (/api/validations)
  * - Analytics (/api/analytics)
  */
+
+/**
+ * Helper function to get validation run owner for PHI access control
+ * @param validationRunId - The validation run ID
+ * @returns The owner's user ID, or null if not found
+ */
+async function getValidationRunOwner(validationRunId: string): Promise<string | null> {
+  const run = await storage.getValidationRun(validationRunId);
+  return run?.createdBy || null;
+}
 
 // ==================== ANALYTICS ROUTES ====================
 
@@ -88,13 +101,17 @@ router.post("/api/validations", authenticateToken, async (req: AuthenticatedRequ
       createdBy: req.user!.uid,
     });
 
-    // Process billing validation asynchronously
-    console.log(`[DEBUG] About to call processBillingValidation with runId: ${run.id}, fileName: ${file.fileName}`);
-    processBillingValidation(run.id, file.fileName).catch(error => {
-      console.error(`Background validation processing failed for run ${run.id}:`, error);
-    });
+    // Enqueue validation job for background processing
+    console.log(`[API] Enqueueing validation job for run ${run.id}, fileName: ${file.fileName}`);
+    const jobId = await enqueueValidation(run.id, file.fileName);
 
-    res.json({ validationId: run.id, status: run.status });
+    // Update the run with the job ID
+    await storage.updateValidationRun(run.id, { jobId });
+
+    console.log(`[API] Validation job ${jobId} enqueued for run ${run.id}`);
+
+    // Return 202 Accepted to indicate the request has been accepted for processing
+    res.status(202).json({ validationId: run.id, status: run.status, jobId });
   } catch (error) {
     console.error("Validation creation error:", error);
     res.status(500).json({ error: "Validation creation failed" });
@@ -132,7 +149,7 @@ router.get("/api/validations", authenticateToken, async (req, res) => {
   }
 });
 
-router.get("/api/validations/:id", authenticateToken, async (req, res) => {
+router.get("/api/validations/:id", authenticateToken, requireOwnership(getValidationRunOwner), async (req, res) => {
   try {
     const run = await storage.getValidationRun(req.params.id);
 
@@ -147,9 +164,32 @@ router.get("/api/validations/:id", authenticateToken, async (req, res) => {
   }
 });
 
-router.get("/api/validations/:id/results", authenticateToken, async (req, res) => {
+router.get("/api/validations/:id/results", authenticateToken, requireOwnership(getValidationRunOwner), async (req: AuthenticatedRequest, res) => {
   try {
-    const results = await storage.getValidationResults(req.params.id);
+    // Get user preferences for PHI redaction
+    const user = await storage.getUser(req.user!.uid);
+    const phiRedactionEnabled = shouldRedactPhi(user?.phiRedactionEnabled);
+
+    // Get validation results
+    let results = await storage.getValidationResults(req.params.id);
+
+    // Apply PHI redaction if enabled
+    if (phiRedactionEnabled) {
+      results = results.map(result => redactValidationResult(result, true));
+    } else {
+      // Audit log: PHI accessed without redaction (admin override)
+      await logger.info(
+        req.params.id,
+        'PHI_ACCESS',
+        `PHI accessed without redaction by user ${req.user!.uid}`,
+        {
+          userId: req.user!.uid,
+          userEmail: user?.email,
+          endpoint: '/api/validations/:id/results'
+        }
+      );
+    }
+
     res.json(results);
   } catch (error) {
     console.error("Get validation results error:", error);
@@ -157,16 +197,38 @@ router.get("/api/validations/:id/results", authenticateToken, async (req, res) =
   }
 });
 
-router.get("/api/validations/:id/records", authenticateToken, async (req, res) => {
+router.get("/api/validations/:id/records", authenticateToken, requireOwnership(getValidationRunOwner), async (req: AuthenticatedRequest, res) => {
   try {
     const { page = "1", pageSize = "50", sortBy, sortOrder } = req.query;
 
-    const result = await storage.getBillingRecords(req.params.id, {
+    // Get user preferences for PHI redaction
+    const user = await storage.getUser(req.user!.uid);
+    const phiRedactionEnabled = shouldRedactPhi(user?.phiRedactionEnabled);
+
+    let result = await storage.getBillingRecords(req.params.id, {
       page: parseInt(page as string),
       pageSize: parseInt(pageSize as string),
       sortBy: sortBy as string,
       sortOrder: sortOrder as "asc" | "desc",
     });
+
+    // Apply PHI redaction to billing records if enabled
+    if (phiRedactionEnabled) {
+      result.data = result.data.map(record => redactBillingRecord(record, true));
+    } else {
+      // Audit log: PHI accessed without redaction (admin override)
+      await logger.info(
+        req.params.id,
+        'PHI_ACCESS',
+        `PHI accessed without redaction by user ${req.user!.uid}`,
+        {
+          userId: req.user!.uid,
+          userEmail: user?.email,
+          endpoint: '/api/validations/:id/records',
+          recordCount: result.data.length
+        }
+      );
+    }
 
     res.json(result);
   } catch (error) {
@@ -175,7 +237,25 @@ router.get("/api/validations/:id/records", authenticateToken, async (req, res) =
   }
 });
 
-router.post("/api/validations/:id/cleanup", authenticateToken, async (req, res) => {
+router.get("/api/validations/:id/logs", authenticateToken, requireOwnership(getValidationRunOwner), async (req, res) => {
+  try {
+    const { level, source, limit, offset } = req.query;
+
+    const result = await storage.getValidationLogs(req.params.id, {
+      level: level as string,
+      source: source as string,
+      limit: limit ? parseInt(limit as string) : 1000,
+      offset: offset ? parseInt(offset as string) : 0,
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error("Get validation logs error:", error);
+    res.status(500).json({ error: "Failed to get validation logs" });
+  }
+});
+
+router.post("/api/validations/:id/cleanup", authenticateToken, requireOwnership(getValidationRunOwner), async (req, res) => {
   try {
     await storage.cleanupValidationData(req.params.id);
     res.json({ success: true });
@@ -195,53 +275,5 @@ router.post("/api/validations/cleanup-old", authenticateToken, async (req, res) 
     res.status(500).json({ error: "Failed to cleanup old validations" });
   }
 });
-
-// ==================== HELPER FUNCTIONS ====================
-
-async function processBillingValidation(runId: string, fileName: string) {
-  try {
-    const filePath = path.join(uploadDir, fileName);
-
-    if (!fs.existsSync(filePath)) {
-      throw new Error(`File not found: ${filePath}`);
-    }
-
-    await storage.updateValidationRun(runId, { status: "processing" });
-
-    const processor = new BillingCSVProcessor();
-    const { records, errors } = await processor.processBillingCSV(filePath, runId);
-
-    // Save billing records to database
-    if (records.length > 0) {
-      await storage.createBillingRecords(records);
-    }
-
-    // Fetch saved billing records with their database IDs
-    const savedRecords = await storage.getBillingRecords(runId);
-
-    // Run validation with records that have database IDs
-    const validationResults = await processor.validateBillingRecords(savedRecords, runId);
-
-    // Save validation results
-    if (validationResults.length > 0) {
-      await storage.createValidationResults(validationResults);
-    }
-
-    // Clean up uploaded file after processing
-    try {
-      fs.unlinkSync(filePath);
-      console.log(`[DEBUG] Deleted file after processing: ${filePath}`);
-    } catch (err) {
-      console.error(`[WARN] Could not delete file ${filePath}:`, err);
-    }
-
-    await storage.updateValidationRun(runId, { status: "completed" });
-    console.log(`[DEBUG] Validation run ${runId} completed successfully`);
-  } catch (error) {
-    console.error(`[ERROR] Processing failed for run ${runId}:`, error);
-    await storage.updateValidationRun(runId, { status: "failed" });
-    throw error;
-  }
-}
 
 export default router;
