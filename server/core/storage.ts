@@ -15,6 +15,7 @@ import {
   type ValidationResult, type InsertValidationResult,
   type ValidationLog, type InsertValidationLog
 } from "../../shared/schema.js";
+import { cacheService, CACHE_KEYS } from "../cache/index.js";
 
 export interface IStorage {
   // Users
@@ -127,6 +128,18 @@ export class DatabaseStorage implements IStorage {
   // Codes
   async getCodes(params: { search?: string; page?: number; pageSize?: number }): Promise<{ data: Code[]; total: number }> {
     const { search, page = 1, pageSize = 50 } = params;
+
+    // Cache only full dataset queries (no search, first page, large page size)
+    const isFullDataset = !search && page === 1 && pageSize >= 1000;
+
+    if (isFullDataset) {
+      // Try cache first for full dataset queries
+      const cached = await cacheService.get<{ data: Code[]; total: number }>(CACHE_KEYS.CODES);
+      if (cached) {
+        return cached;
+      }
+    }
+
     const offset = (page - 1) * pageSize;
 
     let query = db.select().from(codes);
@@ -153,7 +166,14 @@ export class DatabaseStorage implements IStorage {
       countQuery
     ]);
 
-    return { data, total: totalResult[0].count };
+    const result = { data, total: totalResult[0].count };
+
+    // Cache full dataset queries
+    if (isFullDataset) {
+      await cacheService.set(CACHE_KEYS.CODES, result);
+    }
+
+    return result;
   }
 
   async getCode(id: string): Promise<Code | undefined> {
@@ -194,6 +214,18 @@ export class DatabaseStorage implements IStorage {
   // Contexts
   async getContexts(params: { search?: string; page?: number; pageSize?: number }): Promise<{ data: Context[]; total: number }> {
     const { search, page = 1, pageSize = 50 } = params;
+
+    // Cache only full dataset queries (no search, first page, large page size)
+    const isFullDataset = !search && page === 1 && pageSize >= 1000;
+
+    if (isFullDataset) {
+      // Try cache first for full dataset queries
+      const cached = await cacheService.get<{ data: Context[]; total: number }>(CACHE_KEYS.CONTEXTS);
+      if (cached) {
+        return cached;
+      }
+    }
+
     const offset = (page - 1) * pageSize;
 
     let query = db.select().from(contexts);
@@ -219,7 +251,14 @@ export class DatabaseStorage implements IStorage {
       countQuery
     ]);
 
-    return { data, total: totalResult[0].count };
+    const result = { data, total: totalResult[0].count };
+
+    // Cache full dataset queries
+    if (isFullDataset) {
+      await cacheService.set(CACHE_KEYS.CONTEXTS, result);
+    }
+
+    return result;
   }
 
   async getContext(id: string): Promise<Context | undefined> {
@@ -264,6 +303,18 @@ export class DatabaseStorage implements IStorage {
   // Establishments
   async getEstablishments(params: { search?: string; page?: number; pageSize?: number }): Promise<{ data: Establishment[]; total: number }> {
     const { search, page = 1, pageSize = 50 } = params;
+
+    // Cache only full dataset queries (no search, first page, large page size)
+    const isFullDataset = !search && page === 1 && pageSize >= 1000;
+
+    if (isFullDataset) {
+      // Try cache first for full dataset queries
+      const cached = await cacheService.get<{ data: Establishment[]; total: number }>(CACHE_KEYS.ESTABLISHMENTS);
+      if (cached) {
+        return cached;
+      }
+    }
+
     const offset = (page - 1) * pageSize;
 
     let query = db.select().from(establishments);
@@ -289,7 +340,14 @@ export class DatabaseStorage implements IStorage {
       countQuery
     ]);
 
-    return { data, total: totalResult[0].count };
+    const result = { data, total: totalResult[0].count };
+
+    // Cache full dataset queries
+    if (isFullDataset) {
+      await cacheService.set(CACHE_KEYS.ESTABLISHMENTS, result);
+    }
+
+    return result;
   }
 
   async getEstablishment(id: string): Promise<Establishment | undefined> {
@@ -610,7 +668,19 @@ export class DatabaseStorage implements IStorage {
 
   // Rules
   async getAllRules(): Promise<Rule[]> {
-    return await db.select().from(rules).where(eq(rules.enabled, true));
+    // Try cache first
+    const cached = await cacheService.get<Rule[]>(CACHE_KEYS.RULES);
+    if (cached) {
+      return cached;
+    }
+
+    // Cache miss - query database
+    const rulesData = await db.select().from(rules).where(eq(rules.enabled, true));
+
+    // Cache with 24 hour TTL (rules are stable)
+    await cacheService.set(CACHE_KEYS.RULES, rulesData);
+
+    return rulesData;
   }
 
   async createRule(rule: InsertRule): Promise<Rule> {
