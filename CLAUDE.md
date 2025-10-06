@@ -845,6 +845,34 @@ The project includes utility scripts for importing Quebec healthcare data:
 
 These scripts process CSV files and populate the database with official Quebec healthcare system data.
 
+## Security Features
+
+### PHI Access Control System (✅ Implemented 2025-10-06)
+
+**Critical Security Fix**: User isolation to prevent unauthorized PHI access
+
+The application now implements strict ownership verification for all validation endpoints. Users can only access their own validation runs containing Quebec healthcare billing data (PHI). Admins can access any resource with automatic audit logging for compliance.
+
+**Key Components**:
+- **requireOwnership Middleware**: Located in [`server/core/auth.ts:150-232`](server/core/auth.ts#L150-L232)
+- **Protected Endpoints**: 5 validation endpoints require ownership verification
+- **Audit Logging**: All security events logged to `validation_logs` table with source "SECURITY"
+- **Test Coverage**: 24 comprehensive test cases in [`tests/unit/auth/ownership.test.ts`](tests/unit/auth/ownership.test.ts)
+
+**Documentation**: See [`docs/PHI_ACCESS_CONTROL.md`](docs/PHI_ACCESS_CONTROL.md) for complete implementation details, usage examples, and compliance information.
+
+**Access Rules**:
+- Regular users (viewer, editor, pending): Can only access their own validation runs
+- Admin users: Can access any validation run (with audit trail)
+- Unauthorized access attempts: Logged for security monitoring
+- Response codes: 403 Forbidden (unauthorized), 404 Not Found (non-existent), 200 OK (authorized)
+
+**Implementation Files**:
+- Middleware: `server/core/auth.ts` (lines 150-232)
+- Protected routes: `server/modules/validateur/routes.ts`
+- Tests: `tests/unit/auth/ownership.test.ts` (24 tests, all passing ✓)
+- Documentation: `docs/PHI_ACCESS_CONTROL.md`
+
 ## Recent Fixes & Updates
 
 ### RAMQ Codes System (Completed)
