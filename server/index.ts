@@ -6,6 +6,7 @@ import { migrateOfficeFeeRule } from "./modules/validateur/migrate-rules";
 import { startWorker, stopWorker } from "./queue/validationWorker";
 import { closeQueue } from "./queue/validationQueue";
 import { closeRedisConnection } from "./queue/redis";
+import { warmupCache } from "./cache/index.js";
 
 const app = express();
 app.use(express.json());
@@ -72,6 +73,13 @@ app.use((req, res, next) => {
   console.log('[STARTUP] Starting validation worker...');
   startWorker();
   console.log('[STARTUP] Validation worker initialized');
+
+  // Warm up cache with reference data
+  try {
+    await warmupCache();
+  } catch (error) {
+    console.error('[STARTUP] Cache warm-up failed, continuing with cold cache:', error.message);
+  }
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
