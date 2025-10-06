@@ -14,7 +14,7 @@ import {
   type BillingRecord, type InsertBillingRecord,
   type ValidationResult, type InsertValidationResult,
   type ValidationLog, type InsertValidationLog
-} from "@shared/schema";
+} from "../../shared/schema.js";
 
 export interface IStorage {
   // Users
