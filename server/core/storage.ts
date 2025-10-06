@@ -2,7 +2,7 @@ import { eq, and, or, like, desc, asc, count, sql } from "drizzle-orm";
 import { db } from "./db";
 import {
   users, codes, contexts, establishments, rules, fieldCatalog, validationRuns, files,
-  billingRecords, validationResults,
+  billingRecords, validationResults, validationLogs,
   type User, type InsertUser,
   type Code, type InsertCode,
   type Context, type InsertContext,
@@ -12,7 +12,8 @@ import {
   type ValidationRun, type InsertValidationRun,
   type File, type InsertFile,
   type BillingRecord, type InsertBillingRecord,
-  type ValidationResult, type InsertValidationResult
+  type ValidationResult, type InsertValidationResult,
+  type ValidationLog, type InsertValidationLog
 } from "@shared/schema";
 
 export interface IStorage {
@@ -82,6 +83,19 @@ export interface IStorage {
   // Validation Results
   createValidationResults(results: InsertValidationResult[]): Promise<ValidationResult[]>;
   getValidationResults(validationRunId: string): Promise<ValidationResult[]>;
+
+  // Validation Logs
+  createValidationLog(log: InsertValidationLog): Promise<ValidationLog>;
+  createValidationLogsBatch(logs: InsertValidationLog[]): Promise<ValidationLog[]>;
+  getValidationLogs(
+    validationRunId: string,
+    filters?: {
+      level?: string;
+      source?: string;
+      limit?: number;
+      offset?: number;
+    }
+  ): Promise<{ data: ValidationLog[]; total: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -478,8 +492,20 @@ export class DatabaseStorage implements IStorage {
   // Billing Records
   async createBillingRecords(records: InsertBillingRecord[]): Promise<BillingRecord[]> {
     if (records.length === 0) return [];
-    const created = await db.insert(billingRecords).values(records).returning();
-    return created;
+
+    // Batch insert to avoid PostgreSQL parameter limit (65535 params)
+    // Each record has ~20 fields, so batch size of 500 = ~10,000 parameters (safe)
+    const BATCH_SIZE = 500;
+    const allCreated: BillingRecord[] = [];
+
+    for (let i = 0; i < records.length; i += BATCH_SIZE) {
+      const batch = records.slice(i, i + BATCH_SIZE);
+      const created = await db.insert(billingRecords).values(batch).returning();
+      allCreated.push(...created);
+      console.log(`[DB] Inserted batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(records.length / BATCH_SIZE)} (${batch.length} records)`);
+    }
+
+    return allCreated;
   }
 
   async getBillingRecords(validationRunId: string): Promise<BillingRecord[]> {
@@ -491,8 +517,20 @@ export class DatabaseStorage implements IStorage {
   // Validation Results
   async createValidationResults(results: InsertValidationResult[]): Promise<ValidationResult[]> {
     if (results.length === 0) return [];
-    const created = await db.insert(validationResults).values(results).returning();
-    return created;
+
+    // Batch insert to avoid PostgreSQL parameter limit (65535 params)
+    // Each validation result has ~10 fields, so batch size of 1000 = ~10,000 parameters (safe)
+    const BATCH_SIZE = 1000;
+    const allCreated: ValidationResult[] = [];
+
+    for (let i = 0; i < results.length; i += BATCH_SIZE) {
+      const batch = results.slice(i, i + BATCH_SIZE);
+      const created = await db.insert(validationResults).values(batch).returning();
+      allCreated.push(...created);
+      console.log(`[DB] Inserted validation batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(results.length / BATCH_SIZE)} (${batch.length} results)`);
+    }
+
+    return allCreated;
   }
 
   async getValidationResults(validationRunId: string): Promise<ValidationResult[]> {
@@ -505,6 +543,7 @@ export class DatabaseStorage implements IStorage {
         severity: validationResults.severity,
         category: validationResults.category,
         message: validationResults.message,
+        solution: validationResults.solution,
         affectedRecords: validationResults.affectedRecords,
         ruleData: validationResults.ruleData,
         createdAt: validationResults.createdAt,
@@ -518,6 +557,55 @@ export class DatabaseStorage implements IStorage {
       .orderBy(asc(validationResults.createdAt));
 
     return results as any;
+  }
+
+  // Validation Logs
+  async createValidationLog(log: InsertValidationLog): Promise<ValidationLog> {
+    const [created] = await db.insert(validationLogs).values(log).returning();
+    return created;
+  }
+
+  async createValidationLogsBatch(logs: InsertValidationLog[]): Promise<ValidationLog[]> {
+    if (logs.length === 0) return [];
+    return await db.insert(validationLogs).values(logs).returning();
+  }
+
+  async getValidationLogs(
+    validationRunId: string,
+    filters?: {
+      level?: string;
+      source?: string;
+      limit?: number;
+      offset?: number;
+    }
+  ): Promise<{ data: ValidationLog[]; total: number }> {
+    const conditions = [eq(validationLogs.validationRunId, validationRunId)];
+
+    if (filters?.level) {
+      conditions.push(eq(validationLogs.level, filters.level));
+    }
+
+    if (filters?.source) {
+      conditions.push(eq(validationLogs.source, filters.source));
+    }
+
+    const [totalResult] = await db
+      .select({ count: count() })
+      .from(validationLogs)
+      .where(and(...conditions));
+
+    const data = await db
+      .select()
+      .from(validationLogs)
+      .where(and(...conditions))
+      .orderBy(asc(validationLogs.timestamp))
+      .limit(filters?.limit || 1000)
+      .offset(filters?.offset || 0);
+
+    return {
+      data,
+      total: Number(totalResult.count),
+    };
   }
 
   // Rules
