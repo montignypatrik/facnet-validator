@@ -1,31 +1,62 @@
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import { Resource } from '@opentelemetry/resources';
-import { SEMRESATTRS_SERVICE_NAME, SEMRESATTRS_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
-import { trace, Span, SpanStatusCode, context, Context } from '@opentelemetry/api';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { ConsoleSpanExporter } from '@opentelemetry/sdk-trace-node';
 import type { SpanAttributes, ObservabilityConfig } from './types';
 
 /**
- * OpenTelemetry Distributed Tracing
+ * OpenTelemetry Distributed Tracing (Lazy Loading)
  *
  * Provides distributed tracing for performance monitoring and debugging:
  * - Auto-instrumentation for HTTP, Express, PostgreSQL
  * - Manual span creation for custom operations
  * - Trace context propagation across async boundaries
  * - Integration with Sentry for unified observability
+ *
+ * IMPORTANT: All OpenTelemetry imports are lazy-loaded to avoid requiring
+ * @opentelemetry/* dependencies when tracing is disabled.
  */
 
-let sdk: NodeSDK | null = null;
+// Lazy-loaded modules
+let OtelAPI: typeof import('@opentelemetry/api') | null = null;
+let NodeSDKModule: typeof import('@opentelemetry/sdk-node') | null = null;
+let ResourceModule: typeof import('@opentelemetry/resources') | null = null;
+let SemanticConventions: typeof import('@opentelemetry/semantic-conventions') | null = null;
+let AutoInstrumentations: typeof import('@opentelemetry/auto-instrumentations-node') | null = null;
+let OTLPExporter: typeof import('@opentelemetry/exporter-trace-otlp-http') | null = null;
+let ConsoleExporter: typeof import('@opentelemetry/sdk-trace-node') | null = null;
+
+let sdk: any | null = null;
 let isInitialized = false;
+
+/**
+ * Lazy load OpenTelemetry modules
+ */
+async function loadOpenTelemetry() {
+  if (OtelAPI) {
+    return; // Already loaded
+  }
+
+  try {
+    console.log('[TRACING] Lazy loading OpenTelemetry modules...');
+
+    OtelAPI = await import('@opentelemetry/api');
+    NodeSDKModule = await import('@opentelemetry/sdk-node');
+    ResourceModule = await import('@opentelemetry/resources');
+    SemanticConventions = await import('@opentelemetry/semantic-conventions');
+    AutoInstrumentations = await import('@opentelemetry/auto-instrumentations-node');
+    OTLPExporter = await import('@opentelemetry/exporter-trace-otlp-http');
+    ConsoleExporter = await import('@opentelemetry/sdk-trace-node');
+
+    console.log('[TRACING] OpenTelemetry modules loaded successfully');
+  } catch (error) {
+    console.error('[TRACING] Failed to load OpenTelemetry modules:', error);
+    throw error;
+  }
+}
 
 /**
  * Get OpenTelemetry configuration from environment variables
  */
 export function getTracingConfig(): ObservabilityConfig['tracing'] {
   return {
-    enabled: process.env.OTEL_ENABLED !== 'false', // Enabled by default
+    enabled: process.env.OTEL_ENABLED === 'true', // Disabled by default to avoid dependency issues
     serviceName: process.env.OTEL_SERVICE_NAME || 'dash-validateur',
     exporterEndpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
     sampleRate: parseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE || '0.1'),
@@ -42,7 +73,7 @@ export function getTracingConfig(): ObservabilityConfig['tracing'] {
  *
  * @returns true if initialized successfully, false otherwise
  */
-export function initializeTracing(): boolean {
+export async function initializeTracing(): Promise<boolean> {
   const config = getTracingConfig();
 
   // Skip if already initialized
@@ -53,15 +84,22 @@ export function initializeTracing(): boolean {
 
   // Skip if disabled
   if (!config.enabled) {
-    console.log('[TRACING] Disabled (OTEL_ENABLED=false)');
+    console.log('[TRACING] Disabled (OTEL_ENABLED=false or not set)');
     return false;
   }
 
   try {
+    // Lazy load OpenTelemetry modules
+    await loadOpenTelemetry();
+
+    if (!NodeSDKModule || !ResourceModule || !SemanticConventions || !AutoInstrumentations || !OTLPExporter || !ConsoleExporter) {
+      throw new Error('Failed to load required OpenTelemetry modules');
+    }
+
     // Configure resource (service metadata)
-    const resource = new Resource({
-      [SEMRESATTRS_SERVICE_NAME]: config.serviceName,
-      [SEMRESATTRS_SERVICE_VERSION]: process.env.npm_package_version || '1.0.0',
+    const resource = new ResourceModule.Resource({
+      [SemanticConventions.SEMRESATTRS_SERVICE_NAME]: config.serviceName,
+      [SemanticConventions.SEMRESATTRS_SERVICE_VERSION]: process.env.npm_package_version || '1.0.0',
     });
 
     // Configure exporter based on environment
@@ -69,29 +107,29 @@ export function initializeTracing(): boolean {
 
     if (process.env.NODE_ENV === 'production' && config.exporterEndpoint) {
       // Production: Send to OTLP collector or Sentry
-      traceExporter = new OTLPTraceExporter({
+      traceExporter = new OTLPExporter.OTLPTraceExporter({
         url: config.exporterEndpoint,
       });
       console.log(`[TRACING] Using OTLP exporter: ${config.exporterEndpoint}`);
     } else if (process.env.NODE_ENV === 'development') {
       // Development: Console output for debugging
-      traceExporter = new ConsoleSpanExporter();
+      traceExporter = new ConsoleExporter.ConsoleSpanExporter();
       console.log('[TRACING] Using console exporter (development mode)');
     } else {
       // Staging/other: Use OTLP if configured, otherwise console
       traceExporter = config.exporterEndpoint
-        ? new OTLPTraceExporter({ url: config.exporterEndpoint })
-        : new ConsoleSpanExporter();
+        ? new OTLPExporter.OTLPTraceExporter({ url: config.exporterEndpoint })
+        : new ConsoleExporter.ConsoleSpanExporter();
     }
 
     // Initialize OpenTelemetry SDK
-    sdk = new NodeSDK({
+    sdk = new NodeSDKModule.NodeSDK({
       resource,
       traceExporter,
 
       // Auto-instrumentations
       instrumentations: [
-        getNodeAutoInstrumentations({
+        AutoInstrumentations.getNodeAutoInstrumentations({
           // Enable/disable specific instrumentations
           '@opentelemetry/instrumentation-fs': {
             enabled: false, // Disable file system tracing (too noisy)
@@ -133,7 +171,10 @@ export function isTracingInitialized(): boolean {
  * Get the tracer instance
  */
 export function getTracer(name: string = 'dash-validateur') {
-  return trace.getTracer(name);
+  if (!isInitialized || !OtelAPI) {
+    return undefined;
+  }
+  return OtelAPI.trace.getTracer(name);
 }
 
 /**
@@ -155,12 +196,16 @@ export function getTracer(name: string = 'dash-validateur') {
  *   throw error;
  * }
  */
-export function startSpan(name: string, attributes?: SpanAttributes): Span | undefined {
-  if (!isInitialized) {
+export function startSpan(name: string, attributes?: SpanAttributes): any | undefined {
+  if (!isInitialized || !OtelAPI) {
     return undefined;
   }
 
   const tracer = getTracer();
+  if (!tracer) {
+    return undefined;
+  }
+
   const span = tracer.startSpan(name, {
     attributes: attributes as Record<string, string | number | boolean>,
   });
@@ -192,22 +237,26 @@ export async function withSpan<T>(
   attributes: SpanAttributes,
   fn: () => Promise<T>
 ): Promise<T> {
-  if (!isInitialized) {
+  if (!isInitialized || !OtelAPI) {
     // If tracing disabled, just execute the function
     return fn();
   }
 
   const tracer = getTracer();
-  return tracer.startActiveSpan(name, { attributes: attributes as any }, async (span) => {
+  if (!tracer) {
+    return fn();
+  }
+
+  return tracer.startActiveSpan(name, { attributes: attributes as any }, async (span: any) => {
     try {
       const result = await fn();
-      span.setStatus({ code: SpanStatusCode.OK });
+      span.setStatus({ code: OtelAPI!.SpanStatusCode.OK });
       span.end();
       return result;
     } catch (error) {
       span.recordException(error as Error);
       span.setStatus({
-        code: SpanStatusCode.ERROR,
+        code: OtelAPI!.SpanStatusCode.ERROR,
         message: (error as Error).message,
       });
       span.end();
@@ -224,21 +273,25 @@ export function withSpanSync<T>(
   attributes: SpanAttributes,
   fn: () => T
 ): T {
-  if (!isInitialized) {
+  if (!isInitialized || !OtelAPI) {
     return fn();
   }
 
   const tracer = getTracer();
-  return tracer.startActiveSpan(name, { attributes: attributes as any }, (span) => {
+  if (!tracer) {
+    return fn();
+  }
+
+  return tracer.startActiveSpan(name, { attributes: attributes as any }, (span: any) => {
     try {
       const result = fn();
-      span.setStatus({ code: SpanStatusCode.OK });
+      span.setStatus({ code: OtelAPI!.SpanStatusCode.OK });
       span.end();
       return result;
     } catch (error) {
       span.recordException(error as Error);
       span.setStatus({
-        code: SpanStatusCode.ERROR,
+        code: OtelAPI!.SpanStatusCode.ERROR,
         message: (error as Error).message,
       });
       span.end();
@@ -256,11 +309,11 @@ export function withSpanSync<T>(
  * @param attributes - Event attributes (PHI-safe)
  */
 export function addSpanEvent(name: string, attributes?: Record<string, any>): void {
-  if (!isInitialized) {
+  if (!isInitialized || !OtelAPI) {
     return;
   }
 
-  const activeSpan = trace.getActiveSpan();
+  const activeSpan = OtelAPI.trace.getActiveSpan();
   if (activeSpan) {
     activeSpan.addEvent(name, attributes);
   }
@@ -272,11 +325,11 @@ export function addSpanEvent(name: string, attributes?: Record<string, any>): vo
  * @param attributes - Attributes to add (PHI-safe)
  */
 export function setSpanAttributes(attributes: SpanAttributes): void {
-  if (!isInitialized) {
+  if (!isInitialized || !OtelAPI) {
     return;
   }
 
-  const activeSpan = trace.getActiveSpan();
+  const activeSpan = OtelAPI.trace.getActiveSpan();
   if (activeSpan) {
     activeSpan.setAttributes(attributes as Record<string, string | number | boolean>);
   }
@@ -288,15 +341,15 @@ export function setSpanAttributes(attributes: SpanAttributes): void {
  * @param error - Error to record
  */
 export function recordException(error: Error): void {
-  if (!isInitialized) {
+  if (!isInitialized || !OtelAPI) {
     return;
   }
 
-  const activeSpan = trace.getActiveSpan();
+  const activeSpan = OtelAPI.trace.getActiveSpan();
   if (activeSpan) {
     activeSpan.recordException(error);
     activeSpan.setStatus({
-      code: SpanStatusCode.ERROR,
+      code: OtelAPI.SpanStatusCode.ERROR,
       message: error.message,
     });
   }
@@ -308,11 +361,11 @@ export function recordException(error: Error): void {
  * Useful for logging trace IDs with errors
  */
 export function getCurrentTraceContext(): { traceId?: string; spanId?: string } | undefined {
-  if (!isInitialized) {
+  if (!isInitialized || !OtelAPI) {
     return undefined;
   }
 
-  const activeSpan = trace.getActiveSpan();
+  const activeSpan = OtelAPI.trace.getActiveSpan();
   if (!activeSpan) {
     return undefined;
   }
@@ -344,5 +397,5 @@ export async function shutdownTracing(): Promise<void> {
   }
 }
 
-// Export OpenTelemetry API for direct access when needed
-export { trace, Span, SpanStatusCode, context, Context };
+// Export type-only references (no runtime imports)
+export type { SpanAttributes };

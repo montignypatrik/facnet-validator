@@ -34,8 +34,9 @@ export {
   startTransaction,
   flush,
   close,
-  Sentry,
+  getSentry,
 } from './sentry';
+export type { Sentry } from './sentry';
 
 // OpenTelemetry tracing
 export {
@@ -51,12 +52,10 @@ export {
   recordException,
   getCurrentTraceContext,
   shutdownTracing,
-  trace,
-  Span,
-  SpanStatusCode,
-  context,
-  Context,
 } from './tracing';
+
+// Re-export types only for OpenTelemetry API types
+export type { SpanAttributes } from './tracing';
 
 // PHI sanitization (for testing and verification)
 export {

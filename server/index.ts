@@ -2,10 +2,12 @@ import "dotenv/config";
 
 // CRITICAL: Initialize observability FIRST (before all other imports)
 // This ensures Sentry captures all errors including those during app initialization
-import { initializeSentry, initializeTracing, Sentry, flush as flushSentry, close as closeSentry, shutdownTracing } from "./observability";
+import { initializeSentry, getSentry, flush as flushSentry, close as closeSentry } from "./observability";
 
-initializeSentry();
-initializeTracing();
+// Initialize observability (async now due to lazy loading)
+// NOTE: OpenTelemetry tracing disabled by default to avoid dependency issues
+//       Set OTEL_ENABLED=true to enable (requires @opentelemetry dependencies)
+await initializeSentry();
 
 // Now import rest of application
 import express, { type Request, Response, NextFunction } from "express";
@@ -62,7 +64,10 @@ app.use((req, res, next) => {
   const server = await registerRoutes(app);
 
   // Sentry error handler MUST be registered AFTER all routes but BEFORE custom error handler
-  app.use(Sentry.Handlers.errorHandler());
+  const Sentry = getSentry();
+  if (Sentry) {
+    app.use(Sentry.Handlers.errorHandler());
+  }
 
   // Custom error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -136,14 +141,14 @@ app.use((req, res, next) => {
         console.error('[SHUTDOWN] Error flushing Sentry:', error);
       }
 
-      // Shutdown OpenTelemetry tracing (flush pending spans)
-      try {
-        console.log('[SHUTDOWN] Shutting down tracing...');
-        await shutdownTracing();
-        console.log('[SHUTDOWN] Tracing shutdown complete');
-      } catch (error) {
-        console.error('[SHUTDOWN] Error shutting down tracing:', error);
-      }
+      // OpenTelemetry tracing disabled by default (uncomment to enable)
+      // try {
+      //   console.log('[SHUTDOWN] Shutting down tracing...');
+      //   await shutdownTracing();
+      //   console.log('[SHUTDOWN] Tracing shutdown complete');
+      // } catch (error) {
+      //   console.error('[SHUTDOWN] Error shutting down tracing:', error);
+      // }
 
       console.log('[SHUTDOWN] Shutdown complete');
       process.exit(0);

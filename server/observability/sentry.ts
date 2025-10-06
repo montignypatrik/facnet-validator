@@ -1,5 +1,3 @@
-import * as Sentry from '@sentry/node';
-import { ProfilingIntegration } from '@sentry/profiling-node';
 import { sanitizeEventData } from './sanitizer';
 import type { ObservabilityConfig } from './types';
 
@@ -11,9 +9,30 @@ import type { ObservabilityConfig } from './types';
  * - Performance monitoring (APM)
  * - Profiling for bottleneck detection
  * - PHI sanitization via beforeSend hook
+ *
+ * IMPORTANT: Uses lazy imports to avoid loading @sentry/node when disabled
  */
 
 let isInitialized = false;
+let SentryModule: typeof import('@sentry/node') | null = null;
+
+/**
+ * Lazy load Sentry modules
+ * Only imports @sentry/node if Sentry is enabled
+ */
+async function loadSentry() {
+  if (SentryModule) {
+    return SentryModule;
+  }
+
+  try {
+    SentryModule = await import('@sentry/node');
+    return SentryModule;
+  } catch (error) {
+    console.error('[SENTRY] Failed to load @sentry/node:', error);
+    throw error;
+  }
+}
 
 /**
  * Get Sentry configuration from environment variables
@@ -35,9 +54,9 @@ export function getSentryConfig(): ObservabilityConfig['sentry'] {
  * CRITICAL: This MUST be called FIRST in server/index.ts, before any other imports
  * to ensure all errors are captured.
  *
- * @returns true if initialized successfully, false otherwise
+ * @returns Promise<boolean> - true if initialized successfully, false otherwise
  */
-export function initializeSentry(): boolean {
+export async function initializeSentry(): Promise<boolean> {
   const config = getSentryConfig();
 
   // Skip if already initialized
@@ -58,6 +77,10 @@ export function initializeSentry(): boolean {
   }
 
   try {
+    // Lazy load Sentry module
+    const Sentry = await loadSentry();
+    const { ProfilingIntegration } = await import('@sentry/profiling-node');
+
     Sentry.init({
       dsn: config.dsn,
       environment: config.environment,
@@ -151,19 +174,19 @@ export function isSentryInitialized(): boolean {
 export function captureException(
   error: Error,
   options?: {
-    level?: Sentry.SeverityLevel;
+    level?: 'fatal' | 'error' | 'warning' | 'log' | 'info' | 'debug';
     tags?: Record<string, string>;
     extra?: Record<string, any>; // Will be sanitized
     user?: { id?: string };
     contexts?: Record<string, Record<string, any>>;
   }
 ): string | undefined {
-  if (!isInitialized) {
+  if (!isInitialized || !SentryModule) {
     console.warn('[SENTRY] Cannot capture exception: not initialized');
     return undefined;
   }
 
-  return Sentry.captureException(error, {
+  return SentryModule.captureException(error, {
     level: options?.level || 'error',
     tags: options?.tags,
     extra: options?.extra,
@@ -178,17 +201,17 @@ export function captureException(
 export function captureMessage(
   message: string,
   options?: {
-    level?: Sentry.SeverityLevel;
+    level?: 'fatal' | 'error' | 'warning' | 'log' | 'info' | 'debug';
     tags?: Record<string, string>;
     extra?: Record<string, any>; // Will be sanitized
   }
 ): string | undefined {
-  if (!isInitialized) {
+  if (!isInitialized || !SentryModule) {
     console.warn('[SENTRY] Cannot capture message: not initialized');
     return undefined;
   }
 
-  return Sentry.captureMessage(message, {
+  return SentryModule.captureMessage(message, {
     level: options?.level || 'info',
     tags: options?.tags,
     extra: options?.extra,
@@ -203,15 +226,15 @@ export function captureMessage(
 export function addBreadcrumb(breadcrumb: {
   category: string;
   message: string;
-  level?: Sentry.SeverityLevel;
+  level?: 'fatal' | 'error' | 'warning' | 'log' | 'info' | 'debug';
   data?: Record<string, any>; // Will be sanitized
   timestamp?: number;
 }): void {
-  if (!isInitialized) {
+  if (!isInitialized || !SentryModule) {
     return;
   }
 
-  Sentry.addBreadcrumb({
+  SentryModule.addBreadcrumb({
     category: breadcrumb.category,
     message: breadcrumb.message,
     level: breadcrumb.level || 'info',
@@ -226,14 +249,14 @@ export function addBreadcrumb(breadcrumb: {
  * IMPORTANT: Only set user ID (Auth0 ID), never email or other PII
  */
 export function setUser(userId: string | null): void {
-  if (!isInitialized) {
+  if (!isInitialized || !SentryModule) {
     return;
   }
 
   if (userId) {
-    Sentry.setUser({ id: userId });
+    SentryModule.setUser({ id: userId });
   } else {
-    Sentry.setUser(null);
+    SentryModule.setUser(null);
   }
 }
 
@@ -241,22 +264,22 @@ export function setUser(userId: string | null): void {
  * Set tags for error tracking
  */
 export function setTags(tags: Record<string, string>): void {
-  if (!isInitialized) {
+  if (!isInitialized || !SentryModule) {
     return;
   }
 
-  Sentry.setTags(tags);
+  SentryModule.setTags(tags);
 }
 
 /**
  * Set a single tag for error tracking
  */
 export function setTag(key: string, value: string): void {
-  if (!isInitialized) {
+  if (!isInitialized || !SentryModule) {
     return;
   }
 
-  Sentry.setTag(key, value);
+  SentryModule.setTag(key, value);
 }
 
 /**
@@ -270,12 +293,12 @@ export function startTransaction(
   name: string,
   op: string,
   data?: Record<string, any>
-): Sentry.Transaction | undefined {
-  if (!isInitialized) {
+): any | undefined {
+  if (!isInitialized || !SentryModule) {
     return undefined;
   }
 
-  return Sentry.startTransaction({
+  return SentryModule.startTransaction({
     name,
     op,
     data,
@@ -291,11 +314,11 @@ export function startTransaction(
  * @returns Promise that resolves when flushed or timeout
  */
 export async function flush(timeout: number = 2000): Promise<boolean> {
-  if (!isInitialized) {
+  if (!isInitialized || !SentryModule) {
     return true;
   }
 
-  return Sentry.flush(timeout);
+  return SentryModule.flush(timeout);
 }
 
 /**
@@ -304,14 +327,23 @@ export async function flush(timeout: number = 2000): Promise<boolean> {
  * Should be called during application shutdown
  */
 export async function close(timeout: number = 2000): Promise<boolean> {
-  if (!isInitialized) {
+  if (!isInitialized || !SentryModule) {
     return true;
   }
 
-  const result = await Sentry.close(timeout);
+  const result = await SentryModule.close(timeout);
   isInitialized = false;
+  SentryModule = null;
   return result;
 }
 
-// Re-export Sentry for direct access when needed
-export { Sentry };
+/**
+ * Get Sentry module (for advanced usage)
+ * Returns null if not initialized
+ */
+export function getSentry() {
+  return SentryModule;
+}
+
+// Export type-only for compatibility
+export type { Sentry } from '@sentry/node';
