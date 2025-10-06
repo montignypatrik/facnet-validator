@@ -183,21 +183,27 @@ export class DatabaseStorage implements IStorage {
 
   async createCode(code: InsertCode): Promise<Code> {
     const [created] = await db.insert(codes).values(code).returning();
+    // Invalidate codes cache
+    await cacheService.invalidate(CACHE_KEYS.CODES);
     return created;
   }
 
   async updateCode(id: string, data: Partial<InsertCode>): Promise<Code> {
     const [updated] = await db.update(codes).set({ ...data, updatedAt: new Date() }).where(eq(codes.id, id)).returning();
+    // Invalidate codes cache
+    await cacheService.invalidate(CACHE_KEYS.CODES);
     return updated;
   }
 
   async deleteCode(id: string): Promise<void> {
     await db.delete(codes).where(eq(codes.id, id));
+    // Invalidate codes cache
+    await cacheService.invalidate(CACHE_KEYS.CODES);
   }
 
   async upsertCodes(codeList: InsertCode[]): Promise<void> {
     if (codeList.length === 0) return;
-    
+
     // Insert codes individually to avoid primary key conflicts
     for (const code of codeList) {
       try {
@@ -209,6 +215,9 @@ export class DatabaseStorage implements IStorage {
         }
       }
     }
+
+    // Invalidate codes cache after bulk upsert
+    await cacheService.invalidate(CACHE_KEYS.CODES);
   }
 
   // Contexts
@@ -273,21 +282,27 @@ export class DatabaseStorage implements IStorage {
 
   async createContext(context: InsertContext): Promise<Context> {
     const [created] = await db.insert(contexts).values(context).returning();
+    // Invalidate contexts cache
+    await cacheService.invalidate(CACHE_KEYS.CONTEXTS);
     return created;
   }
 
   async updateContext(id: string, data: Partial<InsertContext>): Promise<Context> {
     const [updated] = await db.update(contexts).set({ ...data, updatedAt: new Date() }).where(eq(contexts.id, id)).returning();
+    // Invalidate contexts cache
+    await cacheService.invalidate(CACHE_KEYS.CONTEXTS);
     return updated;
   }
 
   async deleteContext(id: string): Promise<void> {
     await db.delete(contexts).where(eq(contexts.id, id));
+    // Invalidate contexts cache
+    await cacheService.invalidate(CACHE_KEYS.CONTEXTS);
   }
 
   async upsertContexts(contextList: InsertContext[]): Promise<void> {
     if (contextList.length === 0) return;
-    
+
     await db.insert(contexts).values(contextList).onConflictDoUpdate({
       target: contexts.name,
       set: {
@@ -298,6 +313,9 @@ export class DatabaseStorage implements IStorage {
         updatedBy: sql`EXCLUDED.updated_by`
       }
     });
+
+    // Invalidate contexts cache after bulk upsert
+    await cacheService.invalidate(CACHE_KEYS.CONTEXTS);
   }
 
   // Establishments
@@ -362,21 +380,27 @@ export class DatabaseStorage implements IStorage {
 
   async createEstablishment(establishment: InsertEstablishment): Promise<Establishment> {
     const [created] = await db.insert(establishments).values(establishment).returning();
+    // Invalidate establishments cache
+    await cacheService.invalidate(CACHE_KEYS.ESTABLISHMENTS);
     return created;
   }
 
   async updateEstablishment(id: string, data: Partial<InsertEstablishment>): Promise<Establishment> {
     const [updated] = await db.update(establishments).set({ ...data, updatedAt: new Date() }).where(eq(establishments.id, id)).returning();
+    // Invalidate establishments cache
+    await cacheService.invalidate(CACHE_KEYS.ESTABLISHMENTS);
     return updated;
   }
 
   async deleteEstablishment(id: string): Promise<void> {
     await db.delete(establishments).where(eq(establishments.id, id));
+    // Invalidate establishments cache
+    await cacheService.invalidate(CACHE_KEYS.ESTABLISHMENTS);
   }
 
   async upsertEstablishments(establishmentList: InsertEstablishment[]): Promise<void> {
     if (establishmentList.length === 0) return;
-    
+
     await db.insert(establishments).values(establishmentList).onConflictDoUpdate({
       target: establishments.name,
       set: {
@@ -389,6 +413,9 @@ export class DatabaseStorage implements IStorage {
         updatedBy: sql`EXCLUDED.updated_by`
       }
     });
+
+    // Invalidate establishments cache after bulk upsert
+    await cacheService.invalidate(CACHE_KEYS.ESTABLISHMENTS);
   }
 
   // Rules
@@ -434,21 +461,27 @@ export class DatabaseStorage implements IStorage {
 
   async createRule(rule: InsertRule): Promise<Rule> {
     const [created] = await db.insert(rules).values(rule).returning();
+    // Invalidate rules cache
+    await cacheService.invalidate(CACHE_KEYS.RULES);
     return created;
   }
 
   async updateRule(id: string, data: Partial<InsertRule>): Promise<Rule> {
     const [updated] = await db.update(rules).set({ ...data, updatedAt: new Date() }).where(eq(rules.id, id)).returning();
+    // Invalidate rules cache
+    await cacheService.invalidate(CACHE_KEYS.RULES);
     return updated;
   }
 
   async deleteRule(id: string): Promise<void> {
     await db.delete(rules).where(eq(rules.id, id));
+    // Invalidate rules cache
+    await cacheService.invalidate(CACHE_KEYS.RULES);
   }
 
   async upsertRules(ruleList: InsertRule[]): Promise<void> {
     if (ruleList.length === 0) return;
-    
+
     await db.insert(rules).values(ruleList).onConflictDoUpdate({
       target: rules.name,
       set: {
@@ -460,6 +493,9 @@ export class DatabaseStorage implements IStorage {
         updatedBy: sql`EXCLUDED.updated_by`
       }
     });
+
+    // Invalidate rules cache after bulk upsert
+    await cacheService.invalidate(CACHE_KEYS.RULES);
   }
 
   // Field Catalog
@@ -681,20 +717,6 @@ export class DatabaseStorage implements IStorage {
     await cacheService.set(CACHE_KEYS.RULES, rulesData);
 
     return rulesData;
-  }
-
-  async createRule(rule: InsertRule): Promise<Rule> {
-    const [created] = await db.insert(rules).values(rule).returning();
-    return created;
-  }
-
-  async updateRule(id: string, data: Partial<InsertRule>): Promise<Rule> {
-    const [updated] = await db.update(rules).set({ ...data, updatedAt: new Date() }).where(eq(rules.id, id)).returning();
-    return updated;
-  }
-
-  async deleteRule(id: string): Promise<void> {
-    await db.delete(rules).where(eq(rules.id, id));
   }
 
   // SECURITY: Data cleanup methods for sensitive information
