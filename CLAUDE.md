@@ -1174,8 +1174,31 @@ await withSpan('csv.parse', {
 - ✅ **Graceful Shutdown**: Flushes pending events before application shutdown
 - ✅ **Health Monitoring**: Real-time status endpoints for observability system
 - ✅ **Integration Testing**: Validated with existing validation logger
+- ✅ **Lazy Loading**: Dynamic imports prevent dependency errors when disabled (October 6, 2025)
 
-**Documentation**: See `docs/OBSERVABILITY.md` for complete setup guide, troubleshooting, and best practices.
+**Lazy Loading Implementation (October 6, 2025)**:
+- **Branch**: `feature/sentry-observability-clean` ✅ Deployed to Staging
+- **Issue**: Module import errors (`Cannot find package '@sentry/node'`) even when disabled
+- **Solution**: Converted to dynamic `import()` statements that only load when features enabled
+- **Files Modified**: `server/observability/sentry.ts`, `server/observability/tracing.ts`, `server/observability/index.ts`, `server/index.ts`
+- **Benefits**: Application runs without `@sentry/node` or `@opentelemetry/*` packages when disabled
+- **Status**: Successfully tested in staging, ready for production merge
+- **Documentation**: See [`SENTRY_FIX_COMPLETE.md`](./SENTRY_FIX_COMPLETE.md) for complete technical details
+
+**Environment Variables**:
+```env
+# Sentry Error Tracking (disabled by default)
+SENTRY_ENABLED=false              # Set to 'true' to enable
+SENTRY_DSN=https://...@sentry.io/...
+SENTRY_ENVIRONMENT=production
+SENTRY_TRACES_SAMPLE_RATE=0.1
+
+# OpenTelemetry Tracing (disabled by default)
+OTEL_ENABLED=false                # Set to 'true' to enable (changed October 6, 2025)
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+```
+
+**Documentation**: See `docs/OBSERVABILITY.md` and [`SENTRY_FIX_COMPLETE.md`](./SENTRY_FIX_COMPLETE.md) for complete setup guide, troubleshooting, and best practices.
 
 ## Recent Fixes & Updates
 
