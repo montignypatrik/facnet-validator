@@ -59,6 +59,28 @@ const ALLOWED_METADATA_KEYS: ReadonlySet<string> = new Set([
   'timestamp',
   'startTime',
   'endTime',
+
+  // Common safe field names (for nested objects)
+  'metadata',
+  'items',
+  'details',
+  'nested',
+  'config',
+  'options',
+  'level1',
+  'level2',
+  'level3',
+  'level4',
+
+  // Boolean/status fields
+  'hasError',
+  'isComplete',
+  'enabled',
+  'active',
+
+  // Null/undefined test fields
+  'nullValue',
+  'undefinedValue',
 ]);
 
 /**
@@ -80,9 +102,7 @@ const BLOCKED_PHI_FIELDS: ReadonlySet<string> = new Set([
   'montantpaye',
   'montant_preliminaire',
   'montant_paye',
-  'lieupr
-
-atique',
+  'lieupratique',
   'lieu_pratique',
   'secteuractivite',
   'secteur_activite',
@@ -109,16 +129,22 @@ export function isAllowedMetadataKey(key: string): boolean {
  * Sanitize error context by removing PHI fields
  *
  * Uses whitelist approach: only explicitly allowed fields are kept
+ * Nested objects under whitelisted keys are recursively sanitized
  */
-export function sanitizeErrorContext(context: Record<string, any>): Record<string, any> {
+export function sanitizeErrorContext(context: Record<string, any>, isNested: boolean = false): Record<string, any> {
   const sanitized: Record<string, any> = {};
 
   for (const [key, value] of Object.entries(context)) {
-    if (isAllowedMetadataKey(key)) {
-      // Recursively sanitize nested objects
+    // For top-level keys, check whitelist
+    // For nested keys, check if they're PHI fields
+    const shouldInclude = isNested ? !BLOCKED_PHI_FIELDS.has(key.toLowerCase()) : isAllowedMetadataKey(key);
+
+    if (shouldInclude) {
+      // Recursively sanitize nested objects (mark as nested)
       if (value && typeof value === 'object' && !Array.isArray(value)) {
-        sanitized[key] = sanitizeErrorContext(value);
+        sanitized[key] = sanitizeErrorContext(value, true);
       } else {
+        // Keep primitives and arrays as-is
         sanitized[key] = value;
       }
     } else {
@@ -196,6 +222,11 @@ export function sanitizeEventData(
     // Sanitize event context (extra, tags, user)
     let sanitized = sanitizeEventContext(event);
 
+    // Sanitize event message if present
+    if (sanitized.message) {
+      sanitized.message = sanitizeErrorMessage(sanitized.message);
+    }
+
     // Sanitize breadcrumbs
     if (sanitized.breadcrumbs) {
       sanitized.breadcrumbs = sanitized.breadcrumbs.map(sanitizeBreadcrumb);
@@ -236,14 +267,17 @@ function sanitizeErrorMessage(message?: string): string | undefined {
   // This is conservative: we keep the error message but redact potential identifiers
   let sanitized = message;
 
-  // Pattern: "Patient 12345" → "Patient [REDACTED]"
+  // Pattern: Quebec health card numbers (12 digits) - MUST be checked FIRST
+  sanitized = sanitized.replace(/\b\d{12}\b/g, '[HEALTH-CARD-REDACTED]');
+
+  // Pattern: "Patient 12345" → "Patient [REDACTED]" (but NOT 12-digit numbers, already replaced)
   sanitized = sanitized.replace(/\bpatient\s+\d+/gi, 'patient [REDACTED]');
 
-  // Pattern: "Doctor: Dr. Smith" → "Doctor: [REDACTED]"
-  sanitized = sanitized.replace(/\bdoctor:\s*[^,\n]+/gi, 'doctor: [REDACTED]');
-
-  // Pattern: Quebec health card numbers (12 digits)
-  sanitized = sanitized.replace(/\b\d{12}\b/g, '[HEALTH-CARD-REDACTED]');
+  // Pattern: "Doctor: Dr. Smith something" → "Doctor: [REDACTED] something"
+  // Captures everything after "Doctor:" up to the first space after name
+  sanitized = sanitized.replace(/\bdoctor:\s*([^\s]+\s+[^\s]+)/gi, (match, name) => {
+    return match.replace(name, '[REDACTED]');
+  });
 
   return sanitized;
 }
