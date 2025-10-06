@@ -551,7 +551,7 @@ export class DatabaseStorage implements IStorage {
         idRamq: validationResults.idRamq, // Fixed: read from validation_results table, not billing_records
       })
       .from(validationResults)
-      .leftJoin(rules, sql`${validationResults.ruleId}::uuid = ${rules.id}`)
+      .leftJoin(rules, eq(validationResults.ruleId, rules.id))
       .leftJoin(billingRecords, eq(validationResults.billingRecordId, billingRecords.id))
       .where(eq(validationResults.validationRunId, validationRunId))
       .orderBy(asc(validationResults.createdAt));
