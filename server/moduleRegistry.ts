@@ -31,6 +31,7 @@ export async function registerModules(app: Express): Promise<void> {
   const administrationRoutes = (await import("./modules/administration/routes")).default;
   const chatbotRoutes = (await import("./modules/chatbot/routes")).default;
   const chatbotChatRoutes = (await import("./modules/chatbot/routes-chat")).default;
+  const formationRoutes = (await import("./modules/formation-ressourcement/routes")).default;
 
   // Define modules
   const modules: DashModule[] = [
@@ -75,6 +76,13 @@ export async function registerModules(app: Express): Promise<void> {
       version: "1.0.0",
       description: "Chatbot conversation and message management",
       router: chatbotChatRoutes,
+      enabled: true,
+    },
+    {
+      name: "formation-ressourcement",
+      version: "1.0.0",
+      description: "Training and resources for healthcare billing professionals",
+      router: formationRoutes,
       enabled: true,
     },
   ];
@@ -127,6 +135,12 @@ export async function getModuleList(): Promise<Array<{ name: string; version: st
       version: "1.0.0",
       description: "Task and workflow management",
       enabled: false, // Coming soon
+    },
+    {
+      name: "formation-ressourcement",
+      version: "1.0.0",
+      description: "Training and resources for healthcare billing professionals",
+      enabled: true,
     },
     {
       name: "hors-ramq",

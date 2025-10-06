@@ -1,10 +1,12 @@
 import { storage } from "../../../core/storage";
 import { ValidationRule } from "./engine";
 import { BillingRecord, InsertValidationResult } from "@shared/schema";
+import * as RuleHandlers from "./ruleTypeHandlers";
 
 export interface DatabaseRule {
   id: string;
   name: string;
+  ruleType: string | null;
   condition: any; // JSON condition from database
   threshold: number | null;
   enabled: boolean;
@@ -57,14 +59,44 @@ async function validateWithDatabaseRule(
 
   try {
     const condition = rule.condition;
+    const ruleType = rule.ruleType || condition.rule_type || condition.type;
 
-    if (condition.type === "office_fee_validation") {
-      // Handle office fee validation from database
-      return await validateOfficeFeeFromDatabase(rule, records, validationRunId, condition);
+    // Route to appropriate handler based on rule type
+    switch (ruleType) {
+      case "office_fee_validation":
+        return await validateOfficeFeeFromDatabase(rule, records, validationRunId, condition);
+
+      case "prohibition":
+        return await RuleHandlers.validateProhibition(rule, records, validationRunId);
+
+      case "time_restriction":
+        return await RuleHandlers.validateTimeRestriction(rule, records, validationRunId);
+
+      case "requirement":
+        return await RuleHandlers.validateRequirement(rule, records, validationRunId);
+
+      case "location_restriction":
+        return await RuleHandlers.validateLocationRestriction(rule, records, validationRunId);
+
+      case "age_restriction":
+        return await RuleHandlers.validateAgeRestriction(rule, records, validationRunId);
+
+      case "amount_limit":
+        return await RuleHandlers.validateAmountLimit(rule, records, validationRunId);
+
+      case "mutual_exclusion":
+        return await RuleHandlers.validateMutualExclusion(rule, records, validationRunId);
+
+      case "missing_annual_opportunity":
+        return await RuleHandlers.validateMissingAnnualOpportunity(rule, records, validationRunId);
+
+      case "annual_limit":
+        return await RuleHandlers.validateAnnualLimit(rule, records, validationRunId);
+
+      default:
+        console.warn(`[RULES] Unknown rule type: ${ruleType}`);
+        return results;
     }
-
-    // Add more rule types here as needed
-    console.warn(`[RULES] Unknown rule type: ${condition.type}`);
 
   } catch (error) {
     console.error(`[RULES] Error in rule ${rule.name}:`, error);
@@ -86,13 +118,13 @@ async function validateWithDatabaseRule(
 }
 
 // Determine if a billing record is a registered or walk-in visit
-function determineVisitType(record: BillingRecord): 'registered' | 'walk-in' | null {
+function determineVisitType(record: BillingRecord, codeCategories: Map<string, string>): 'registered' | 'walk-in' | null {
   const code = record.code;
-  const category = (record as any).category || '';
+  const category = codeCategories.get(code) || '';
   const elementContexte = record.elementContexte || '';
 
-  // Check context tags for walk-in indicators
-  const hasWalkInContext = elementContexte.includes('#G160') || elementContexte.includes('#AR');
+  // Check context tags for walk-in indicators (with or without # symbol)
+  const hasWalkInContext = elementContexte.includes('G160') || elementContexte.includes('AR');
 
   // Special handling for codes 8857/8859 - context tags are REQUIRED to differentiate
   if (code === '8857' || code === '8859') {
@@ -142,10 +174,24 @@ async function validateOfficeFeeFromDatabase(
 ): Promise<InsertValidationResult[]> {
   const results: InsertValidationResult[] = [];
 
+  // Load code categories from database for visit type determination
+  const { db } = await import("../../../core/db");
+  const { codes: codesTable } = await import("@shared/schema");
+  const allCodes = await db.select({ code: codesTable.code, category: codesTable.category }).from(codesTable);
+
+  const codeCategories = new Map<string, string>();
+  for (const codeRow of allCodes) {
+    if (codeRow.category) {
+      codeCategories.set(codeRow.code, codeRow.category);
+    }
+  }
+
+  console.log(`[DEBUG] Loaded ${codeCategories.size} code categories from database`);
+
   // Get configuration from database rule
   const config = {
     codes: condition.codes || ["19928", "19929"],
-    walkInContexts: condition.walkInContexts || ["#G160", "#AR"],
+    walkInContexts: condition.walkInContexts || ["G160", "AR", "#G160", "#AR"],
     thresholds: condition.thresholds || {
       "19928": { registered: 6, walkIn: 10 },
       "19929": { registered: 12, walkIn: 20 }
@@ -168,6 +214,10 @@ async function validateOfficeFeeFromDatabase(
         date: record.dateService.toISOString().split('T')[0],
         registeredPatients: new Set(),
         walkInPatients: new Set(),
+        registeredPaidPatients: new Set(),
+        walkInPaidPatients: new Set(),
+        registeredUnpaidPatients: new Set(),
+        walkInUnpaidPatients: new Set(),
         officeFees: [],
         totalAmount: 0
       });
@@ -181,12 +231,25 @@ async function validateOfficeFeeFromDatabase(
       dayData.totalAmount += Number(record.montantPreliminaire || 0);
     } else if (record.patient) {
       // Track patient visits based on code category AND context tags
-      const visitType = determineVisitType(record);
+      const visitType = determineVisitType(record, codeCategories);
+      const isPaid = Number(record.montantPaye || 0) > 0;
+
+      console.log(`[DEBUG] Patient: ${record.patient}, Code: ${record.code}, Category: ${codeCategories.get(record.code) || 'NOT FOUND'}, VisitType: ${visitType}, Paid: ${isPaid}`);
 
       if (visitType === 'walk-in') {
         dayData.walkInPatients.add(record.patient);
+        if (isPaid) {
+          dayData.walkInPaidPatients.add(record.patient);
+        } else {
+          dayData.walkInUnpaidPatients.add(record.patient);
+        }
       } else if (visitType === 'registered') {
         dayData.registeredPatients.add(record.patient);
+        if (isPaid) {
+          dayData.registeredPaidPatients.add(record.patient);
+        } else {
+          dayData.registeredUnpaidPatients.add(record.patient);
+        }
       }
       // If visitType is null, ignore this record (not a valid visit code)
     }
@@ -196,6 +259,10 @@ async function validateOfficeFeeFromDatabase(
   for (const [key, dayData] of doctorDayMap.entries()) {
     const registeredCount = dayData.registeredPatients.size;
     const walkInCount = dayData.walkInPatients.size;
+    const registeredPaidCount = dayData.registeredPaidPatients.size;
+    const walkInPaidCount = dayData.walkInPaidPatients.size;
+    const registeredUnpaidCount = dayData.registeredUnpaidPatients.size;
+    const walkInUnpaidCount = dayData.walkInUnpaidPatients.size;
 
     // Group office fees by error type and RAMQ ID for consolidated error messages
     const errorGroups = new Map<string, {
@@ -235,6 +302,8 @@ async function validateOfficeFeeFromDatabase(
       const hasWalkInContext = config.walkInContexts.some(ctx =>
         officeFee.elementContexte?.includes(ctx)
       );
+
+      console.log(`[OFFICE FEE CONTEXT DEBUG] Code: ${officeFee.code}, Context: "${officeFee.elementContexte}", HasWalkIn: ${hasWalkInContext}, WalkInContexts: ${JSON.stringify(config.walkInContexts)}`);
 
       const codeThresholds = config.thresholds[officeFee.code];
       if (!codeThresholds) continue;
@@ -291,7 +360,8 @@ async function validateOfficeFeeFromDatabase(
           idRamq: ramqList, // Add RAMQ ID at top level
           severity: "error",
           category: "office_fees",
-          message: `Code ${group.code} (${count}×) is for cabinet only (establishment must start with 5), but found establishment ${group.establishment}. RAMQ IDs: ${ramqList}`,
+          message: `Les codes 19928 et 19929 peuvent seulement etre facture en cabinet`,
+          solution: `Veuillez annuler la demande`,
           affectedRecords: group.billingRecordIds,
           ruleData: {
             code: group.code,
@@ -311,7 +381,8 @@ async function validateOfficeFeeFromDatabase(
           idRamq: ramqList, // Add RAMQ ID at top level
           severity: "error",
           category: "office_fees",
-          message: `Code ${group.code} (${count}×) walk-in requires minimum ${group.required} walk-in patients but only ${group.actual} found for ${dayData.doctor} on ${dayData.date}. RAMQ IDs: ${ramqList}`,
+          message: `Le code ${group.code} requiert la presence d'un minimum de ${group.required} patients sans rendez-vous allors qu'on en trouve seullement ${group.actual} pour cette date de service`,
+          solution: `Veuillez annuler la demande ou corriger les visites non payé`,
           affectedRecords: group.billingRecordIds,
           ruleData: {
             code: group.code,
@@ -320,6 +391,9 @@ async function validateOfficeFeeFromDatabase(
             type: "walk_in",
             required: group.required,
             actual: group.actual,
+            paidVisits: walkInPaidCount,
+            unpaidVisits: walkInUnpaidCount,
+            registeredVisits: registeredCount,
             doctor: dayData.doctor,
             date: dayData.date
           }
@@ -332,7 +406,8 @@ async function validateOfficeFeeFromDatabase(
           idRamq: ramqList, // Add RAMQ ID at top level
           severity: "error",
           category: "office_fees",
-          message: `Code ${group.code} (${count}×) registered requires minimum ${group.required} registered patients but only ${group.actual} found for ${dayData.doctor} on ${dayData.date}. RAMQ IDs: ${ramqList}`,
+          message: `Le code ${group.code} requiert la presence d'un minimum de ${group.required} patients inscrit allors qu'on en trouve seullement ${group.actual} pour cette date de service`,
+          solution: `Veuillez annuler la demande ou corriger les visites non payé`,
           affectedRecords: group.billingRecordIds,
           ruleData: {
             code: group.code,
@@ -341,6 +416,9 @@ async function validateOfficeFeeFromDatabase(
             type: "registered",
             required: group.required,
             actual: group.actual,
+            paidVisits: registeredPaidCount,
+            unpaidVisits: registeredUnpaidCount,
+            walkInVisits: walkInCount,
             doctor: dayData.doctor,
             date: dayData.date
           }
@@ -362,13 +440,46 @@ async function validateOfficeFeeFromDatabase(
         idRamq: uniqueRamqIds, // Add RAMQ ID at top level
         severity: "error",
         category: "office_fees",
-        message: `Daily office fee maximum of $${config.dailyMaximum.toFixed(2)} exceeded for ${dayData.doctor} on ${dayData.date} (total: $${dayData.totalAmount.toFixed(2)}, ${count}× office fees). RAMQ IDs: ${uniqueRamqIds}`,
+        message: `Le maximum quotidien de ${config.dailyMaximum.toFixed(2)} pour les frais de bureau a ete depasse pour ce medecin`,
+        solution: `Veuillez annuler un des deux frais de bureau`,
         affectedRecords: affectedIds,
         ruleData: {
           count: count,
           ramqIds: uniqueRamqIds,
           doctor: dayData.doctor,
           date: dayData.date,
+          totalAmount: dayData.totalAmount,
+          maximum: config.dailyMaximum
+        }
+      });
+    }
+
+    // Add informational result showing visit counts (always, even when correct)
+    if (dayData.officeFees.length > 0) {
+      const officeFeeCodes = dayData.officeFees.map(f => f.code).join(', ');
+      const ramqIds = dayData.officeFees.map(fee => fee.idRamq || "N'existe pas");
+      const uniqueRamqIds = Array.from(new Set(ramqIds)).sort().join(', ');
+
+      results.push({
+        validationRunId,
+        ruleId: rule.id,
+        billingRecordId: dayData.officeFees[0]?.id || null,
+        idRamq: uniqueRamqIds,
+        severity: "info",
+        category: "office_fees",
+        message: `Comptage des visites: ${registeredCount} patients inscrits, ${walkInCount} patients sans rendez-vous. Frais de bureau facturé: ${officeFeeCodes} (${dayData.totalAmount.toFixed(2)}$)`,
+        solution: null,
+        affectedRecords: dayData.officeFees.map(f => f.id).filter(id => id !== null) as string[],
+        ruleData: {
+          doctor: dayData.doctor,
+          date: dayData.date,
+          registeredCount,
+          walkInCount,
+          registeredPaidCount,
+          walkInPaidCount,
+          registeredUnpaidCount,
+          walkInUnpaidCount,
+          officeFeeCodes,
           totalAmount: dayData.totalAmount,
           maximum: config.dailyMaximum
         }

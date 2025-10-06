@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
+import {
   ArrowLeft,
   Download,
   RefreshCw,
@@ -17,7 +17,9 @@ import {
   Loader,
   Clock,
   Users,
-  AlertCircle
+  AlertCircle,
+  Shield,
+  Info
 } from "lucide-react";
 import client from "@/api/client";
 
@@ -356,10 +358,35 @@ export default function RunDetailsPage() {
             </div>
           )}
 
+          {/* PHI Redaction Info Banner */}
+          {run.status === "completed" && validationResults && validationResults.length > 0 && (
+            <Alert className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+              <Shield className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-900 dark:text-blue-100">
+                <strong>Privacy Note:</strong> Patient IDs and doctor information are redacted for privacy compliance.
+                RAMQ billing IDs are visible as they're needed for corrections. Admins can adjust PHI visibility in Settings.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Validation Results Details */}
           {run.status === "completed" && validationResults && validationResults.length > 0 && (() => {
-            // Group results by RAMQ ID
-            const groupedResults = validationResults.reduce((acc: Record<string, any[]>, result: any) => {
+            // Separate errors from informational messages
+            const errors = validationResults.filter((r: any) => r.severity === "error");
+            const infos = validationResults.filter((r: any) => r.severity === "info");
+
+            // Group errors by RAMQ ID
+            const groupedErrors = errors.reduce((acc: Record<string, any[]>, result: any) => {
+              const ramqId = result.idRamq || "n'existe pas";
+              if (!acc[ramqId]) {
+                acc[ramqId] = [];
+              }
+              acc[ramqId].push(result);
+              return acc;
+            }, {});
+
+            // Group informational messages by RAMQ ID
+            const groupedInfos = infos.reduce((acc: Record<string, any[]>, result: any) => {
               const ramqId = result.idRamq || "n'existe pas";
               if (!acc[ramqId]) {
                 acc[ramqId] = [];
@@ -369,23 +396,26 @@ export default function RunDetailsPage() {
             }, {});
 
             return (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <AlertTriangle className="w-5 h-5 mr-2 text-amber-600" />
-                      Issues détectées ({validationResults.length})
-                    </div>
-                    <Button variant="outline" size="sm">
-                      <Download className="w-4 h-4 mr-2" />
-                      Exporter la liste
-                    </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-8">
-                    {Object.entries(groupedResults).map(([ramqId, results]: [string, any[]]) => (
-                      <div key={ramqId} className="space-y-4">
+              <>
+                {/* Errors Section */}
+                {errors.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <AlertTriangle className="w-5 h-5 mr-2 text-amber-600" />
+                          Issues détectées ({errors.length})
+                        </div>
+                        <Button variant="outline" size="sm">
+                          <Download className="w-4 h-4 mr-2" />
+                          Exporter la liste
+                        </Button>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-8">
+                        {Object.entries(groupedErrors).map(([ramqId, results]: [string, any[]]) => (
+                          <div key={ramqId} className="space-y-4">
                         {/* RAMQ ID Header */}
                         <div className="flex items-center space-x-2 pb-2 border-b-2 border-gray-300 dark:border-gray-700">
                           <FileText className="w-5 h-5 text-primary" />
@@ -397,86 +427,218 @@ export default function RunDetailsPage() {
 
                         {/* Issues for this RAMQ ID */}
                         <div className="space-y-4 pl-4">
-                          {results.map((result: any, index: number) => (
-                            <div key={result.id || index} className="border-l-4 border-red-500 bg-red-50 dark:bg-red-950/20 p-4 rounded-r-lg">
-                              {/* Issue Header - Rule Name First */}
-                              <div className="flex items-start justify-between mb-3">
-                                <div className="flex items-center space-x-2">
-                                  <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-                                  <h4 className="font-semibold text-red-900 dark:text-red-100">
-                                    {result.ruleName || "Règle de validation"}
-                                  </h4>
+                          {results.map((result: any, index: number) => {
+                            const isInfo = result.severity === "info";
+
+                            if (isInfo) {
+                              // Informational message (visit counts)
+                              return (
+                                <div key={result.id || index} className="border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-950/20 p-4 rounded-r-lg">
+                                  <div className="flex items-start justify-between mb-3">
+                                    <div className="flex items-center space-x-2">
+                                      <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                                      <h4 className="font-semibold text-blue-900 dark:text-blue-100">
+                                        {result.ruleName === "Office Fee Validation (19928/19929)"
+                                          ? "Frais de cabinet (19928/19929)"
+                                          : result.ruleName || "Information"
+                                        }
+                                      </h4>
+                                    </div>
+                                  </div>
+
+                                  <div className="mb-3">
+                                    <h5 className="text-sm font-semibold text-foreground mb-1 flex items-center">
+                                      <AlertCircle className="w-4 h-4 mr-1.5 text-blue-600" />
+                                      {result.message}
+                                    </h5>
+                                  </div>
+
+                                  {/* Visit Details */}
+                                  <div className="bg-white dark:bg-gray-900 rounded p-3">
+                                    <h5 className="text-sm font-semibold text-foreground mb-2">Détails des visites</h5>
+                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                      <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Inscrits payés:</span>
+                                        <span className="font-medium">{result.ruleData?.registeredPaidCount || 0}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Inscrits non payés:</span>
+                                        <span className="font-medium">{result.ruleData?.registeredUnpaidCount || 0}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Sans RDV payés:</span>
+                                        <span className="font-medium">{result.ruleData?.walkInPaidCount || 0}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Sans RDV non payés:</span>
+                                        <span className="font-medium">{result.ruleData?.walkInUnpaidCount || 0}</span>
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
+                              );
+                            } else {
+                              // Error message
+                              return (
+                                <div key={result.id || index} className="border-l-4 border-red-500 bg-red-50 dark:bg-red-950/20 p-4 rounded-r-lg">
+                                  {/* Issue Header - Rule Name First */}
+                                  <div className="flex items-start justify-between mb-3">
+                                    <div className="flex items-center space-x-2">
+                                      <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                                      <h4 className="font-semibold text-red-900 dark:text-red-100">
+                                        {result.ruleName === "Office Fee Validation (19928/19929)"
+                                          ? "Frais de cabinet (19928/19929)"
+                                          : result.ruleName || "Règle de validation"
+                                        }
+                                      </h4>
+                                    </div>
+                                  </div>
 
-                              {/* What's Wrong */}
-                              <div className="mb-3">
-                                <h5 className="text-sm font-semibold text-foreground mb-1 flex items-center">
-                                  <AlertCircle className="w-4 h-4 mr-1.5 text-red-600" />
-                                  Ce qui ne va pas
-                                </h5>
-                                <p className="text-sm text-foreground pl-5">
-                                  {result.message}
-                                </p>
-                              </div>
+                                  {/* What's Wrong */}
+                                  <div className="mb-3">
+                                    <h5 className="text-sm font-semibold text-foreground mb-1 flex items-center">
+                                      <AlertCircle className="w-4 h-4 mr-1.5 text-red-600" />
+                                      {result.message}
+                                    </h5>
+                                  </div>
 
-                              {/* Details - Simplified */}
-                              <div className="mb-3 bg-white dark:bg-gray-900 rounded p-3">
-                                <h5 className="text-sm font-semibold text-foreground mb-2">Détails</h5>
-                                <div className="grid grid-cols-2 gap-2 text-sm">
-                                  {result.ruleData?.code && (
-                                    <div className="flex justify-between">
-                                      <span className="text-muted-foreground">Code:</span>
-                                      <span className="font-mono font-medium">{result.ruleData.code}</span>
+                                  {/* Details - Simplified */}
+                                  <div className="mb-3 bg-white dark:bg-gray-900 rounded p-3">
+                                    <h5 className="text-sm font-semibold text-foreground mb-2">Détails</h5>
+                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                      {result.ruleData?.code && (
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Code:</span>
+                                          <span className="font-mono font-medium">{result.ruleData.code}</span>
+                                        </div>
+                                      )}
+                                      {result.ruleData?.date && (
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Date:</span>
+                                          <span className="font-medium">{result.ruleData.date}</span>
+                                        </div>
+                                      )}
+                                      {(result.ruleData?.type === 'registered' || result.ruleData?.type === 'walk_in') && result.ruleData?.paidVisits !== undefined && (
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Visites payées:</span>
+                                          <span className="font-medium">{result.ruleData.paidVisits}</span>
+                                        </div>
+                                      )}
+                                      {(result.ruleData?.type === 'registered' || result.ruleData?.type === 'walk_in') && result.ruleData?.unpaidVisits !== undefined && (
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Visites non payées:</span>
+                                          <span className="font-medium">{result.ruleData.unpaidVisits}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* How to Fix */}
+                                  {result.solution && (
+                                    <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded p-3">
+                                      <h5 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1 flex items-center">
+                                        <CheckCircle className="w-4 h-4 mr-1.5" />
+                                        {result.solution}
+                                      </h5>
                                     </div>
                                   )}
-                                  {result.ruleData?.date && (
-                                    <div className="flex justify-between">
-                                      <span className="text-muted-foreground">Date:</span>
-                                      <span className="font-medium">{result.ruleData.date}</span>
-                                    </div>
-                                  )}
                                 </div>
-                              </div>
-
-                              {/* How to Fix - Improved Translation */}
-                              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded p-3">
-                                <h5 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1 flex items-center">
-                                  <CheckCircle className="w-4 h-4 mr-1.5" />
-                                  Comment corriger
-                                </h5>
-                                <p className="text-sm text-blue-800 dark:text-blue-200 pl-5">
-                                  {result.ruleData?.establishment && !result.ruleData.establishment.startsWith('5')
-                                    ? `Vérifiez que le code ${result.ruleData.code} est utilisé dans un cabinet (établissement commençant par 5). L'établissement actuel (${result.ruleData.establishment}) ne correspond pas à un cabinet.`
-                                    : result.ruleData?.type === 'registered' && result.ruleData?.required && result.ruleData?.actual
-                                    ? `Vous avez facturé le code ${result.ruleData.code} mais le minimum de ${result.ruleData.required} patients n'a pas été atteint. Notre analyse reconnait ${result.ruleData.actual} patients. S'il vous plaît annuler le code ${result.ruleData.code}.`
-                                    : result.ruleData?.type === 'walk_in' && result.ruleData?.required && result.ruleData?.actual
-                                    ? `Vous avez facturé le code ${result.ruleData.code} mais le minimum de ${result.ruleData.required} patients n'a pas été atteint. Notre analyse reconnait ${result.ruleData.actual} patients. S'il vous plaît annuler le code ${result.ruleData.code}.`
-                                    : result.ruleData?.totalAmount && result.ruleData?.maximum
-                                    ? `Le montant total de ${result.ruleData.totalAmount}$ dépasse le maximum quotidien de ${result.ruleData.maximum}$. Vérifiez vos facturation et retirez les codes en trop.`
-                                    : "Corrigez les données selon les règles de validation RAMQ."
-                                  }
-                                </p>
-                              </div>
-
-                              {/* Affected Records */}
-                              {result.affectedRecords && result.affectedRecords.length > 0 && (
-                                <div className="mt-3 text-xs text-muted-foreground">
-                                  <span className="font-medium">Dossiers affectés:</span> {result.affectedRecords.length} enregistrement(s)
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                              );
+                            }
+                          })}
                         </div>
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
-            );
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Informational Messages Section */}
+                {infos.length > 0 && (
+                  <Card className="mt-6">
+                    <CardHeader>
+                      <CardTitle className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <CheckCircle className="w-5 h-5 mr-2 text-blue-600" />
+                          Validations correctes ({infos.length})
+                        </div>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-8">
+                        {Object.entries(groupedInfos).map(([ramqId, results]: [string, any[]]) => (
+                          <div key={ramqId} className="space-y-4">
+                            {/* RAMQ ID Header */}
+                            <div className="flex items-center space-x-2 pb-2 border-b-2 border-blue-300 dark:border-blue-700">
+                              <FileText className="w-5 h-5 text-blue-600" />
+                              <h3 className="text-lg font-bold text-foreground">
+                                RAMQ ID: <span className="font-mono">{ramqId}</span>
+                              </h3>
+                              <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                                {results.length} validation{results.length > 1 ? 's' : ''}
+                              </Badge>
+                            </div>
+
+                            {/* Informational messages for this RAMQ ID */}
+                            <div className="space-y-4 pl-4">
+                              {results.map((result: any, index: number) => (
+                                <div key={result.id || index} className="border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-950/20 p-4 rounded-r-lg">
+                                  <div className="flex items-start justify-between mb-3">
+                                    <div className="flex items-center space-x-2">
+                                      <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                                      <h4 className="font-semibold text-blue-900 dark:text-blue-100">
+                                        {result.ruleName === "Office Fee Validation (19928/19929)"
+                                          ? "Frais de cabinet (19928/19929)"
+                                          : result.ruleName || "Information"
+                                        }
+                                      </h4>
+                                    </div>
+                                  </div>
+
+                                  <div className="mb-3">
+                                    <h5 className="text-sm font-semibold text-foreground mb-1 flex items-center">
+                                      <AlertCircle className="w-4 h-4 mr-1.5 text-blue-600" />
+                                      {result.message}
+                                    </h5>
+                                  </div>
+
+                                  {/* Visit Details */}
+                                  <div className="bg-white dark:bg-gray-900 rounded p-3">
+                                    <h5 className="text-sm font-semibold text-foreground mb-2">Détails des visites</h5>
+                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                      <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Inscrits payés:</span>
+                                        <span className="font-medium">{result.ruleData?.registeredPaidCount || 0}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Inscrits non payés:</span>
+                                        <span className="font-medium">{result.ruleData?.registeredUnpaidCount || 0}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Sans RDV payés:</span>
+                                        <span className="font-medium">{result.ruleData?.walkInPaidCount || 0}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Sans RDV non payés:</span>
+                                        <span className="font-medium">{result.ruleData?.walkInUnpaidCount || 0}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            )
           })()}
 
-          {/* No Issues Found */}
+          {/* No Issues Found - trigger recompile */}
           {run.status === "completed" && (!validationResults || validationResults.length === 0) && (
             <Card>
               <CardContent className="p-8 text-center">
@@ -500,7 +662,18 @@ export default function RunDetailsPage() {
                   <XCircle className="h-4 w-4" />
                   <AlertDescription>
                     The validation process encountered an error and could not be completed.
-                    Please check your file format and try again.
+                    {run.errorMessage && (
+                      <>
+                        <br /><br />
+                        <strong>Error details:</strong> {run.errorMessage}
+                      </>
+                    )}
+                    {!run.errorMessage && (
+                      <>
+                        <br />
+                        Please check your file format and try again.
+                      </>
+                    )}
                   </AlertDescription>
                 </Alert>
               </CardContent>

@@ -1,9 +1,11 @@
 import csv from 'csv-parser';
 import fs from 'fs';
+import path from 'path';
 import { BillingRecord, InsertBillingRecord } from "@shared/schema";
 import { validationEngine } from './engine';
 import { loadDatabaseRules } from './databaseRuleLoader';
 import { storage } from '../../../core/storage';
+import { logger } from '../logger';
 
 // Database rules will be loaded dynamically
 
@@ -31,67 +33,163 @@ export interface CSVRow {
 
 export class BillingCSVProcessor {
 
-  async processBillingCSV(filePath: string, validationRunId: string): Promise<{
+  /**
+   * Detects the encoding of a CSV file by checking for BOM and analyzing byte patterns
+   * Returns 'utf8' or 'latin1' (ISO-8859-1/Windows-1252)
+   */
+  private detectEncoding(filePath: string): BufferEncoding {
+    const buffer = fs.readFileSync(filePath);
+
+    // Check for UTF-8 BOM
+    if (buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
+      console.log('[ENCODING] UTF-8 BOM detected');
+      return 'utf8';
+    }
+
+    // Check for UTF-16 BOM
+    if ((buffer[0] === 0xFF && buffer[1] === 0xFE) || (buffer[0] === 0xFE && buffer[1] === 0xFF)) {
+      console.log('[ENCODING] UTF-16 BOM detected - using utf8 as fallback');
+      return 'utf8';
+    }
+
+    // Look for high bytes (0x80-0xFF) in first 1000 bytes
+    // These indicate extended characters (French accents in Quebec files)
+    let highByteCount = 0;
+    const checkLength = Math.min(1000, buffer.length);
+
+    for (let i = 0; i < checkLength; i++) {
+      if (buffer[i] >= 0x80 && buffer[i] <= 0xFF) {
+        highByteCount++;
+      }
+    }
+
+    // If we have extended characters and no UTF-8 BOM,
+    // it's likely Latin1/Windows-1252 (common in Quebec)
+    if (highByteCount > 0) {
+      console.log(`[ENCODING] ${highByteCount} extended characters found - using Latin1 (ISO-8859-1)`);
+      return 'latin1';
+    }
+
+    // Default to UTF-8 for ASCII-only files
+    console.log('[ENCODING] No extended characters found - using UTF-8');
+    return 'utf8';
+  }
+
+  async processBillingCSV(
+    filePath: string,
+    validationRunId: string,
+    progressCallback?: (progress: number) => Promise<void>
+  ): Promise<{
     records: BillingRecord[];
     errors: string[];
   }> {
     const records: InsertBillingRecord[] = [];
     const errors: string[] = [];
     let rowNumber = 0;
+    let totalRows = 0;
 
-    console.log(`[DEBUG] Starting CSV processing for file: ${filePath}`);
+    const stats = fs.statSync(filePath);
+    await logger.info(validationRunId, 'csvProcessor', 'Starting CSV processing', {
+      fileName: path.basename(filePath),
+      fileSize: stats.size,
+    });
 
-    // Detect delimiter by reading first line
-    const firstLine = fs.readFileSync(filePath, 'utf8').split('\n')[0];
+    // Auto-detect encoding (UTF-8 vs Latin1)
+    const encoding = this.detectEncoding(filePath);
+    await logger.debug(validationRunId, 'csvProcessor', `Detected encoding: ${encoding}`, {
+      encoding,
+    });
+
+    // Detect delimiter by reading first line with correct encoding
+    const firstLine = fs.readFileSync(filePath, encoding).split('\n')[0];
     const delimiter = firstLine.includes(';') ? ';' : ',';
-    console.log(`[DEBUG] Detected CSV delimiter: "${delimiter}"`);
+    await logger.debug(validationRunId, 'csvProcessor', `Detected CSV delimiter: "${delimiter}"`, {
+      delimiter,
+    });
+
+    // Count total rows for progress calculation (quick pass)
+    if (progressCallback) {
+      const content = fs.readFileSync(filePath, encoding);
+      totalRows = content.split('\n').filter(line => line.trim()).length - 1; // Exclude header
+      await logger.debug(validationRunId, 'csvProcessor', `Total rows detected: ${totalRows}`, {
+        totalRows,
+      });
+    }
 
     return new Promise((resolve, reject) => {
-      fs.createReadStream(filePath)
+      fs.createReadStream(filePath, { encoding })
         .pipe(csv({ separator: delimiter }))
-        .on('data', (row: CSVRow) => {
+        .on('data', async (row: CSVRow) => {
           rowNumber++;
-          console.log(`[DEBUG] Processing row ${rowNumber}:`, Object.keys(row));
-          console.log(`[DEBUG] Row data sample:`, {
-            facture: row['Facture'],
-            code: row['Code'],
-            idRamq: row['ID RAMQ'],
-            hasKeys: Object.keys(row).length
-          });
+
+          // Calculate and report progress
+          if (progressCallback && totalRows > 0 && rowNumber % 100 === 0) {
+            // CSV parsing represents 0-50% of total progress
+            const percentage = Math.min(Math.floor((rowNumber / totalRows) * 50), 50);
+            try {
+              await progressCallback(percentage);
+            } catch (err) {
+              console.error('Progress callback error:', err);
+            }
+          }
+
+          // Privacy-safe: only log progress, no sensitive data
+          if (rowNumber % 100 === 0) {
+            logger.debug(validationRunId, 'csvProcessor', `Processing progress: ${rowNumber} rows`, {
+              rowNumber,
+              rowCount: records.length,
+            }).catch(err => console.error('Logging error:', err));
+          }
 
           try {
             const billingRecord = this.parseCSVRow(row, validationRunId, rowNumber);
             if (billingRecord) {
               records.push(billingRecord);
-              console.log(`[DEBUG] Successfully parsed row ${rowNumber}`);
             } else {
-              console.log(`[DEBUG] Row ${rowNumber} was skipped (empty)`);
+              logger.debug(validationRunId, 'csvProcessor', `Skipped empty row ${rowNumber}`, {
+                rowNumber,
+              }).catch(err => console.error('Logging error:', err));
             }
-          } catch (error) {
-            console.log(`[DEBUG] Error parsing row ${rowNumber}:`, error.message);
+          } catch (error: any) {
+            logger.warn(validationRunId, 'csvProcessor', `Parse error at row ${rowNumber}: ${error.message}`, {
+              rowNumber,
+              errorType: error.name,
+            }).catch(err => console.error('Logging error:', err));
             errors.push(`Row ${rowNumber}: ${error.message}`);
           }
         })
-        .on('end', () => {
+        .on('end', async () => {
+          await logger.info(validationRunId, 'csvProcessor', 'CSV parsing completed', {
+            totalRows: rowNumber,
+            rowCount: records.length,
+            errorCount: errors.length,
+          });
+
+          // Report 50% progress when parsing is complete
+          if (progressCallback) {
+            try {
+              await progressCallback(50);
+            } catch (err) {
+              console.error('Progress callback error:', err);
+            }
+          }
+
           resolve({
-            records: records as BillingRecord[], // Type assertion for now
+            records: records as BillingRecord[],
             errors
           });
         })
-        .on('error', (error) => {
+        .on('error', async (error: any) => {
+          await logger.error(validationRunId, 'csvProcessor', `CSV parsing failed: ${error.message}`, {
+            errorType: error.name,
+          });
           reject(error);
         });
     });
   }
 
   private parseCSVRow(row: CSVRow, validationRunId: string, rowNumber: number): InsertBillingRecord | null {
-    // Skip empty rows
-    console.log(`[DEBUG] parseCSVRow - checking row ${rowNumber}:`, {
-      facture: row['Facture'],
-      code: row['Code'],
-      isEmpty: !row['Facture'] && !row['Code']
-    });
-
+    // Skip empty rows (privacy-safe: no sensitive data logged)
     if (!row['Facture'] && !row['Code']) {
       console.log(`[DEBUG] Row ${rowNumber} skipped - no Facture or Code`);
       return null;
@@ -147,7 +245,7 @@ export class BillingCSVProcessor {
 
   async validateBillingRecords(records: BillingRecord[], validationRunId: string) {
     // Load rules from database and register them
-    console.log('[RULES] Loading validation rules from database...');
+    await logger.debug(validationRunId, 'csvProcessor', 'Loading validation rules from database');
     const databaseRules = await loadDatabaseRules();
 
     // Clear existing rules
@@ -155,16 +253,19 @@ export class BillingCSVProcessor {
 
     // If no database rules exist, fall back to hardcoded rule for compatibility
     if (databaseRules.length === 0) {
-      console.log('[RULES] No database rules found, falling back to hardcoded office fee rule');
+      await logger.info(validationRunId, 'csvProcessor', 'No database rules found, using fallback rule', {
+        ruleCount: 1,
+      });
       const { officeFeeValidationRule } = await import('./rules/officeFeeRule');
       validationEngine.registerRule(officeFeeValidationRule);
-      console.log(`[RULES] Registered 1 fallback rule`);
     } else {
       // Register database rules
       for (const rule of databaseRules) {
         validationEngine.registerRule(rule);
       }
-      console.log(`[RULES] Registered ${databaseRules.length} database rules`);
+      await logger.info(validationRunId, 'csvProcessor', `Registered ${databaseRules.length} validation rules`, {
+        ruleCount: databaseRules.length,
+      });
     }
 
     return await validationEngine.validateRecords(records, validationRunId);

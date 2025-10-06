@@ -9,6 +9,8 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   name: text("name"),
   role: text("role").notNull().default("pending"), // pending, viewer, editor, admin
+  phiRedactionEnabled: boolean("phi_redaction_enabled").default(true).notNull(), // PHI redaction preference
+  redactionLevel: text("redaction_level").default("full").notNull(), // 'full' or 'none'
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -123,6 +125,8 @@ export const validationRuns = pgTable("validation_runs", {
   processedRows: numeric("processed_rows"),
   errorCount: numeric("error_count"),
   errorMessage: text("error_message"), // Error details when status is "failed"
+  progress: numeric("progress").default("0").notNull(), // Progress percentage (0-100)
+  jobId: text("job_id"), // BullMQ job ID for tracking background jobs
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   createdBy: text("created_by"),

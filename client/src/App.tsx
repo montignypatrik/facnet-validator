@@ -19,6 +19,7 @@ import Users from "./pages/admin/Users";
 import Settings from "./pages/Settings";
 import Chatbot from "./pages/Chatbot";
 import Tache from "./pages/Tache";
+import Formation from "./pages/Formation";
 import HorsRamq from "./pages/HorsRamq";
 import NotFound from "@/pages/not-found";
 import { useAuth0 } from "@auth0/auth0-react";
@@ -92,6 +93,7 @@ function Router() {
       {/* Module routes */}
       <Route path="/chatbot" component={Chatbot} />
       <Route path="/tache" component={Tache} />
+      <Route path="/formation" component={Formation} />
       <Route path="/hors-ramq" component={HorsRamq} />
 
       {/* Database routes */}

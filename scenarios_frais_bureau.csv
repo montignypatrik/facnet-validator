@@ -1,0 +1,30 @@
+Scénario,Type,Patients Inscrits,Patients Sans RDV,Code Facturé,Montant,Statut,Message d'Erreur,Message de Solution
+1,Inscrits,3,0,19928,32.4,Erreur,Le code 19929 requiert la presence d'un minimum de 12 patients inscrit allors qu'on en trouve seullement 3 pour cette date de service,Veuillez annuler la demande ou corriger les visites non payé
+2,Inscrits,8,0,19928,32.4,Succès,,Aucune erreur - Correspondance parfaite
+3,Inscrits,15,0,19928,32.4,Avertissement,"15 patients inscrits ont ete vu, vous avez donc droit au code 19929",Remplacez le code 19928 par 19929 pour maximiser le remboursement.
+4,Inscrits,15,0,19929,64.8,Succès,,Aucune erreur - Correspondance parfaite
+5,Inscrits,8,0,19929,64.8,Erreur,Le code 19929 requiert la presence d'un minimum de 12 patients inscrit allors qu'on en trouve seullement 8 pour cette date de service,Changez le code 19929 pour 19928 ou corriger les visites non payé
+6,Sans RDV,0,7,19928,32.4,Erreur,Le code 19928 requiert la presence d'un minimum de 10 patients sans rendez-vous allors qu'on en trouve seullement 7 pour cette date de service,Veuillez annuler la demande ou corriger les visites non payé
+7,Sans RDV,0,15,19928,32.4,Succès,,Aucune erreur - Correspondance parfaite
+8,Sans RDV,0,23,19928,32.4,Avertissement,"23 patients sans rendez-vous ont ete vu, vous avez donc droit au code 19929",Remplacez le code 19928 par 19929 pour maximiser le remboursement.
+9,Sans RDV,0,23,19929,64.8,Succès,,Aucune erreur - Correspondance parfaite
+10,Sans RDV,0,15,19929,64.8,Erreur,Le code 19929 requiert la presence d'un minimum de 20 patients sans rendez-vous allors qu'on en trouve seullement 15 pour cette date de service,Changez le code 19929 pour 19928 ou corriger les visites non payé
+11,Maximum,10,10,19928+19928,64.8,Succès,,Aucune erreur - Dans le maximum quotidien
+12,Maximum,15,22,19929+19929,129.6,Erreur,Le maximum quotidien de 64.80 pour les frais de bureau a ete depasse pour ce medecin,Veuillez annuler un des deux frais de bureau
+13,Établissement,10,0,19928 (cabinet 5xxxxx),32.4,Succès,,Aucune erreur - Établissement valide
+14,Établissement,10,0,19928 (hôpital 2xxxxx),32.4,Erreur,Les codes 19928 et 19929 peuvent seulement etre facture en cabinet,Veuillez annuler la demande
+15A,Mixte - Double,8,15,19928+19928,64.8,Succès,,Aucune erreur - Dans le maximum quotidien
+16A,Mixte - Double,7,12,19928+19928,64.8,Avertissement,"12 patients sans rendez-vous ont ete vu, vous avez donc droit au code 19929 mais cela depasserai le maximum quotidien",Changez le 19928 sans RDV pour 19929 et annulez le 19928 inscrits
+17A,Mixte - Double,14,22,19929+19929,129.6,Erreur,Le maximum quotidien de 64.80 pour les frais de bureau a ete depasse pour ce medecin,Veuillez annuler un des deux frais de bureau
+18A,Mixte - Double,5,8,19928+19928,64.8,Erreur,Le code 19928 inscrits requiert un minimum de 6 patients allors qu'on en trouve 5 et le code 19928 sans RDV requiert un minimum de 10 patients allors qu'on en trouve 8,Veuillez annuler les deux demandes ou corriger les visites non payé
+19B,Mixte - Simple,8,15,19928 (inscrits),32.4,Avertissement,Vous avez aussi vu 15 patients sans RDV et vous pourriez facturer un autre 19928 pour atteindre le maximum quotidien de 64.80,Ajoutez un deuxieme 19928 pour les patients sans RDV
+20B,Mixte - Simple,8,15,19928 (sans RDV),32.4,Avertissement,Vous avez aussi vu 8 patients inscrits et vous pourriez facturer un autre 19928 pour atteindre le maximum quotidien de 64.80,Ajoutez un deuxieme 19928 pour les patients inscrits
+21B,Mixte - Simple,14,22,19929 (inscrits),64.8,Succès,,Facturation optimale - Maximum quotidien atteint
+22B,Mixte - Simple,14,22,19929 (sans RDV),64.8,Succès,,Facturation optimale - Maximum quotidien atteint
+23C,Stratégique,6,25,19928+19929,97.2,Erreur,Le maximum quotidien de 64.80 pour les frais de bureau a ete depasse pour ce medecin,Annulez le 19928 inscrits et gardez seulement le 19929 sans RDV
+24C,Stratégique,15,12,19929+19928,97.2,Erreur,Le maximum quotidien de 64.80 pour les frais de bureau a ete depasse pour ce medecin,Annulez le 19928 sans RDV et gardez seulement le 19929 inscrits
+25C,Stratégique,7,11,19928 (inscrits),32.4,Avertissement,Vous avez aussi vu 11 patients sans RDV et vous pourriez facturer un autre 19928 pour atteindre le maximum quotidien de 64.80,Ajoutez un deuxieme 19928 pour les patients sans RDV
+26C,Stratégique,13,21,19929 (groupe choisi),64.8,Succès,,Facturation optimale - Les deux groupes qualifient mais vous ne pouvez choisir qu'un seul
+27C,Stratégique,4,23,19929 (sans RDV),64.8,Succès,,Facturation optimale - Maximum quotidien atteint
+28C,Stratégique,18,7,19929 (inscrits),64.8,Succès,,Facturation optimale - Maximum quotidien atteint
+29C,Stratégique,9,18,19928 (sans RDV),32.4,Avertissement,Vous avez aussi vu 9 patients inscrits et vous pourriez facturer un autre 19928 pour atteindre le maximum quotidien de 64.80,Ajoutez un deuxieme 19928 pour les patients inscrits
