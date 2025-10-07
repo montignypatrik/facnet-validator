@@ -154,10 +154,14 @@ export class OllamaService {
       };
     }
 
-    // Add medical billing context to user prompt
-    const contextualPrompt = `${MEDICAL_BILLING_CONTEXT}\n\nUser Question: ${request.prompt}\n\nAssistant:`;
+    // Add medical billing context only if prompt doesn't already have context
+    // (RAG-augmented prompts already have context from RAMQ documentation)
+    const hasRagContext = request.prompt.includes('CONTEXT:') || request.prompt.includes('CONTEXT FROM');
+    const contextualPrompt = hasRagContext
+      ? request.prompt
+      : `${MEDICAL_BILLING_CONTEXT}\n\nUser Question: ${request.prompt}\n\nAssistant:`;
 
-    log(`[OllamaService] Sending query to model ${model} (prompt length: ${request.prompt.length})`);
+    log(`[OllamaService] Sending query to model ${model} (prompt length: ${request.prompt.length}${hasRagContext ? ', with RAG context' : ''})`);
 
     try {
       const controller = new AbortController();
