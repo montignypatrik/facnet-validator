@@ -155,9 +155,16 @@ async function handleProcessDocument(job: Job<DocumentJobData>): Promise<void> {
 
   await docStorage.updateDocumentStatus(documentId, 'processing');
 
+  // Helper for safe progress updates
+  const updateProgress = async (data: any) => {
+    if (typeof job.updateProgress === 'function') {
+      await job.updateProgress(data);
+    }
+  };
+
   try {
     // Step 1: Parse document
-    await job.updateProgress({ stage: 'parsing', progress: 10 });
+    await updateProgress({ stage: 'parsing', progress: 10 });
     const fileInfo = await getFileInfo(filePath);
     if (!fileInfo) {
       throw new Error(`File not found: ${filePath}`);
@@ -166,7 +173,7 @@ async function handleProcessDocument(job: Job<DocumentJobData>): Promise<void> {
     const parsed = await parseDocument(fileInfo.absolutePath);
 
     // Step 2: Chunk document
-    await job.updateProgress({ stage: 'chunking', progress: 30 });
+    await updateProgress({ stage: 'chunking', progress: 30 });
     const chunks = chunkDocument(parsed);
 
     if (chunks.length === 0) {
@@ -174,11 +181,11 @@ async function handleProcessDocument(job: Job<DocumentJobData>): Promise<void> {
     }
 
     // Step 3: Delete old chunks
-    await job.updateProgress({ stage: 'cleaning', progress: 40 });
+    await updateProgress({ stage: 'cleaning', progress: 40 });
     await docStorage.deleteDocumentChunks(documentId);
 
     // Step 4: Generate embeddings and store chunks
-    await job.updateProgress({ stage: 'embedding', progress: 50, totalChunks: chunks.length });
+    await updateProgress({ stage: 'embedding', progress: 50, totalChunks: chunks.length });
 
     const chunkRecords = [];
     for (let i = 0; i < chunks.length; i++) {
@@ -196,7 +203,7 @@ async function handleProcessDocument(job: Job<DocumentJobData>): Promise<void> {
         metadata: chunk.metadata,
       });
 
-      await job.updateProgress({
+      await updateProgress({
         stage: 'embedding',
         progress: 50 + ((i + 1) / chunks.length) * 40,
         processedChunks: i + 1,
@@ -205,7 +212,7 @@ async function handleProcessDocument(job: Job<DocumentJobData>): Promise<void> {
     }
 
     // Batch insert chunks
-    await job.updateProgress({ stage: 'saving', progress: 90 });
+    await updateProgress({ stage: 'saving', progress: 90 });
     await docStorage.createChunksBatch(chunkRecords);
 
     // Update document status
@@ -217,7 +224,7 @@ async function handleProcessDocument(job: Job<DocumentJobData>): Promise<void> {
       },
     });
 
-    await job.updateProgress({ stage: 'completed', progress: 100 });
+    await updateProgress({ stage: 'completed', progress: 100 });
 
     log(`[DocumentWorker] Document processed: ${filePath} (${chunks.length} chunks)`);
   } catch (error) {
