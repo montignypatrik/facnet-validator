@@ -18,6 +18,8 @@ import { startWorker, stopWorker } from "./queue/validationWorker";
 import { closeQueue } from "./queue/validationQueue";
 import { closeRedisConnection } from "./queue/redis";
 import { warmupCache } from "./cache/index.js";
+import { startDocumentWorker, stopDocumentWorker } from "./modules/chatbot/queue/documentWorker";
+import { closeDocumentQueue } from "./modules/chatbot/queue/documentQueue";
 
 const app = express();
 app.use(express.json());
@@ -92,10 +94,14 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Initialize background job worker
+  // Initialize background job workers
   console.log('[STARTUP] Starting validation worker...');
   startWorker();
   console.log('[STARTUP] Validation worker initialized');
+
+  console.log('[STARTUP] Starting document processing worker...');
+  startDocumentWorker();
+  console.log('[STARTUP] Document processing worker initialized');
 
   // Warm up cache with reference data
   try {
@@ -121,10 +127,12 @@ app.use((req, res, next) => {
     server.close(async () => {
       console.log('[SHUTDOWN] HTTP server closed');
 
-      // Stop worker and close queue
+      // Stop workers and close queues
       try {
         await stopWorker();
+        await stopDocumentWorker();
         await closeQueue();
+        await closeDocumentQueue();
         await closeRedisConnection();
         console.log('[SHUTDOWN] Background jobs and Redis connection closed');
       } catch (error) {

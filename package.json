@@ -13,7 +13,8 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "test:watch": "vitest --watch"
+    "test:watch": "vitest --watch",
+    "import:knowledge": "tsx scripts/import-knowledge-docs.ts"
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.5.0",

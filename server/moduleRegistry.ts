@@ -32,6 +32,7 @@ export async function registerModules(app: Express): Promise<void> {
   const administrationRoutes = (await import("./modules/administration/routes")).default;
   const chatbotRoutes = (await import("./modules/chatbot/routes")).default;
   const chatbotChatRoutes = (await import("./modules/chatbot/routes-chat")).default;
+  const chatbotAdminRoutes = (await import("./modules/chatbot/routes-admin")).default;
   const formationRoutes = (await import("./modules/formation-ressourcement/routes")).default;
 
   // Define modules
@@ -85,6 +86,14 @@ export async function registerModules(app: Express): Promise<void> {
       description: "Chatbot conversation and message management",
       router: chatbotChatRoutes,
       enabled: true,
+    },
+    {
+      name: "chatbot-admin",
+      version: "1.0.0",
+      description: "Chatbot knowledge base administration (document management)",
+      router: chatbotAdminRoutes,
+      enabled: true,
+      requiredRole: "editor", // Admin or editor required
     },
     {
       name: "formation-ressourcement",
