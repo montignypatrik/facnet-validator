@@ -241,6 +241,171 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   }),
 }));
 
+// ==================== TASK MANAGEMENT MODULE ====================
+
+/**
+ * Task Management System for Dash Platform
+ *
+ * Purpose: General business task tracking (NOT healthcare/PHI related)
+ * Features: Kanban boards, task lists, cards, labels, comments, attachments
+ * Security: NO foreign keys to PHI tables (validation_runs, billing_records, etc.)
+ * User References: Auth0 user IDs (text) for flexibility
+ */
+
+// Task status enum
+export const taskStatusEnum = pgEnum("task_status", ["todo", "in_progress", "done"]);
+
+// Task priority enum
+export const taskPriorityEnum = pgEnum("task_priority", ["low", "medium", "high", "urgent"]);
+
+// Task boards table - Project/workspace level organization
+export const taskBoards = pgTable("task_boards", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(), // Max 100 chars enforced at validation layer
+  description: text("description"), // Max 500 chars enforced at validation layer
+  createdBy: text("created_by").notNull(), // Auth0 user ID
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  active: boolean("active").default(true).notNull(), // Soft delete flag
+});
+
+// Task lists table - Columns in kanban board (e.g., "To Do", "In Progress", "Done")
+export const taskLists = pgTable("task_lists", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  boardId: uuid("board_id").notNull().references(() => taskBoards.id, { onDelete: "cascade" }),
+  name: text("name").notNull(), // Max 50 chars enforced at validation layer
+  position: numeric("position").notNull(), // Fractional positioning for drag-and-drop (e.g., 1.0, 1.5, 2.0)
+  color: text("color"), // Hex color code (e.g., "#3B82F6")
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Tasks table - Individual task cards
+export const tasks = pgTable("tasks", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  boardId: uuid("board_id").notNull().references(() => taskBoards.id, { onDelete: "cascade" }), // DENORMALIZED for query performance
+  listId: uuid("list_id").notNull().references(() => taskLists.id, { onDelete: "cascade" }),
+  title: text("title").notNull(), // Max 200 chars enforced at validation layer
+  description: text("description"), // Max 5000 chars, supports sanitized HTML
+  position: numeric("position").notNull(), // Fractional positioning within list
+  status: taskStatusEnum("status").default("todo").notNull(),
+  priority: taskPriorityEnum("priority").default("medium").notNull(),
+  assignedTo: text("assigned_to"), // Auth0 user ID (optional)
+  createdBy: text("created_by").notNull(), // Auth0 user ID
+  dueDate: timestamp("due_date"), // Optional deadline
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"), // Soft delete (NULL = active, timestamp = deleted)
+});
+
+// Task labels table - Tags/categories for tasks
+export const taskLabels = pgTable("task_labels", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  boardId: uuid("board_id").notNull().references(() => taskBoards.id, { onDelete: "cascade" }),
+  name: text("name").notNull(), // Max 30 chars enforced at validation layer
+  color: text("color").notNull(), // Hex color code (e.g., "#10B981")
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Task label assignments table - Many-to-many join table
+export const taskLabelAssignments = pgTable("task_label_assignments", {
+  taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  labelId: uuid("label_id").notNull().references(() => taskLabels.id, { onDelete: "cascade" }),
+}, (table) => ({
+  // Composite primary key
+  pk: {
+    name: "task_label_assignments_pkey",
+    columns: [table.taskId, table.labelId],
+  },
+}));
+
+// Task comments table - Discussion threads on tasks
+export const taskComments = pgTable("task_comments", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  content: text("content").notNull(), // Max 2000 chars, supports sanitized HTML
+  authorId: text("author_id").notNull(), // Auth0 user ID
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"), // Soft delete
+});
+
+// Task attachments table - File uploads linked to tasks
+export const taskAttachments = pgTable("task_attachments", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  fileName: text("file_name").notNull(), // Secure random filename on server
+  originalName: text("original_name").notNull(), // User's original filename
+  mimeType: text("mime_type").notNull(),
+  fileSize: integer("file_size").notNull(), // Size in bytes
+  storagePath: text("storage_path").notNull(), // Absolute path to file on server
+  uploadedBy: text("uploaded_by").notNull(), // Auth0 user ID
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"), // Soft delete
+});
+
+// Task module relations
+export const taskBoardsRelations = relations(taskBoards, ({ many }) => ({
+  lists: many(taskLists),
+  tasks: many(tasks),
+  labels: many(taskLabels),
+}));
+
+export const taskListsRelations = relations(taskLists, ({ one, many }) => ({
+  board: one(taskBoards, {
+    fields: [taskLists.boardId],
+    references: [taskBoards.id],
+  }),
+  tasks: many(tasks),
+}));
+
+export const tasksRelations = relations(tasks, ({ one, many }) => ({
+  board: one(taskBoards, {
+    fields: [tasks.boardId],
+    references: [taskBoards.id],
+  }),
+  list: one(taskLists, {
+    fields: [tasks.listId],
+    references: [taskLists.id],
+  }),
+  comments: many(taskComments),
+  attachments: many(taskAttachments),
+  labelAssignments: many(taskLabelAssignments),
+}));
+
+export const taskLabelsRelations = relations(taskLabels, ({ one, many }) => ({
+  board: one(taskBoards, {
+    fields: [taskLabels.boardId],
+    references: [taskBoards.id],
+  }),
+  assignments: many(taskLabelAssignments),
+}));
+
+export const taskLabelAssignmentsRelations = relations(taskLabelAssignments, ({ one }) => ({
+  task: one(tasks, {
+    fields: [taskLabelAssignments.taskId],
+    references: [tasks.id],
+  }),
+  label: one(taskLabels, {
+    fields: [taskLabelAssignments.labelId],
+    references: [taskLabels.id],
+  }),
+}));
+
+export const taskCommentsRelations = relations(taskComments, ({ one }) => ({
+  task: one(tasks, {
+    fields: [taskComments.taskId],
+    references: [tasks.id],
+  }),
+}));
+
+export const taskAttachmentsRelations = relations(taskAttachments, ({ one }) => ({
+  task: one(tasks, {
+    fields: [taskAttachments.taskId],
+    references: [tasks.id],
+  }),
+}));
+
 // ==================== RAG DOCUMENT PROCESSING MODULE ====================
 
 // Document status enum
@@ -318,6 +483,13 @@ export const insertMessageSchema = createInsertSchema(messages).omit({ id: true,
 export const insertValidationLogSchema = createInsertSchema(validationLogs).omit({ id: true, createdAt: true });
 export const insertDocumentSchema = createInsertSchema(documents).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertDocumentChunkSchema = createInsertSchema(documentChunks).omit({ id: true, createdAt: true });
+export const insertTaskBoardSchema = createInsertSchema(taskBoards).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTaskListSchema = createInsertSchema(taskLists).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTaskLabelSchema = createInsertSchema(taskLabels).omit({ id: true, createdAt: true });
+export const insertTaskLabelAssignmentSchema = createInsertSchema(taskLabelAssignments);
+export const insertTaskCommentSchema = createInsertSchema(taskComments).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTaskAttachmentSchema = createInsertSchema(taskAttachments).omit({ id: true, createdAt: true });
 
 // Select schemas
 export const selectUserSchema = createSelectSchema(users);
@@ -335,6 +507,13 @@ export const selectMessageSchema = createSelectSchema(messages);
 export const selectValidationLogSchema = createSelectSchema(validationLogs);
 export const selectDocumentSchema = createSelectSchema(documents);
 export const selectDocumentChunkSchema = createSelectSchema(documentChunks);
+export const selectTaskBoardSchema = createSelectSchema(taskBoards);
+export const selectTaskListSchema = createSelectSchema(taskLists);
+export const selectTaskSchema = createSelectSchema(tasks);
+export const selectTaskLabelSchema = createSelectSchema(taskLabels);
+export const selectTaskLabelAssignmentSchema = createSelectSchema(taskLabelAssignments);
+export const selectTaskCommentSchema = createSelectSchema(taskComments);
+export const selectTaskAttachmentSchema = createSelectSchema(taskAttachments);
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -367,3 +546,17 @@ export type InsertDocument = z.infer<typeof insertDocumentSchema>;
 export type Document = typeof documents.$inferSelect;
 export type InsertDocumentChunk = z.infer<typeof insertDocumentChunkSchema>;
 export type DocumentChunk = typeof documentChunks.$inferSelect;
+export type InsertTaskBoard = z.infer<typeof insertTaskBoardSchema>;
+export type TaskBoard = typeof taskBoards.$inferSelect;
+export type InsertTaskList = z.infer<typeof insertTaskListSchema>;
+export type TaskList = typeof taskLists.$inferSelect;
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+export type Task = typeof tasks.$inferSelect;
+export type InsertTaskLabel = z.infer<typeof insertTaskLabelSchema>;
+export type TaskLabel = typeof taskLabels.$inferSelect;
+export type InsertTaskLabelAssignment = z.infer<typeof insertTaskLabelAssignmentSchema>;
+export type TaskLabelAssignment = typeof taskLabelAssignments.$inferSelect;
+export type InsertTaskComment = z.infer<typeof insertTaskCommentSchema>;
+export type TaskComment = typeof taskComments.$inferSelect;
+export type InsertTaskAttachment = z.infer<typeof insertTaskAttachmentSchema>;
+export type TaskAttachment = typeof taskAttachments.$inferSelect;
