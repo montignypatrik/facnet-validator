@@ -1,22 +1,27 @@
 import { Router } from "express";
-import type { Request, Response } from "express";
+import type { Response } from "express";
 import { z } from "zod";
 import { storage } from "../../core/storage.js";
-import { authenticateToken } from "../../core/auth.js";
+import { authenticateToken, type AuthenticatedRequest } from "../../core/auth.js";
 import {
   apiLimiter,
   boardCreationLimiter,
-  listCreationLimiter,
   taskCreationLimiter,
-  commentCreationLimiter,
-  fileUploadLimiter,
+  commentLimiter,
+  uploadLimiter,
 } from "../../middleware/rateLimiter.js";
 import {
   requireBoardOwnership,
   requireTaskOwnership,
   requireCommentOwnership,
 } from "./middleware.js";
-import { sanitizeHtml, sanitizeTaskInput } from "./sanitization.js";
+import {
+  sanitizeHtml,
+  sanitizeTaskBoardData,
+  sanitizeTaskData,
+  sanitizeCommentData,
+  sanitizeLabelData,
+} from "./sanitization.js";
 import { taskAttachmentUpload } from "./fileUpload.js";
 import type {
   InsertTaskBoard,
@@ -25,8 +30,6 @@ import type {
   InsertTaskLabel,
   InsertTaskComment,
   InsertTaskAttachment,
-  TaskStatus,
-  TaskPriority,
 } from "../../../shared/schema.js";
 
 const router = Router();
@@ -51,12 +54,12 @@ const updateBoardSchema = z.object({
 const createListSchema = z.object({
   boardId: z.string().uuid(),
   name: z.string().min(1).max(100),
-  position: z.number().optional(),
+  position: z.string().optional(), // Numeric type in DB maps to string in TypeScript
 });
 
 const updateListSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  position: z.number().optional(),
+  position: z.string().optional(), // Numeric type in DB maps to string in TypeScript
 });
 
 const createTaskSchema = z.object({
@@ -64,8 +67,8 @@ const createTaskSchema = z.object({
   listId: z.string().uuid(),
   title: z.string().min(1).max(200),
   description: z.string().optional(),
-  position: z.number().optional(),
-  status: z.enum(["todo", "in_progress", "done", "archived"]).optional(),
+  position: z.string().optional(), // Numeric type in DB maps to string in TypeScript
+  status: z.enum(["todo", "in_progress", "done"]).optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
   assignedTo: z.string().optional(),
   dueDate: z.string().datetime().optional(),
@@ -75,8 +78,8 @@ const updateTaskSchema = z.object({
   listId: z.string().uuid().optional(),
   title: z.string().min(1).max(200).optional(),
   description: z.string().optional(),
-  position: z.number().optional(),
-  status: z.enum(["todo", "in_progress", "done", "archived"]).optional(),
+  position: z.string().optional(), // Numeric type in DB maps to string in TypeScript
+  status: z.enum(["todo", "in_progress", "done"]).optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
   assignedTo: z.string().optional(),
   dueDate: z.string().datetime().optional().nullable(),
@@ -112,9 +115,9 @@ const updateCommentSchema = z.object({
 // ============================================================================
 
 // GET /api/tasks/boards - Get all boards for authenticated user
-router.get("/boards", authenticateToken, async (req: Request, res: Response) => {
+router.get("/boards", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user!.sub;
+    const userId = req.user!.uid;
     const boards = await storage.getTaskBoards(userId);
     return res.status(200).json(boards);
   } catch (error) {
@@ -126,7 +129,7 @@ router.get("/boards", authenticateToken, async (req: Request, res: Response) => 
 });
 
 // GET /api/tasks/boards/:id - Get single board
-router.get("/boards/:id", authenticateToken, requireBoardOwnership, async (req: Request, res: Response) => {
+router.get("/boards/:id", authenticateToken, requireBoardOwnership, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const board = await storage.getTaskBoard(id);
@@ -145,7 +148,7 @@ router.get("/boards/:id", authenticateToken, requireBoardOwnership, async (req: 
 });
 
 // POST /api/tasks/boards - Create new board
-router.post("/boards", authenticateToken, boardCreationLimiter, async (req: Request, res: Response) => {
+router.post("/boards", authenticateToken, boardCreationLimiter, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const validation = createBoardSchema.safeParse(req.body);
 
@@ -156,11 +159,11 @@ router.post("/boards", authenticateToken, boardCreationLimiter, async (req: Requ
       });
     }
 
-    const userId = req.user!.sub;
-    const sanitizedData = sanitizeTaskInput(validation.data);
+    const userId = req.user!.uid;
 
     const boardData: InsertTaskBoard = {
-      ...sanitizedData,
+      name: validation.data.name,
+      description: validation.data.description,
       createdBy: userId,
     };
 
@@ -175,7 +178,7 @@ router.post("/boards", authenticateToken, boardCreationLimiter, async (req: Requ
 });
 
 // PATCH /api/tasks/boards/:id - Update board
-router.patch("/boards/:id", authenticateToken, requireBoardOwnership, async (req: Request, res: Response) => {
+router.patch("/boards/:id", authenticateToken, requireBoardOwnership, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const validation = updateBoardSchema.safeParse(req.body);
@@ -187,7 +190,7 @@ router.patch("/boards/:id", authenticateToken, requireBoardOwnership, async (req
       });
     }
 
-    const sanitizedData = sanitizeTaskInput(validation.data);
+    const sanitizedData = sanitizeTaskBoardData(validation.data);
     const board = await storage.updateTaskBoard(id, sanitizedData);
     return res.status(200).json(board);
   } catch (error) {
@@ -199,7 +202,7 @@ router.patch("/boards/:id", authenticateToken, requireBoardOwnership, async (req
 });
 
 // DELETE /api/tasks/boards/:id - Delete board (soft delete)
-router.delete("/boards/:id", authenticateToken, requireBoardOwnership, async (req: Request, res: Response) => {
+router.delete("/boards/:id", authenticateToken, requireBoardOwnership, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     await storage.deleteTaskBoard(id);
@@ -217,7 +220,7 @@ router.delete("/boards/:id", authenticateToken, requireBoardOwnership, async (re
 // ============================================================================
 
 // GET /api/tasks/lists/:boardId - Get all lists for a board
-router.get("/lists/:boardId", authenticateToken, requireBoardOwnership, async (req: Request, res: Response) => {
+router.get("/lists/:boardId", authenticateToken, requireBoardOwnership, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { boardId } = req.params;
     const lists = await storage.getTaskLists(boardId);
@@ -231,7 +234,7 @@ router.get("/lists/:boardId", authenticateToken, requireBoardOwnership, async (r
 });
 
 // GET /api/tasks/lists/single/:id - Get single list
-router.get("/lists/single/:id", authenticateToken, async (req: Request, res: Response) => {
+router.get("/lists/single/:id", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const list = await storage.getTaskList(id);
@@ -242,7 +245,7 @@ router.get("/lists/single/:id", authenticateToken, async (req: Request, res: Res
 
     // Verify board ownership
     const board = await storage.getTaskBoard(list.boardId);
-    if (!board || board.createdBy !== req.user!.sub) {
+    if (!board || board.createdBy !== req.user!.uid) {
       return res.status(403).json({ error: "Accès interdit" });
     }
 
@@ -256,7 +259,7 @@ router.get("/lists/single/:id", authenticateToken, async (req: Request, res: Res
 });
 
 // POST /api/tasks/lists - Create new list
-router.post("/lists", authenticateToken, listCreationLimiter, async (req: Request, res: Response) => {
+router.post("/lists", authenticateToken, taskCreationLimiter, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const validation = createListSchema.safeParse(req.body);
 
@@ -271,12 +274,15 @@ router.post("/lists", authenticateToken, listCreationLimiter, async (req: Reques
 
     // Verify board ownership
     const board = await storage.getTaskBoard(boardId);
-    if (!board || board.createdBy !== req.user!.sub) {
+    if (!board || board.createdBy !== req.user!.uid) {
       return res.status(403).json({ error: "Accès interdit" });
     }
 
-    const sanitizedData = sanitizeTaskInput(validation.data);
-    const listData: InsertTaskList = sanitizedData;
+    const listData: InsertTaskList = {
+      boardId: validation.data.boardId,
+      name: validation.data.name,
+      position: validation.data.position || "0", // Default to position 0 if not provided
+    };
 
     const list = await storage.createTaskList(listData);
     return res.status(201).json(list);
@@ -289,7 +295,7 @@ router.post("/lists", authenticateToken, listCreationLimiter, async (req: Reques
 });
 
 // PATCH /api/tasks/lists/:id - Update list
-router.patch("/lists/:id", authenticateToken, async (req: Request, res: Response) => {
+router.patch("/lists/:id", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const validation = updateListSchema.safeParse(req.body);
@@ -308,12 +314,11 @@ router.patch("/lists/:id", authenticateToken, async (req: Request, res: Response
     }
 
     const board = await storage.getTaskBoard(list.boardId);
-    if (!board || board.createdBy !== req.user!.sub) {
+    if (!board || board.createdBy !== req.user!.uid) {
       return res.status(403).json({ error: "Accès interdit" });
     }
 
-    const sanitizedData = sanitizeTaskInput(validation.data);
-    const updatedList = await storage.updateTaskList(id, sanitizedData);
+    const updatedList = await storage.updateTaskList(id, validation.data);
     return res.status(200).json(updatedList);
   } catch (error) {
     console.error("Error updating task list:", error);
@@ -324,7 +329,7 @@ router.patch("/lists/:id", authenticateToken, async (req: Request, res: Response
 });
 
 // DELETE /api/tasks/lists/:id - Delete list (soft delete)
-router.delete("/lists/:id", authenticateToken, async (req: Request, res: Response) => {
+router.delete("/lists/:id", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -335,7 +340,7 @@ router.delete("/lists/:id", authenticateToken, async (req: Request, res: Respons
     }
 
     const board = await storage.getTaskBoard(list.boardId);
-    if (!board || board.createdBy !== req.user!.sub) {
+    if (!board || board.createdBy !== req.user!.uid) {
       return res.status(403).json({ error: "Accès interdit" });
     }
 
@@ -354,7 +359,7 @@ router.delete("/lists/:id", authenticateToken, async (req: Request, res: Respons
 // ============================================================================
 
 // GET /api/tasks/:boardId - Get all tasks for a board
-router.get("/:boardId", authenticateToken, requireBoardOwnership, async (req: Request, res: Response) => {
+router.get("/:boardId", authenticateToken, requireBoardOwnership, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { boardId } = req.params;
     const tasks = await storage.getTasksByBoard(boardId);
@@ -368,7 +373,7 @@ router.get("/:boardId", authenticateToken, requireBoardOwnership, async (req: Re
 });
 
 // GET /api/tasks/single/:id - Get single task
-router.get("/single/:id", authenticateToken, requireTaskOwnership, async (req: Request, res: Response) => {
+router.get("/single/:id", authenticateToken, requireTaskOwnership, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const task = await storage.getTask(id);
@@ -387,7 +392,7 @@ router.get("/single/:id", authenticateToken, requireTaskOwnership, async (req: R
 });
 
 // POST /api/tasks - Create new task
-router.post("/", authenticateToken, taskCreationLimiter, async (req: Request, res: Response) => {
+router.post("/", authenticateToken, taskCreationLimiter, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const validation = createTaskSchema.safeParse(req.body);
 
@@ -402,22 +407,28 @@ router.post("/", authenticateToken, taskCreationLimiter, async (req: Request, re
 
     // Verify board ownership
     const board = await storage.getTaskBoard(boardId);
-    if (!board || board.createdBy !== req.user!.sub) {
+    if (!board || board.createdBy !== req.user!.uid) {
       return res.status(403).json({ error: "Accès interdit" });
     }
 
-    const userId = req.user!.sub;
-    const sanitizedData = sanitizeTaskInput(validation.data);
+    const userId = req.user!.uid;
 
-    // Sanitize HTML in description
-    if (sanitizedData.description) {
-      sanitizedData.description = sanitizeHtml(sanitizedData.description);
-    }
+    // Sanitize HTML description
+    const description = validation.data.description
+      ? sanitizeHtml(validation.data.description)
+      : undefined;
 
     const taskData: InsertTask = {
-      ...sanitizedData,
+      boardId: validation.data.boardId,
+      listId: validation.data.listId,
+      title: validation.data.title,
+      description,
+      position: validation.data.position || "0", // Default to position 0 if not provided
+      status: validation.data.status,
+      priority: validation.data.priority,
+      assignedTo: validation.data.assignedTo,
       createdBy: userId,
-      dueDate: sanitizedData.dueDate ? new Date(sanitizedData.dueDate) : undefined,
+      dueDate: validation.data.dueDate ? new Date(validation.data.dueDate) : undefined,
     };
 
     const task = await storage.createTask(taskData);
@@ -431,7 +442,7 @@ router.post("/", authenticateToken, taskCreationLimiter, async (req: Request, re
 });
 
 // PATCH /api/tasks/:id - Update task
-router.patch("/:id", authenticateToken, requireTaskOwnership, async (req: Request, res: Response) => {
+router.patch("/:id", authenticateToken, requireTaskOwnership, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const validation = updateTaskSchema.safeParse(req.body);
@@ -443,20 +454,24 @@ router.patch("/:id", authenticateToken, requireTaskOwnership, async (req: Reques
       });
     }
 
-    const sanitizedData = sanitizeTaskInput(validation.data);
-
-    // Sanitize HTML in description
-    if (sanitizedData.description) {
-      sanitizedData.description = sanitizeHtml(sanitizedData.description);
-    }
+    // Sanitize HTML description if present
+    const description = validation.data.description !== undefined
+      ? (validation.data.description ? sanitizeHtml(validation.data.description) : null)
+      : undefined;
 
     // Handle dueDate conversion
     const updateData: Partial<InsertTask> = {
-      ...sanitizedData,
-      dueDate: sanitizedData.dueDate === null
+      listId: validation.data.listId,
+      title: validation.data.title,
+      description,
+      position: validation.data.position,
+      status: validation.data.status,
+      priority: validation.data.priority,
+      assignedTo: validation.data.assignedTo,
+      dueDate: validation.data.dueDate === null
         ? null
-        : sanitizedData.dueDate
-          ? new Date(sanitizedData.dueDate)
+        : validation.data.dueDate
+          ? new Date(validation.data.dueDate)
           : undefined,
     };
 
@@ -471,7 +486,7 @@ router.patch("/:id", authenticateToken, requireTaskOwnership, async (req: Reques
 });
 
 // DELETE /api/tasks/:id - Delete task (soft delete)
-router.delete("/:id", authenticateToken, requireTaskOwnership, async (req: Request, res: Response) => {
+router.delete("/:id", authenticateToken, requireTaskOwnership, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     await storage.deleteTask(id);
@@ -489,7 +504,7 @@ router.delete("/:id", authenticateToken, requireTaskOwnership, async (req: Reque
 // ============================================================================
 
 // GET /api/tasks/labels/:boardId - Get all labels for a board
-router.get("/labels/:boardId", authenticateToken, requireBoardOwnership, async (req: Request, res: Response) => {
+router.get("/labels/:boardId", authenticateToken, requireBoardOwnership, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { boardId } = req.params;
     const labels = await storage.getTaskLabels(boardId);
@@ -503,7 +518,7 @@ router.get("/labels/:boardId", authenticateToken, requireBoardOwnership, async (
 });
 
 // POST /api/tasks/labels - Create new label
-router.post("/labels", authenticateToken, async (req: Request, res: Response) => {
+router.post("/labels", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const validation = createLabelSchema.safeParse(req.body);
 
@@ -518,12 +533,15 @@ router.post("/labels", authenticateToken, async (req: Request, res: Response) =>
 
     // Verify board ownership
     const board = await storage.getTaskBoard(boardId);
-    if (!board || board.createdBy !== req.user!.sub) {
+    if (!board || board.createdBy !== req.user!.uid) {
       return res.status(403).json({ error: "Accès interdit" });
     }
 
-    const sanitizedData = sanitizeTaskInput(validation.data);
-    const labelData: InsertTaskLabel = sanitizedData;
+    const labelData: InsertTaskLabel = {
+      boardId,
+      name: validation.data.name,
+      color: validation.data.color,
+    };
 
     const label = await storage.createTaskLabel(labelData);
     return res.status(201).json(label);
@@ -536,7 +554,7 @@ router.post("/labels", authenticateToken, async (req: Request, res: Response) =>
 });
 
 // PATCH /api/tasks/labels/:id - Update label
-router.patch("/labels/:id", authenticateToken, async (req: Request, res: Response) => {
+router.patch("/labels/:id", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const validation = updateLabelSchema.safeParse(req.body);
@@ -555,11 +573,11 @@ router.patch("/labels/:id", authenticateToken, async (req: Request, res: Respons
     }
 
     const board = await storage.getTaskBoard(label.boardId);
-    if (!board || board.createdBy !== req.user!.sub) {
+    if (!board || board.createdBy !== req.user!.uid) {
       return res.status(403).json({ error: "Accès interdit" });
     }
 
-    const sanitizedData = sanitizeTaskInput(validation.data);
+    const sanitizedData = sanitizeLabelData(validation.data);
     const updatedLabel = await storage.updateTaskLabel(id, sanitizedData);
     return res.status(200).json(updatedLabel);
   } catch (error) {
@@ -571,7 +589,7 @@ router.patch("/labels/:id", authenticateToken, async (req: Request, res: Respons
 });
 
 // DELETE /api/tasks/labels/:id - Delete label
-router.delete("/labels/:id", authenticateToken, async (req: Request, res: Response) => {
+router.delete("/labels/:id", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -582,7 +600,7 @@ router.delete("/labels/:id", authenticateToken, async (req: Request, res: Respon
     }
 
     const board = await storage.getTaskBoard(label.boardId);
-    if (!board || board.createdBy !== req.user!.sub) {
+    if (!board || board.createdBy !== req.user!.uid) {
       return res.status(403).json({ error: "Accès interdit" });
     }
 
@@ -597,7 +615,7 @@ router.delete("/labels/:id", authenticateToken, async (req: Request, res: Respon
 });
 
 // POST /api/tasks/labels/assign - Assign label to task
-router.post("/labels/assign", authenticateToken, async (req: Request, res: Response) => {
+router.post("/labels/assign", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const validation = assignLabelSchema.safeParse(req.body);
 
@@ -617,7 +635,7 @@ router.post("/labels/assign", authenticateToken, async (req: Request, res: Respo
     }
 
     const board = await storage.getTaskBoard(task.boardId);
-    if (!board || board.createdBy !== req.user!.sub) {
+    if (!board || board.createdBy !== req.user!.uid) {
       return res.status(403).json({ error: "Accès interdit" });
     }
 
@@ -638,7 +656,7 @@ router.post("/labels/assign", authenticateToken, async (req: Request, res: Respo
 });
 
 // DELETE /api/tasks/labels/assign/:taskId/:labelId - Unassign label from task
-router.delete("/labels/assign/:taskId/:labelId", authenticateToken, async (req: Request, res: Response) => {
+router.delete("/labels/assign/:taskId/:labelId", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { taskId, labelId } = req.params;
 
@@ -649,7 +667,7 @@ router.delete("/labels/assign/:taskId/:labelId", authenticateToken, async (req: 
     }
 
     const board = await storage.getTaskBoard(task.boardId);
-    if (!board || board.createdBy !== req.user!.sub) {
+    if (!board || board.createdBy !== req.user!.uid) {
       return res.status(403).json({ error: "Accès interdit" });
     }
 
@@ -664,7 +682,7 @@ router.delete("/labels/assign/:taskId/:labelId", authenticateToken, async (req: 
 });
 
 // GET /api/tasks/labels/assignments/:taskId - Get all labels assigned to a task
-router.get("/labels/assignments/:taskId", authenticateToken, requireTaskOwnership, async (req: Request, res: Response) => {
+router.get("/labels/assignments/:taskId", authenticateToken, requireTaskOwnership, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { taskId } = req.params;
     const assignments = await storage.getTaskLabelAssignments(taskId);
@@ -682,7 +700,7 @@ router.get("/labels/assignments/:taskId", authenticateToken, requireTaskOwnershi
 // ============================================================================
 
 // GET /api/tasks/comments/:taskId - Get all comments for a task
-router.get("/comments/:taskId", authenticateToken, requireTaskOwnership, async (req: Request, res: Response) => {
+router.get("/comments/:taskId", authenticateToken, requireTaskOwnership, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { taskId } = req.params;
     const comments = await storage.getTaskComments(taskId);
@@ -696,7 +714,7 @@ router.get("/comments/:taskId", authenticateToken, requireTaskOwnership, async (
 });
 
 // POST /api/tasks/comments - Create new comment
-router.post("/comments", authenticateToken, commentCreationLimiter, async (req: Request, res: Response) => {
+router.post("/comments", authenticateToken, commentLimiter, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const validation = createCommentSchema.safeParse(req.body);
 
@@ -716,17 +734,17 @@ router.post("/comments", authenticateToken, commentCreationLimiter, async (req: 
     }
 
     const board = await storage.getTaskBoard(task.boardId);
-    if (!board || board.createdBy !== req.user!.sub) {
+    if (!board || board.createdBy !== req.user!.uid) {
       return res.status(403).json({ error: "Accès interdit" });
     }
 
-    const userId = req.user!.sub;
+    const userId = req.user!.uid;
     const sanitizedContent = sanitizeHtml(validation.data.content);
 
     const commentData: InsertTaskComment = {
       taskId,
       content: sanitizedContent,
-      createdBy: userId,
+      authorId: userId,
     };
 
     const comment = await storage.createTaskComment(commentData);
@@ -740,7 +758,7 @@ router.post("/comments", authenticateToken, commentCreationLimiter, async (req: 
 });
 
 // PATCH /api/tasks/comments/:id - Update comment
-router.patch("/comments/:id", authenticateToken, requireCommentOwnership, async (req: Request, res: Response) => {
+router.patch("/comments/:id", authenticateToken, requireCommentOwnership, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const validation = updateCommentSchema.safeParse(req.body);
@@ -764,7 +782,7 @@ router.patch("/comments/:id", authenticateToken, requireCommentOwnership, async 
 });
 
 // DELETE /api/tasks/comments/:id - Delete comment (soft delete)
-router.delete("/comments/:id", authenticateToken, requireCommentOwnership, async (req: Request, res: Response) => {
+router.delete("/comments/:id", authenticateToken, requireCommentOwnership, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     await storage.deleteTaskComment(id);
@@ -782,7 +800,7 @@ router.delete("/comments/:id", authenticateToken, requireCommentOwnership, async
 // ============================================================================
 
 // GET /api/tasks/attachments/:taskId - Get all attachments for a task
-router.get("/attachments/:taskId", authenticateToken, requireTaskOwnership, async (req: Request, res: Response) => {
+router.get("/attachments/:taskId", authenticateToken, requireTaskOwnership, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { taskId } = req.params;
     const attachments = await storage.getTaskAttachments(taskId);
@@ -799,9 +817,9 @@ router.get("/attachments/:taskId", authenticateToken, requireTaskOwnership, asyn
 router.post(
   "/attachments",
   authenticateToken,
-  fileUploadLimiter,
+  uploadLimiter,
   taskAttachmentUpload.single("file"),
-  async (req: Request, res: Response) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { taskId } = req.body;
 
@@ -816,7 +834,7 @@ router.post(
       }
 
       const board = await storage.getTaskBoard(task.boardId);
-      if (!board || board.createdBy !== req.user!.sub) {
+      if (!board || board.createdBy !== req.user!.uid) {
         return res.status(403).json({ error: "Accès interdit" });
       }
 
@@ -824,12 +842,13 @@ router.post(
         return res.status(400).json({ error: "Aucun fichier téléchargé" });
       }
 
-      const userId = req.user!.sub;
+      const userId = req.user!.uid;
 
       const attachmentData: InsertTaskAttachment = {
         taskId,
-        fileName: req.file.originalname,
-        filePath: req.file.path,
+        fileName: req.file.filename, // Secure filename generated by multer
+        originalName: req.file.originalname,
+        storagePath: req.file.path,
         fileSize: req.file.size,
         mimeType: req.file.mimetype,
         uploadedBy: userId,
@@ -847,7 +866,7 @@ router.post(
 );
 
 // DELETE /api/tasks/attachments/:id - Delete attachment
-router.delete("/attachments/:id", authenticateToken, async (req: Request, res: Response) => {
+router.delete("/attachments/:id", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -864,7 +883,7 @@ router.delete("/attachments/:id", authenticateToken, async (req: Request, res: R
     }
 
     const board = await storage.getTaskBoard(task.boardId);
-    if (!board || board.createdBy !== req.user!.sub) {
+    if (!board || board.createdBy !== req.user!.uid) {
       return res.status(403).json({ error: "Accès interdit" });
     }
 

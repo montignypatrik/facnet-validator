@@ -11,6 +11,7 @@ await initializeSentry();
 
 // Now import rest of application
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { migrateOfficeFeeRule } from "./modules/validateur/migrate-rules";
@@ -22,6 +23,32 @@ import { startDocumentWorker, stopDocumentWorker } from "./modules/chatbot/queue
 import { closeDocumentQueue } from "./modules/chatbot/queue/documentQueue";
 
 const app = express();
+
+// Security headers with Helmet (CSP configured for file uploads and Auth0)
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Allow inline scripts for Vite in dev
+        styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles
+        imgSrc: ["'self'", "data:", "blob:", "https:"], // Allow data URLs and external images
+        fontSrc: ["'self'", "data:"],
+        connectSrc: [
+          "'self'",
+          "https://dev-x63i3b6hf5kch7ab.ca.auth0.com", // Auth0 domain
+          "http://localhost:*", // Allow local API calls in development
+        ],
+        frameSrc: ["'self'", "https://dev-x63i3b6hf5kch7ab.ca.auth0.com"], // Auth0 login frame
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: process.env.NODE_ENV === "production" ? [] : null,
+      },
+    },
+    crossOriginEmbedderPolicy: false, // Allow file uploads
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow CORS
+  })
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

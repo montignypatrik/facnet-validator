@@ -34,6 +34,7 @@ export async function registerModules(app: Express): Promise<void> {
   const chatbotChatRoutes = (await import("./modules/chatbot/routes-chat")).default;
   const chatbotAdminRoutes = (await import("./modules/chatbot/routes-admin")).default;
   const formationRoutes = (await import("./modules/formation-ressourcement/routes")).default;
+  const taskRoutes = (await import("./modules/tasks/routes")).default;
 
   // Define modules
   const modules: DashModule[] = [
@@ -102,6 +103,13 @@ export async function registerModules(app: Express): Promise<void> {
       router: formationRoutes,
       enabled: true,
     },
+    {
+      name: "tasks",
+      version: "1.0.0",
+      description: "Task and workflow management with kanban boards",
+      router: taskRoutes,
+      enabled: true,
+    },
   ];
 
   // Register enabled modules
@@ -148,10 +156,10 @@ export async function getModuleList(): Promise<Array<{ name: string; version: st
       enabled: true,
     },
     {
-      name: "tache",
+      name: "tasks",
       version: "1.0.0",
-      description: "Task and workflow management",
-      enabled: false, // Coming soon
+      description: "Task and workflow management with kanban boards",
+      enabled: true,
     },
     {
       name: "formation-ressourcement",
