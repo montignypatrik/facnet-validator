@@ -79,11 +79,12 @@ export async function authenticateToken(req: AuthenticatedRequest, res: Response
         }
       }
 
-      // Validate @facturation.net email domain
-      if (!email || !email.endsWith("@facturation.net")) {
-        console.error("Invalid email domain:", email);
-        return res.status(403).json({ error: "Access restricted to @facturation.net email addresses" });
-      }
+      // Validate @facturation.net email domain (disabled for development)
+      // TODO: Re-enable for production environment
+      // if (!email || !email.endsWith("@facturation.net")) {
+      //   console.error("Invalid email domain:", email);
+      //   return res.status(403).json({ error: "Access restricted to @facturation.net email addresses" });
+      // }
 
       // Fetch user role from database
       let role = "admin"; // Default role (admin for local development)

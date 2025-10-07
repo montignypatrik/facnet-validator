@@ -219,10 +219,10 @@ router.delete("/boards/:id", authenticateToken, requireBoardOwnership, async (re
 // TASK LISTS
 // ============================================================================
 
-// GET /api/tasks/lists/:boardId - Get all lists for a board
-router.get("/lists/:boardId", authenticateToken, requireBoardOwnership, async (req: AuthenticatedRequest, res: Response) => {
+// GET /api/tasks/lists/:id - Get all lists for a board
+router.get("/lists/:id", authenticateToken, requireBoardOwnership, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { boardId } = req.params;
+    const { id: boardId } = req.params;
     const lists = await storage.getTaskLists(boardId);
     return res.status(200).json(lists);
   } catch (error) {
@@ -274,6 +274,14 @@ router.post("/lists", authenticateToken, taskCreationLimiter, async (req: Authen
 
     // Verify board ownership
     const board = await storage.getTaskBoard(boardId);
+    console.log("List creation ownership check:", {
+      boardId,
+      boardExists: !!board,
+      boardCreatedBy: board?.createdBy,
+      currentUserId: req.user!.uid,
+      match: board?.createdBy === req.user!.uid
+    });
+
     if (!board || board.createdBy !== req.user!.uid) {
       return res.status(403).json({ error: "Accès interdit" });
     }
@@ -358,10 +366,10 @@ router.delete("/lists/:id", authenticateToken, async (req: AuthenticatedRequest,
 // TASKS
 // ============================================================================
 
-// GET /api/tasks/:boardId - Get all tasks for a board
-router.get("/:boardId", authenticateToken, requireBoardOwnership, async (req: AuthenticatedRequest, res: Response) => {
+// GET /api/tasks/board/:id - Get all tasks for a board
+router.get("/board/:id", authenticateToken, requireBoardOwnership, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { boardId } = req.params;
+    const { id: boardId } = req.params;
     const tasks = await storage.getTasksByBoard(boardId);
     return res.status(200).json(tasks);
   } catch (error) {

@@ -31,9 +31,9 @@ app.use(
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Allow inline scripts for Vite in dev
-        styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"], // Allow Google Fonts
         imgSrc: ["'self'", "data:", "blob:", "https:"], // Allow data URLs and external images
-        fontSrc: ["'self'", "data:"],
+        fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"], // Allow Google Fonts
         connectSrc: [
           "'self'",
           "https://dev-x63i3b6hf5kch7ab.ca.auth0.com", // Auth0 domain

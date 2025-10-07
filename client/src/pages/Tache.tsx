@@ -43,6 +43,15 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+// Helper function to get auth token from localStorage
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("authToken");
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+  };
+};
+
 // Types
 interface TaskBoard {
   id: string;
@@ -114,18 +123,18 @@ export default function Tache() {
 
   // Fetch boards
   const { data: boards, isLoading: boardsLoading } = useQuery<TaskBoard[]>({
-    queryKey: ["/api/tasks/boards"],
+    queryKey: ["/tasks/boards"],
   });
 
   // Fetch lists for selected board
   const { data: lists, isLoading: listsLoading } = useQuery<TaskList[]>({
-    queryKey: [`/api/tasks/lists/${selectedBoard}`],
+    queryKey: [`/tasks/lists/${selectedBoard}`],
     enabled: !!selectedBoard,
   });
 
   // Fetch tasks for selected board
   const { data: tasks, isLoading: tasksLoading } = useQuery<Task[]>({
-    queryKey: [`/api/tasks/${selectedBoard}`],
+    queryKey: [`/tasks/board/${selectedBoard}`],
     enabled: !!selectedBoard,
   });
 
@@ -141,7 +150,7 @@ export default function Tache() {
     mutationFn: async (data: { name: string; description?: string }) => {
       const res = await fetch("/api/tasks/boards", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         credentials: "include",
         body: JSON.stringify(data),
       });
@@ -149,7 +158,7 @@ export default function Tache() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks/boards"] });
+      queryClient.invalidateQueries({ queryKey: ["/tasks/boards"] });
       toast({ title: "Tableau créé", description: "Le tableau a été créé avec succès" });
       setIsCreateBoardOpen(false);
       setNewBoardName("");
@@ -165,7 +174,7 @@ export default function Tache() {
     mutationFn: async (data: { boardId: string; name: string }) => {
       const res = await fetch("/api/tasks/lists", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         credentials: "include",
         body: JSON.stringify(data),
       });
@@ -173,7 +182,7 @@ export default function Tache() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/tasks/lists/${selectedBoard}`] });
+      queryClient.invalidateQueries({ queryKey: [`/tasks/lists/${selectedBoard}`] });
       toast({ title: "Liste créée", description: "La liste a été créée avec succès" });
       setIsCreateListOpen(false);
       setNewListName("");
@@ -194,7 +203,7 @@ export default function Tache() {
     }) => {
       const res = await fetch("/api/tasks", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         credentials: "include",
         body: JSON.stringify(data),
       });
@@ -202,7 +211,7 @@ export default function Tache() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/tasks/${selectedBoard}`] });
+      queryClient.invalidateQueries({ queryKey: [`/tasks/board/${selectedBoard}`] });
       toast({ title: "Tâche créée", description: "La tâche a été créée avec succès" });
       setIsCreateTaskOpen(false);
       setNewTaskTitle("");
@@ -220,7 +229,7 @@ export default function Tache() {
     mutationFn: async ({ id, data }: { id: string; data: Partial<Task> }) => {
       const res = await fetch(`/api/tasks/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         credentials: "include",
         body: JSON.stringify(data),
       });
@@ -228,7 +237,69 @@ export default function Tache() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/tasks/${selectedBoard}`] });
+      queryClient.invalidateQueries({ queryKey: [`/tasks/board/${selectedBoard}`] });
+    },
+  });
+
+  // Delete board mutation
+  const deleteBoardMutation = useMutation({
+    mutationFn: async (boardId: string) => {
+      const res = await fetch(`/api/tasks/boards/${boardId}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete board");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/tasks/boards"] });
+      setSelectedBoard(null);
+      toast({ title: "Tableau supprimé", description: "Le tableau a été supprimé avec succès" });
+    },
+    onError: () => {
+      toast({ title: "Erreur", description: "Impossible de supprimer le tableau", variant: "destructive" });
+    },
+  });
+
+  // Delete list mutation
+  const deleteListMutation = useMutation({
+    mutationFn: async (listId: string) => {
+      const res = await fetch(`/api/tasks/lists/${listId}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete list");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/tasks/lists/${selectedBoard}`] });
+      queryClient.invalidateQueries({ queryKey: [`/tasks/board/${selectedBoard}`] });
+      toast({ title: "Liste supprimée", description: "La liste a été supprimée avec succès" });
+    },
+    onError: () => {
+      toast({ title: "Erreur", description: "Impossible de supprimer la liste", variant: "destructive" });
+    },
+  });
+
+  // Delete task mutation
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete task");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/tasks/board/${selectedBoard}`] });
+      toast({ title: "Tâche supprimée", description: "La tâche a été supprimée avec succès" });
+    },
+    onError: () => {
+      toast({ title: "Erreur", description: "Impossible de supprimer la tâche", variant: "destructive" });
     },
   });
 
@@ -420,6 +491,28 @@ export default function Tache() {
               </SelectContent>
             </Select>
 
+            {/* Board actions */}
+            {selectedBoard && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+                    <MoreVertical className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Actions du tableau</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => selectedBoard && deleteBoardMutation.mutate(selectedBoard)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Supprimer le tableau
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
             <Dialog open={isCreateBoardOpen} onOpenChange={setIsCreateBoardOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline">
@@ -517,7 +610,10 @@ export default function Tache() {
                                 Modifier
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => deleteListMutation.mutate(list.id)}
+                              >
                                 <Trash2 className="w-4 h-4 mr-2" />
                                 Supprimer
                               </DropdownMenuItem>
@@ -566,15 +662,28 @@ export default function Tache() {
                                             <h4 className="font-medium text-sm leading-tight flex-1">
                                               {task.title}
                                             </h4>
-                                            {task.priority && (
-                                              <Badge
-                                                variant="outline"
-                                                className={`${priorityColors[task.priority]} text-xs px-1.5 py-0.5 flex items-center gap-1`}
+                                            <div className="flex items-center gap-1">
+                                              {task.priority && (
+                                                <Badge
+                                                  variant="outline"
+                                                  className={`${priorityColors[task.priority]} text-xs px-1.5 py-0.5 flex items-center gap-1`}
+                                                >
+                                                  {priorityIcons[task.priority]}
+                                                  {task.priority}
+                                                </Badge>
+                                              )}
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  deleteTaskMutation.mutate(task.id);
+                                                }}
                                               >
-                                                {priorityIcons[task.priority]}
-                                                {task.priority}
-                                              </Badge>
-                                            )}
+                                                <Trash2 className="w-3 h-3" />
+                                              </Button>
+                                            </div>
                                           </div>
 
                                           {task.description && (

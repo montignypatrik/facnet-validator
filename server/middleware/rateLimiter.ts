@@ -12,10 +12,11 @@ import rateLimit from 'express-rate-limit';
 /**
  * General API rate limiter
  * Applied to all /api/* routes
+ * More lenient in development to allow Vite HMR and rapid testing
  */
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per IP per window
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // 1000 in dev, 100 in prod
   message: {
     error: "Trop de requêtes, veuillez réessayer plus tard.",
     retryAfter: "15 minutes"

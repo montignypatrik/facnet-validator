@@ -115,7 +115,14 @@ export async function registerModules(app: Express): Promise<void> {
   // Register enabled modules
   for (const module of modules) {
     if (module.enabled) {
-      app.use(module.router);
+      // Mount modules with appropriate prefixes
+      if (module.name === "tasks") {
+        app.use("/api/tasks", module.router);
+      } else if (module.name === "observability") {
+        app.use("/api/observability", module.router);
+      } else {
+        app.use(module.router);
+      }
       console.log(`[MODULE REGISTRY] ✓ Loaded module: ${module.name} (${module.version})`);
       console.log(`[MODULE REGISTRY]   Description: ${module.description}`);
     } else {
