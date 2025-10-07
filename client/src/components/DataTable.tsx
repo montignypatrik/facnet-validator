@@ -148,9 +148,9 @@ export function DataTable({
             ? JSON.stringify(cellValue).toLowerCase()
             : String(cellValue).toLowerCase();
 
-          // Check if cell value matches ANY of the selected filter values
+          // Check if cell value matches ANY of the selected filter values (exact match)
           return filterValues.some(filterValue =>
-            cellString.includes(filterValue.toLowerCase())
+            cellString === filterValue.toLowerCase()
           );
         });
       });
@@ -203,7 +203,8 @@ export function DataTable({
   // Get unique values for a column
   const getUniqueValues = (columnKey: string): string[] => {
     const values = new Set<string>();
-    data.forEach((row) => {
+    // Use allData if provided, otherwise fall back to current data
+    (allData || data).forEach((row) => {
       const value = row[columnKey];
       if (value !== null && value !== undefined) {
         if (typeof value === 'object') {
