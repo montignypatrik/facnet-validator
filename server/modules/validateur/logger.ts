@@ -1,5 +1,6 @@
 import { storage } from '../../core/storage';
 import { InsertValidationLog } from '@shared/schema';
+import { captureException, addBreadcrumb, isSentryInitialized } from '../../observability';
 
 /**
  * Safe metadata type - only allows non-sensitive technical data
@@ -33,30 +34,82 @@ export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
 class ValidationLogger {
   /**
    * Log a debug message (detailed technical information)
+   *
+   * Adds breadcrumb to Sentry for debugging context
    */
   async debug(runId: string, source: string, message: string, metadata?: SafeMetadata): Promise<void> {
     await this.log('DEBUG', runId, source, message, metadata);
+
+    // Add breadcrumb for debugging context in Sentry
+    if (isSentryInitialized()) {
+      addBreadcrumb({
+        category: source,
+        message,
+        level: 'debug',
+        data: metadata || {},
+      });
+    }
   }
 
   /**
    * Log an info message (general information)
+   *
+   * Adds breadcrumb to Sentry for debugging context
    */
   async info(runId: string, source: string, message: string, metadata?: SafeMetadata): Promise<void> {
     await this.log('INFO', runId, source, message, metadata);
+
+    // Add breadcrumb for debugging context in Sentry
+    if (isSentryInitialized()) {
+      addBreadcrumb({
+        category: source,
+        message,
+        level: 'info',
+        data: metadata || {},
+      });
+    }
   }
 
   /**
    * Log a warning message (potential issues)
+   *
+   * Adds breadcrumb to Sentry for debugging context
    */
   async warn(runId: string, source: string, message: string, metadata?: SafeMetadata): Promise<void> {
     await this.log('WARN', runId, source, message, metadata);
+
+    // Add breadcrumb for debugging context in Sentry
+    if (isSentryInitialized()) {
+      addBreadcrumb({
+        category: source,
+        message,
+        level: 'warning',
+        data: metadata || {},
+      });
+    }
   }
 
   /**
    * Log an error message (critical failures)
+   *
+   * Automatically sends errors to Sentry for production monitoring
    */
   async error(runId: string, source: string, message: string, metadata?: SafeMetadata): Promise<void> {
     await this.log('ERROR', runId, source, message, metadata);
+
+    // Send to Sentry for production monitoring
+    // SafeMetadata type guarantees NO PHI is included
+    if (isSentryInitialized()) {
+      captureException(new Error(message), {
+        level: 'error',
+        tags: {
+          source,
+          validationRunId: runId,
+          module: 'validateur',
+        },
+        extra: metadata || {},
+      });
+    }
   }
 
   /**

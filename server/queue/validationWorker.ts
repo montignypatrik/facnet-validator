@@ -6,6 +6,7 @@ import { ValidationJobData } from './validationQueue';
 import { BillingCSVProcessor } from '../modules/validateur/validation/csvProcessor';
 import { storage } from '../core/storage';
 import { logger } from '../modules/validateur/logger';
+import { withSpan } from '../observability';
 
 /**
  * Validation Worker
@@ -26,21 +27,27 @@ async function processValidationJob(job: Job<ValidationJobData>): Promise<void> 
 
   console.log(`[WORKER] Processing validation job ${job.id} for run ${validationRunId}`);
 
-  try {
-    const filePath = path.join(uploadDir, fileName);
+  // Wrap entire job processing in a span for end-to-end tracing
+  return withSpan('job.validation.process', {
+    jobId: job.id,
+    validationRunId,
+    fileName,
+  }, async () => {
+    try {
+      const filePath = path.join(uploadDir, fileName);
 
-    // Verify file exists
-    if (!fs.existsSync(filePath)) {
-      await logger.error(validationRunId, 'worker', `File not found: ${fileName}`);
-      throw new Error(`File not found: ${filePath}`);
-    }
+      // Verify file exists
+      if (!fs.existsSync(filePath)) {
+        await logger.error(validationRunId, 'worker', `File not found: ${fileName}`);
+        throw new Error(`File not found: ${filePath}`);
+      }
 
-    const stats = fs.statSync(filePath);
-    await logger.info(validationRunId, 'worker', 'Starting validation processing', {
-      fileName,
-      fileSize: stats.size,
-      jobId: job.id,
-    });
+      const stats = fs.statSync(filePath);
+      await logger.info(validationRunId, 'worker', 'Starting validation processing', {
+        fileName,
+        fileSize: stats.size,
+        jobId: job.id,
+      });
 
     // Update status to processing and store job ID
     await storage.updateValidationRun(validationRunId, {
@@ -125,31 +132,32 @@ async function processValidationJob(job: Job<ValidationJobData>): Promise<void> 
       progress: '100',
     });
 
-    await logger.info(validationRunId, 'worker', 'Validation processing completed successfully');
+      await logger.info(validationRunId, 'worker', 'Validation processing completed successfully');
 
-    // Update final job progress
-    await job.updateProgress(100);
+      // Update final job progress
+      await job.updateProgress(100);
 
-    console.log(`[WORKER] Validation job ${job.id} completed successfully`);
+      console.log(`[WORKER] Validation job ${job.id} completed successfully`);
 
-  } catch (error: any) {
-    console.error(`[WORKER] Validation job ${job.id} failed:`, error);
+    } catch (error: any) {
+      console.error(`[WORKER] Validation job ${job.id} failed:`, error);
 
-    await logger.error(validationRunId, 'worker', `Validation processing failed: ${error.message}`, {
-      errorType: error.name,
-      jobId: job.id,
-    });
+      await logger.error(validationRunId, 'worker', `Validation processing failed: ${error.message}`, {
+        errorType: error.name,
+        jobId: job.id,
+      });
 
-    const errorMessage = error.message || 'Unknown error during validation processing';
+      const errorMessage = error.message || 'Unknown error during validation processing';
 
-    await storage.updateValidationRun(validationRunId, {
-      status: 'failed',
-      errorMessage: errorMessage,
-    });
+      await storage.updateValidationRun(validationRunId, {
+        status: 'failed',
+        errorMessage: errorMessage,
+      });
 
-    // Re-throw to mark job as failed in BullMQ
-    throw error;
-  }
+      // Re-throw to mark job as failed in BullMQ
+      throw error;
+    }
+  }); // End of withSpan wrapper
 }
 
 /**

@@ -26,6 +26,7 @@ export async function registerModules(app: Express): Promise<void> {
 
   // Import module routes
   const authRoutes = (await import("./core/authRoutes")).default;
+  const observabilityRoutes = (await import("./observability/routes")).default;
   const validateurRoutes = (await import("./modules/validateur/routes")).default;
   const databaseRoutes = (await import("./modules/database/routes")).default;
   const administrationRoutes = (await import("./modules/administration/routes")).default;
@@ -40,6 +41,13 @@ export async function registerModules(app: Express): Promise<void> {
       version: "1.0.0",
       description: "Core authentication and user management",
       router: authRoutes,
+      enabled: true,
+    },
+    {
+      name: "observability",
+      version: "1.0.0",
+      description: "Production observability (Sentry + OpenTelemetry)",
+      router: observabilityRoutes,
       enabled: true,
     },
     {

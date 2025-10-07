@@ -6,6 +6,7 @@ import { validationEngine } from './engine';
 import { loadDatabaseRules } from './databaseRuleLoader';
 import { storage } from '../../../core/storage';
 import { logger } from '../logger';
+import { withSpan, withSpanSync } from '../../../observability';
 
 // Database rules will be loaded dynamically
 
@@ -83,29 +84,37 @@ export class BillingCSVProcessor {
     records: BillingRecord[];
     errors: string[];
   }> {
-    const records: InsertBillingRecord[] = [];
-    const errors: string[] = [];
-    let rowNumber = 0;
-    let totalRows = 0;
-
-    const stats = fs.statSync(filePath);
-    await logger.info(validationRunId, 'csvProcessor', 'Starting CSV processing', {
+    // Wrap entire CSV processing in a span for performance tracking
+    return withSpan('csv.parse', {
+      validationRunId,
       fileName: path.basename(filePath),
-      fileSize: stats.size,
-    });
+      fileSize: fs.statSync(filePath).size,
+    }, async () => {
+      const records: InsertBillingRecord[] = [];
+      const errors: string[] = [];
+      let rowNumber = 0;
+      let totalRows = 0;
 
-    // Auto-detect encoding (UTF-8 vs Latin1)
-    const encoding = this.detectEncoding(filePath);
-    await logger.debug(validationRunId, 'csvProcessor', `Detected encoding: ${encoding}`, {
-      encoding,
-    });
+      const stats = fs.statSync(filePath);
+      await logger.info(validationRunId, 'csvProcessor', 'Starting CSV processing', {
+        fileName: path.basename(filePath),
+        fileSize: stats.size,
+      });
 
-    // Detect delimiter by reading first line with correct encoding
-    const firstLine = fs.readFileSync(filePath, encoding).split('\n')[0];
-    const delimiter = firstLine.includes(';') ? ';' : ',';
-    await logger.debug(validationRunId, 'csvProcessor', `Detected CSV delimiter: "${delimiter}"`, {
-      delimiter,
-    });
+      // Auto-detect encoding (UTF-8 vs Latin1) with tracing
+      const encoding = withSpanSync('csv.detect_encoding', {}, () => {
+        return this.detectEncoding(filePath);
+      });
+      await logger.debug(validationRunId, 'csvProcessor', `Detected encoding: ${encoding}`, {
+        encoding,
+      });
+
+      // Detect delimiter by reading first line with correct encoding
+      const firstLine = fs.readFileSync(filePath, encoding).split('\n')[0];
+      const delimiter = firstLine.includes(';') ? ';' : ',';
+      await logger.debug(validationRunId, 'csvProcessor', `Detected CSV delimiter: "${delimiter}"`, {
+        delimiter,
+      });
 
     // Count total rows for progress calculation (quick pass)
     if (progressCallback) {
@@ -116,76 +125,77 @@ export class BillingCSVProcessor {
       });
     }
 
-    return new Promise((resolve, reject) => {
-      fs.createReadStream(filePath, { encoding })
-        .pipe(csv({ separator: delimiter }))
-        .on('data', async (row: CSVRow) => {
-          rowNumber++;
+      return new Promise((resolve, reject) => {
+        fs.createReadStream(filePath, { encoding })
+          .pipe(csv({ separator: delimiter }))
+          .on('data', async (row: CSVRow) => {
+            rowNumber++;
 
-          // Calculate and report progress
-          if (progressCallback && totalRows > 0 && rowNumber % 100 === 0) {
-            // CSV parsing represents 0-50% of total progress
-            const percentage = Math.min(Math.floor((rowNumber / totalRows) * 50), 50);
-            try {
-              await progressCallback(percentage);
-            } catch (err) {
-              console.error('Progress callback error:', err);
+            // Calculate and report progress
+            if (progressCallback && totalRows > 0 && rowNumber % 100 === 0) {
+              // CSV parsing represents 0-50% of total progress
+              const percentage = Math.min(Math.floor((rowNumber / totalRows) * 50), 50);
+              try {
+                await progressCallback(percentage);
+              } catch (err) {
+                console.error('Progress callback error:', err);
+              }
             }
-          }
 
-          // Privacy-safe: only log progress, no sensitive data
-          if (rowNumber % 100 === 0) {
-            logger.debug(validationRunId, 'csvProcessor', `Processing progress: ${rowNumber} rows`, {
-              rowNumber,
-              rowCount: records.length,
-            }).catch(err => console.error('Logging error:', err));
-          }
-
-          try {
-            const billingRecord = this.parseCSVRow(row, validationRunId, rowNumber);
-            if (billingRecord) {
-              records.push(billingRecord);
-            } else {
-              logger.debug(validationRunId, 'csvProcessor', `Skipped empty row ${rowNumber}`, {
+            // Privacy-safe: only log progress, no sensitive data
+            if (rowNumber % 100 === 0) {
+              logger.debug(validationRunId, 'csvProcessor', `Processing progress: ${rowNumber} rows`, {
                 rowNumber,
+                rowCount: records.length,
               }).catch(err => console.error('Logging error:', err));
             }
-          } catch (error: any) {
-            logger.warn(validationRunId, 'csvProcessor', `Parse error at row ${rowNumber}: ${error.message}`, {
-              rowNumber,
-              errorType: error.name,
-            }).catch(err => console.error('Logging error:', err));
-            errors.push(`Row ${rowNumber}: ${error.message}`);
-          }
-        })
-        .on('end', async () => {
-          await logger.info(validationRunId, 'csvProcessor', 'CSV parsing completed', {
-            totalRows: rowNumber,
-            rowCount: records.length,
-            errorCount: errors.length,
-          });
 
-          // Report 50% progress when parsing is complete
-          if (progressCallback) {
             try {
-              await progressCallback(50);
-            } catch (err) {
-              console.error('Progress callback error:', err);
+              const billingRecord = this.parseCSVRow(row, validationRunId, rowNumber);
+              if (billingRecord) {
+                records.push(billingRecord);
+              } else {
+                logger.debug(validationRunId, 'csvProcessor', `Skipped empty row ${rowNumber}`, {
+                  rowNumber,
+                }).catch(err => console.error('Logging error:', err));
+              }
+            } catch (error: any) {
+              logger.warn(validationRunId, 'csvProcessor', `Parse error at row ${rowNumber}: ${error.message}`, {
+                rowNumber,
+                errorType: error.name,
+              }).catch(err => console.error('Logging error:', err));
+              errors.push(`Row ${rowNumber}: ${error.message}`);
             }
-          }
+          })
+          .on('end', async () => {
+            await logger.info(validationRunId, 'csvProcessor', 'CSV parsing completed', {
+              totalRows: rowNumber,
+              rowCount: records.length,
+              errorCount: errors.length,
+            });
 
-          resolve({
-            records: records as BillingRecord[],
-            errors
+            // Report 50% progress when parsing is complete
+            if (progressCallback) {
+              try {
+                await progressCallback(50);
+              } catch (err) {
+                console.error('Progress callback error:', err);
+              }
+            }
+
+            resolve({
+              records: records as BillingRecord[],
+              errors
+            });
+          })
+          .on('error', async (error: any) => {
+            await logger.error(validationRunId, 'csvProcessor', `CSV parsing failed: ${error.message}`, {
+              errorType: error.name,
+            });
+            reject(error);
           });
-        })
-        .on('error', async (error: any) => {
-          await logger.error(validationRunId, 'csvProcessor', `CSV parsing failed: ${error.message}`, {
-            errorType: error.name,
-          });
-          reject(error);
-        });
-    });
+      });
+    }); // End of withSpan wrapper
   }
 
   private parseCSVRow(row: CSVRow, validationRunId: string, rowNumber: number): InsertBillingRecord | null {

@@ -1,4 +1,15 @@
 import "dotenv/config";
+
+// CRITICAL: Initialize observability FIRST (before all other imports)
+// This ensures Sentry captures all errors including those during app initialization
+import { initializeSentry, getSentry, flush as flushSentry, close as closeSentry } from "./observability";
+
+// Initialize observability (async now due to lazy loading)
+// NOTE: OpenTelemetry tracing disabled by default to avoid dependency issues
+//       Set OTEL_ENABLED=true to enable (requires @opentelemetry dependencies)
+await initializeSentry();
+
+// Now import rest of application
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -52,12 +63,24 @@ app.use((req, res, next) => {
 
   const server = await registerRoutes(app);
 
+  // Sentry error handler MUST be registered AFTER all routes but BEFORE custom error handler
+  const Sentry = getSentry();
+  if (Sentry) {
+    app.use(Sentry.Handlers.errorHandler());
+  }
+
+  // Custom error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    throw err;
+
+    // Error already captured by Sentry middleware above
+    // Just log it to console as well
+    if (status >= 500) {
+      console.error('[ERROR]', message, err);
+    }
   });
 
   // importantly only setup vite in development and after
@@ -107,6 +130,25 @@ app.use((req, res, next) => {
       } catch (error) {
         console.error('[SHUTDOWN] Error during cleanup:', error);
       }
+
+      // Flush Sentry events before shutdown (ensure all errors are sent)
+      try {
+        console.log('[SHUTDOWN] Flushing Sentry events...');
+        await flushSentry(2000); // 2 second timeout
+        await closeSentry(1000); // Close Sentry client
+        console.log('[SHUTDOWN] Sentry events flushed');
+      } catch (error) {
+        console.error('[SHUTDOWN] Error flushing Sentry:', error);
+      }
+
+      // OpenTelemetry tracing disabled by default (uncomment to enable)
+      // try {
+      //   console.log('[SHUTDOWN] Shutting down tracing...');
+      //   await shutdownTracing();
+      //   console.log('[SHUTDOWN] Tracing shutdown complete');
+      // } catch (error) {
+      //   console.error('[SHUTDOWN] Error shutting down tracing:', error);
+      // }
 
       console.log('[SHUTDOWN] Shutdown complete');
       process.exit(0);
