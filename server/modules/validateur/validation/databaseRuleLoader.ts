@@ -93,6 +93,9 @@ async function validateWithDatabaseRule(
       case "annual_limit":
         return await RuleHandlers.validateAnnualLimit(rule, records, validationRunId);
 
+      case "annual_billing_code":
+        return await RuleHandlers.validateAnnualBillingCode(rule, records, validationRunId);
+
       default:
         console.warn(`[RULES] Unknown rule type: ${ruleType}`);
         return results;
@@ -360,7 +363,7 @@ async function validateOfficeFeeFromDatabase(
           idRamq: ramqList, // Add RAMQ ID at top level
           severity: "error",
           category: "office_fees",
-          message: `Les codes 19928 et 19929 peuvent seulement etre facture en cabinet`,
+          message: `Les codes 19928 et 19929 peuvent seulement être facturés en cabinet`,
           solution: `Veuillez annuler la demande`,
           affectedRecords: group.billingRecordIds,
           ruleData: {
@@ -381,8 +384,8 @@ async function validateOfficeFeeFromDatabase(
           idRamq: ramqList, // Add RAMQ ID at top level
           severity: "error",
           category: "office_fees",
-          message: `Le code ${group.code} requiert la presence d'un minimum de ${group.required} patients sans rendez-vous allors qu'on en trouve seullement ${group.actual} pour cette date de service`,
-          solution: `Veuillez annuler la demande ou corriger les visites non payé`,
+          message: `Le code ${group.code} requiert la présence d'un minimum de ${group.required} patients sans rendez-vous alors qu'on en trouve seulement ${group.actual} pour cette date de service`,
+          solution: `Veuillez annuler la demande ou corrigez les visites non payées`,
           affectedRecords: group.billingRecordIds,
           ruleData: {
             code: group.code,
@@ -394,11 +397,29 @@ async function validateOfficeFeeFromDatabase(
             paidVisits: walkInPaidCount,
             unpaidVisits: walkInUnpaidCount,
             registeredVisits: registeredCount,
+            // Full breakdown for UI display
+            registeredPaidCount,
+            walkInPaidCount,
+            registeredUnpaidCount,
+            walkInUnpaidCount,
             doctor: dayData.doctor,
             date: dayData.date
           }
         });
       } else if (group.type === 'registered') {
+        // Determine appropriate solution based on CSV scenarios
+        let solution: string;
+        if (group.code === '19929' && group.actual < group.required) {
+          // Scenario 5: 8 inscrits with 19929 → suggest changing to 19928
+          solution = `Changez le code 19929 pour 19928 ou corrigez les visites non payées`;
+        } else if (group.code === '19928' && group.actual < group.required) {
+          // Scenario 2: 3 inscrits with 19928 → cannot suggest upgrade, just cancel
+          solution = `Veuillez annuler la demande ou corrigez les visites non payées`;
+        } else {
+          // Fallback
+          solution = `Veuillez annuler la demande ou corrigez les visites non payées`;
+        }
+
         results.push({
           validationRunId,
           ruleId: rule.id,
@@ -406,8 +427,8 @@ async function validateOfficeFeeFromDatabase(
           idRamq: ramqList, // Add RAMQ ID at top level
           severity: "error",
           category: "office_fees",
-          message: `Le code ${group.code} requiert la presence d'un minimum de ${group.required} patients inscrit allors qu'on en trouve seullement ${group.actual} pour cette date de service`,
-          solution: `Veuillez annuler la demande ou corriger les visites non payé`,
+          message: `Le code ${group.code} requiert la présence d'un minimum de ${group.required} patients inscrits alors qu'on en trouve seulement ${group.actual} pour cette date de service`,
+          solution: solution,
           affectedRecords: group.billingRecordIds,
           ruleData: {
             code: group.code,
@@ -419,6 +440,11 @@ async function validateOfficeFeeFromDatabase(
             paidVisits: registeredPaidCount,
             unpaidVisits: registeredUnpaidCount,
             walkInVisits: walkInCount,
+            // Full breakdown for UI display
+            registeredPaidCount,
+            walkInPaidCount,
+            registeredUnpaidCount,
+            walkInUnpaidCount,
             doctor: dayData.doctor,
             date: dayData.date
           }
@@ -440,7 +466,7 @@ async function validateOfficeFeeFromDatabase(
         idRamq: uniqueRamqIds, // Add RAMQ ID at top level
         severity: "error",
         category: "office_fees",
-        message: `Le maximum quotidien de ${config.dailyMaximum.toFixed(2)} pour les frais de bureau a ete depasse pour ce medecin`,
+        message: `Le maximum quotidien de ${config.dailyMaximum.toFixed(2)} pour les frais de bureau a été dépassé pour ce médecin`,
         solution: `Veuillez annuler un des deux frais de bureau`,
         affectedRecords: affectedIds,
         ruleData: {
