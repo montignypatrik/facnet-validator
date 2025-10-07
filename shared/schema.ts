@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, uuid, timestamp, boolean, jsonb, numeric, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, uuid, timestamp, boolean, jsonb, numeric, integer, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -279,11 +279,14 @@ export const documents = pgTable("documents", {
 export const documentChunks = pgTable("document_chunks", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   documentId: uuid("document_id").notNull().references(() => documents.id, { onDelete: "cascade" }),
-  chunkIndex: numeric("chunk_index").notNull(), // Order within document (0-indexed)
+  chunkIndex: integer("chunk_index").notNull(), // Order within document (0-indexed)
   content: text("content").notNull(), // Actual chunk text
-  tokenCount: numeric("token_count").notNull(),
-  embedding: sql`vector(768)`, // 768-dimensional vector for nomic-embed-text
-  metadata: jsonb("metadata").default({}).notNull(), // section_heading, page_number, etc.
+  tokenCount: integer("token_count").notNull(),
+  sectionTitle: text("section_title"), // Section heading if applicable
+  pageNumber: integer("page_number"), // Page number in PDF
+  isOverlap: boolean("is_overlap").default(false), // Whether chunk is from overlap region
+  embeddingPending: boolean("embedding_pending").default(true), // Placeholder until pgvector installed
+  metadata: jsonb("metadata").default({}).notNull(), // Additional metadata
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
