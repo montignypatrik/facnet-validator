@@ -1,0 +1,229 @@
+﻿/* Page */
+body,html,div,blockquote,img,label,p,h1,h2,h3,h4,h5,h6,pre,ul,ol,li,dl,dt,dd,form,a,fieldset,input,th,td{border:0;outline:none;margin:0;padding:0;}
+ul, ul li{list-style: none;}
+ul.text {margin-bottom: 1em; line-height: 1.5em;}
+.text-center {text-align: center;}
+.wrap {width: 960px; margin: 0 auto;}
+.demo-container {padding: 20px; float: left; width: 260px;}
+.demo-container h4 {font-size: 14px; margin: 0 0 5px 0;}
+.clear {clear: both;}
+.dcjq-count {float: right;}
+@media Print    
+{
+#menuGauche {
+	DISPLAY: none
+}
+BODY {
+	FONT-SIZE: 10pt; FONT-FAMILY: Calibri;
+}
+#contenu {
+	PADDING-BOTTOM: 0px !important; PADDING-TOP: 0px !important; PADDING-LEFT: 0px !important; MARGIN-LEFT: 0px !important; PADDING-RIGHT: 0px !important; transition: none
+}
+    }
+#menuGauche {
+	OVERFLOW: auto; HEIGHT: 100%; WIDTH: 23.7%; POSITION: fixed; FLOAT: left; LEFT: -3px; TOP: 0px; PADDING-RIGHT: 10px; BACKGROUND-COLOR: #e5e5e3
+}
+
+@media Screen    
+{
+#contenu {
+	HEIGHT: 100%; WIDTH: 74%; OVERFLOW-Y: auto; POSITION: absolute; FLOAT: left; LEFT: 25%; MIN-HEIGHT: 100%; TOP: 0px; PADDING-RIGHT: 10px
+}
+BODY {
+	FONT-SIZE: 12pt; FONT-FAMILY: Arial; MARGIN: 20px; BACKGROUND-COLOR: #f3f5f2
+}
+    }
+#nav UL {
+	LIST-STYLE-TYPE: none; WIDTH: 100%; LIST-STYLE-POSITION: outside; PADDING-BOTTOM: 0px; PADDING-TOP: 0px; PADDING-LEFT: 0px; DISPLAY: block; PADDING-RIGHT: 10%
+}
+#nav A:hover {
+	BACKGROUND-COLOR: #f3f5f2
+}
+#nav A {
+	DISPLAY: block
+}
+#nav LI {
+	LIST-STYLE-TYPE: none; PADDING-BOTTOM: 7px; PADDING-TOP: 2px; PADDING-LEFT: 3px; MARGIN-LEFT: 0pt; PADDING-RIGHT: 3px
+}
+#nav LI A {
+	TEXT-DECORATION: none; BACKGROUND: #e5e5e3; COLOR: #000; PADDING-BOTTOM: 7px; PADDING-TOP: 2px; PADDING-LEFT: 3px; PADDING-RIGHT: 3px
+}
+#nav LI UL {
+	DISPLAY: none
+}
+#nav LI UL LI A {
+	BACKGROUND: #e5e5e3; BORDER-BOTTOM: #ccc 1px dotted; PADDING-BOTTOM: 7px; PADDING-TOP: 2px; PADDING-LEFT: 6px; PADDING-RIGHT: 3px
+}
+TABLE {
+	FONT-SIZE: 12pt
+}
+DIV {
+	PADDING-BOTTOM: 3px; PADDING-TOP: 3px; PADDING-LEFT: 0px; PADDING-RIGHT: 0px
+}
+P {
+	MARGIN: 3px 0px
+}
+.TexteNumerote {
+	FONT-SIZE: 12pt; MARGIN: 0px 0px 6px
+}
+.TexteOpera {
+	FONT-SIZE: 12pt; MARGIN: 0px 0px 6px
+}
+.TitreOnglet {
+	FONT-SIZE: 16pt; FONT-WEIGHT: bold; MARGIN: 6px 0px 12px
+}
+.Titre1Opera {
+	FONT-SIZE: 14pt; FONT-WEIGHT: bold; MARGIN: 18px 0px 12px
+}
+.Titre1Numerote {
+	FONT-SIZE: 14pt; FONT-WEIGHT: bold; MARGIN: 6px 0px 12px
+}
+.Titre1Italique {
+	FONT-SIZE: 14pt; FONT-STYLE: italic; MARGIN: 6px 0px 12px
+}
+.Titre2 {
+	FONT-SIZE: 12pt; FONT-WEIGHT: bold; MARGIN: 12px 0px 6px
+}
+.Titre2Numerote {
+	FONT-SIZE: 12pt; FONT-WEIGHT: bold; MARGIN: 12px 0px 6px
+}
+.Titre3Opera {
+	FONT-SIZE: 12pt; MARGIN: 0px 0px 6px
+}
+.strong {
+	FONT-WEIGHT: bold;
+}
+UL {
+	MARGIN-BOTTOM: 3px; MARGIN-TOP: 0px
+}
+ul:not(.Personnalisee) > li {
+                LIST-STYLE-TYPE: disc;
+                MARGIN-LEFT: 15pt;
+}
+LI {
+	MARGIN-LEFT: 10pt
+}
+TABLE.avis {
+	BORDER-COLLAPSE: collapse
+}
+TABLE.avis TD {
+	VERTICAL-ALIGN: top
+}
+P.avis {
+	BORDER-BOTTOM: 3px double; FONT-WEIGHT: bold; FONT-STYLE: italic; MARGIN-RIGHT: 3px
+}
+span.avis {
+    BORDER-BOTTOM: 3px double; FONT-WEIGHT: bold; FONT-STYLE: italic;
+}
+P.avisGauche {
+	BORDER-BOTTOM: 3px double; FONT-WEIGHT: bold; FONT-STYLE: italic; MARGIN-RIGHT: 3px
+}
+TD.avisGauche P {
+    MARGIN-RIGHT: 3px;
+}
+TABLE TD.avisDroit {
+      VERTICAL-ALIGN: inherit;
+}     
+TD.avisGauche DIV.avisGauche, 
+TD.avisDroit DIV.avisDroit {
+      PADDING-TOP: 0px;
+}
+.nouvlSectn {
+	TEXT-DECORATION: none; COLOR: white; BACKGROUND-COLOR: darkgreen
+}
+.selectHaut {
+	BORDER-TOP: darkgreen 1px solid; BORDER-RIGHT: darkgreen 1px solid; BORDER-LEFT: darkgreen 1px solid
+}
+.selectMilieu {
+	BORDER-RIGHT: darkgreen 1px solid; BORDER-LEFT: darkgreen 1px solid
+}
+.selectBas {
+	BORDER-RIGHT: darkgreen 1px solid; BORDER-BOTTOM: darkgreen 1px solid; BORDER-LEFT: darkgreen 1px solid
+}
+.selectTabSeul {
+	BORDER-TOP: darkgreen 1px solid; BORDER-BOTTOM: darkgreen 1px solid
+}
+.selectTabSeulGauche {
+	BORDER-TOP: darkgreen 1px solid; BORDER-BOTTOM: darkgreen 1px solid; BORDER-LEFT: darkgreen 1px solid
+}
+.selectTabSeulDroite {
+	BORDER-TOP: darkgreen 1px solid; BORDER-RIGHT: darkgreen 1px solid; BORDER-BOTTOM: darkgreen 1px solid
+}
+.selectTabHaut {
+	BORDER-TOP: darkgreen 1px solid
+}
+.selectTabHautGauche {
+	BORDER-TOP: darkgreen 1px solid; BORDER-LEFT: darkgreen 1px solid
+}
+.selectTabHautDroite {
+	BORDER-TOP: darkgreen 1px solid; BORDER-RIGHT: darkgreen 1px solid
+}
+.selectTabBas {
+	BORDER-BOTTOM: darkgreen 1px solid
+}
+.selectTabBasGauche {
+	BORDER-BOTTOM: darkgreen 1px solid; BORDER-LEFT: darkgreen 1px solid
+}
+.selectTabBasDroite {
+	BORDER-RIGHT: darkgreen 1px solid; BORDER-BOTTOM: darkgreen 1px solid
+}
+.selectTabMilieuGauche {
+	BORDER-LEFT: darkgreen 1px solid
+}
+.selectTabMilieuDroite {
+	BORDER-RIGHT: darkgreen 1px solid
+}
+.select {
+	BORDER-TOP: darkgreen 1px solid; BORDER-RIGHT: darkgreen 1px solid; BORDER-BOTTOM: darkgreen 1px solid; BORDER-LEFT: darkgreen 1px solid
+}
+.Surligner {
+	BACKGROUND-COLOR: #f3f5f2
+}
+.Associer {
+	BACKGROUND-COLOR: #cceeff
+}
+.couleurSelection {
+	MARGIN-LEFT: -1pt; BACKGROUND-COLOR: lightgreen; MARGIN-RIGHT: -1pt
+}
+.Edition {
+	BACKGROUND-COLOR: #ffffc0
+}
+.Edition TD {
+	BORDER-TOP: lightgreen 1px dashed; BORDER-RIGHT: lightgreen 1px dashed; BORDER-BOTTOM: lightgreen 1px dashed; BORDER-LEFT: lightgreen 1px dashed
+}
+.Edition TH {
+	BORDER-TOP: lightgreen 1px dashed; BORDER-RIGHT: lightgreen 1px dashed; BORDER-BOTTOM: lightgreen 1px dashed; BORDER-LEFT: lightgreen 1px dashed
+}
+.Deplacer {
+	BACKGROUND-COLOR: #ff6347
+}
+TABLE.bordure {
+	BORDER-TOP: black 1px solid; BORDER-RIGHT: black 1px solid; BORDER-COLLAPSE: collapse; BORDER-BOTTOM: black 1px solid; BORDER-LEFT: black 1px solid
+}
+TABLE.bordure TH {
+	BORDER-TOP: black 1px solid; BORDER-RIGHT: black 1px solid; BORDER-BOTTOM: black 1px solid; BORDER-LEFT: black 1px solid
+}
+TABLE.bordure TD {
+	BORDER-TOP: black 1px solid; BORDER-RIGHT: black 1px solid; BORDER-BOTTOM: black 1px solid; BORDER-LEFT: black 1px solid
+}
+INS {
+	TEXT-DECORATION: none; BACKGROUND-COLOR: CHARTREUSE
+}
+DEL {
+	COLOR: white; BACKGROUND-COLOR: deeppink
+}
+S {
+	TEXT-DECORATION: line-through; COLOR: white; BACKGROUND-COLOR: deeppink
+}
+.SectionAbolie {
+	TEXT-DECORATION: line-through; COLOR: white; BACKGROUND-COLOR: deeppink
+}
+.SectionAbolie TABLE {
+	TEXT-DECORATION: line-through; COLOR: white; BACKGROUND-COLOR: deeppink
+}
+.SectionAbroge {
+	COLOR: black; BACKGROUND-COLOR: lightgrey
+}
+.SectionAbroge TABLE {
+	COLOR: black; BACKGROUND-COLOR: lightgrey
+}

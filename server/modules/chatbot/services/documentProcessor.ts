@@ -6,7 +6,7 @@
  */
 
 import * as cheerio from 'cheerio';
-import pdfParse from 'pdf-parse';
+import * as pdfParse from 'pdf-parse';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { log } from '../../../vite';
