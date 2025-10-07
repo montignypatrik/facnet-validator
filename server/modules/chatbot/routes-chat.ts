@@ -9,6 +9,7 @@ import { Router, type Response } from "express";
 import { ollamaService } from "./services/ollamaService";
 import { authenticateToken, type AuthenticatedRequest } from "../../core/auth";
 import * as storage from "./storage";
+import { searchChunksByKeywords } from "./storage-documents";
 import { log } from "../../vite";
 
 const router = Router();
@@ -214,8 +215,26 @@ router.post("/api/chat/message", authenticateToken, async (req: AuthenticatedReq
       metadata: {},
     });
 
-    // Get AI response
-    const aiResponse = await ollamaService.query({ prompt: message });
+    // RAG Step 1: Search for relevant document chunks
+    const relevantChunks = await searchChunksByKeywords(message, 3);
+    log(`[Chatbot] Found ${relevantChunks.length} relevant chunks for context`);
+
+    // RAG Step 2: Build context from chunks
+    let contextText = '';
+    if (relevantChunks.length > 0) {
+      contextText = '\n\nCONTEXT FROM RAMQ DOCUMENTATION:\n\n';
+      relevantChunks.forEach((chunk, index) => {
+        contextText += `[Source ${index + 1}: ${chunk.document.filename}${chunk.sectionTitle ? ` - ${chunk.sectionTitle}` : ''}]\n`;
+        contextText += `${chunk.content}\n\n`;
+      });
+      contextText += 'Please answer the question based ONLY on the context above from official RAMQ documentation. If the context does not contain the answer, say so.\n\n';
+    }
+
+    // RAG Step 3: Augment prompt with context
+    const augmentedPrompt = contextText + `QUESTION: ${message}`;
+
+    // Get AI response with RAG-augmented prompt
+    const aiResponse = await ollamaService.query({ prompt: augmentedPrompt });
 
     if (!aiResponse.success) {
       // AI failed, but user message is still saved
