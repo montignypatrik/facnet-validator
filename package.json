@@ -19,6 +19,7 @@
   "dependencies": {
     "@auth0/auth0-react": "^2.5.0",
     "@dqbd/tiktoken": "^1.0.22",
+    "@hello-pangea/dnd": "^18.0.1",
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@opentelemetry/auto-instrumentations-node": "^0.65.0",
