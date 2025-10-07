@@ -114,11 +114,17 @@ async function bulkImport() {
     console.log(`  - Updated documents: ${updatedDocs}`);
     console.log(`  - Unchanged documents: ${unchangedDocs}`);
 
-    const totalPending = newDocs + updatedDocs;
+    // Check for pending documents (including previously failed ones)
+    const pendingDocs = await docStorage.getDocumentsByStatus('pending');
+    const totalPending = pendingDocs.length;
 
     if (totalPending === 0) {
       log('\n✓ All documents are already processed and up to date!', 'green');
       process.exit(0);
+    }
+
+    if (totalPending > newDocs + updatedDocs) {
+      log(`\n  + Found ${totalPending - newDocs - updatedDocs} additional pending document(s) from previous runs`, 'cyan');
     }
 
     // Step 3: Start worker and process documents
