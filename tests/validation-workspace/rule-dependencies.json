@@ -1,0 +1,16 @@
+{
+  "generatedDate": "2025-01-06T10:00:00.000Z",
+  "rules": [],
+  "dependencies": [],
+  "conflicts": [],
+  "globalCoverage": {
+    "totalRules": 0,
+    "rulesWithTests": 0,
+    "coveragePercent": 0,
+    "untested": []
+  },
+  "metadata": {
+    "description": "Rule dependency mapping and test coverage analysis from rule-analyzer agent",
+    "usage": "Written by rule-analyzer, provides impact analysis before deploying rule changes"
+  }
+}

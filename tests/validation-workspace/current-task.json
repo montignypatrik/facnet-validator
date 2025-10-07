@@ -1,0 +1,23 @@
+{
+  "taskId": "example-task",
+  "taskType": "create_validation_rule",
+  "rule": {
+    "name": "Example Validation Rule",
+    "ruleType": "amount_limit",
+    "code": "15804",
+    "condition": {
+      "type": "frequency_limit",
+      "category": "visit_limits",
+      "codes": ["15804"],
+      "maxVisitsPerWeek": 5
+    }
+  },
+  "status": "pending",
+  "assignedAgent": null,
+  "created": "2025-01-06T10:00:00.000Z",
+  "lastUpdated": "2025-01-06T10:00:00.000Z",
+  "metadata": {
+    "description": "This file tracks the current validation task being worked on by the agent team",
+    "usage": "Agents read this file to understand context, update status when working"
+  }
+}

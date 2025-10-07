@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.5.0",
+    "@dqbd/tiktoken": "^1.0.22",
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@opentelemetry/auto-instrumentations-node": "^0.65.0",
@@ -56,6 +57,7 @@
     "@types/pg": "^8.15.5",
     "axios": "^1.12.2",
     "bullmq": "^5.60.0",
+    "cheerio": "^1.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -81,6 +83,7 @@
     "next-themes": "^0.4.6",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
+    "pdf-parse": "^2.2.1",
     "pg": "^8.16.3",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",

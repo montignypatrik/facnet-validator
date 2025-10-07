@@ -241,6 +241,64 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   }),
 }));
 
+// ==================== RAG DOCUMENT PROCESSING MODULE ====================
+
+// Document status enum
+export const documentStatusEnum = pgEnum("document_status", ["pending", "processing", "completed", "error"]);
+
+// Document file type enum
+export const documentFileTypeEnum = pgEnum("document_file_type", ["html", "pdf"]);
+
+// Document category enum
+export const documentCategoryEnum = pgEnum("document_category", [
+  "ramq-official",
+  "billing-guides",
+  "code-references",
+  "regulations",
+  "faq",
+]);
+
+// Documents table - tracks source files in knowledge/ directory
+export const documents = pgTable("documents", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  filename: text("filename").notNull(),
+  filePath: text("file_path").notNull().unique(), // Relative path from knowledge/
+  fileType: documentFileTypeEnum("file_type").notNull(),
+  category: documentCategoryEnum("category").notNull(),
+  fileHash: text("file_hash").notNull(), // SHA256 hash for change detection
+  fileSizeBytes: numeric("file_size_bytes"),
+  status: documentStatusEnum("status").notNull().default("pending"),
+  processedAt: timestamp("processed_at"),
+  errorMessage: text("error_message"),
+  metadata: jsonb("metadata").default({}).notNull(), // title, language, page_count, etc.
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Document chunks table - stores text chunks with embeddings for RAG
+export const documentChunks = pgTable("document_chunks", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: uuid("document_id").notNull().references(() => documents.id, { onDelete: "cascade" }),
+  chunkIndex: numeric("chunk_index").notNull(), // Order within document (0-indexed)
+  content: text("content").notNull(), // Actual chunk text
+  tokenCount: numeric("token_count").notNull(),
+  embedding: sql`vector(768)`, // 768-dimensional vector for nomic-embed-text
+  metadata: jsonb("metadata").default({}).notNull(), // section_heading, page_number, etc.
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Relations
+export const documentsRelations = relations(documents, ({ many }) => ({
+  chunks: many(documentChunks),
+}));
+
+export const documentChunksRelations = relations(documentChunks, ({ one }) => ({
+  document: one(documents, {
+    fields: [documentChunks.documentId],
+    references: [documents.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCodeSchema = createInsertSchema(codes).omit({ updatedAt: true });
@@ -255,6 +313,8 @@ export const insertValidationResultSchema = createInsertSchema(validationResults
 export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
 export const insertValidationLogSchema = createInsertSchema(validationLogs).omit({ id: true, createdAt: true });
+export const insertDocumentSchema = createInsertSchema(documents).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDocumentChunkSchema = createInsertSchema(documentChunks).omit({ id: true, createdAt: true });
 
 // Select schemas
 export const selectUserSchema = createSelectSchema(users);
@@ -270,6 +330,8 @@ export const selectValidationResultSchema = createSelectSchema(validationResults
 export const selectConversationSchema = createSelectSchema(conversations);
 export const selectMessageSchema = createSelectSchema(messages);
 export const selectValidationLogSchema = createSelectSchema(validationLogs);
+export const selectDocumentSchema = createSelectSchema(documents);
+export const selectDocumentChunkSchema = createSelectSchema(documentChunks);
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -298,3 +360,7 @@ export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
 export type InsertValidationLog = z.infer<typeof insertValidationLogSchema>;
 export type ValidationLog = typeof validationLogs.$inferSelect;
+export type InsertDocument = z.infer<typeof insertDocumentSchema>;
+export type Document = typeof documents.$inferSelect;
+export type InsertDocumentChunk = z.infer<typeof insertDocumentChunkSchema>;
+export type DocumentChunk = typeof documentChunks.$inferSelect;

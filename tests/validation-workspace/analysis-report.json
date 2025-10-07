@@ -1,0 +1,18 @@
+{
+  "taskId": "example-task",
+  "analysisDate": "2025-01-06T10:00:00.000Z",
+  "failureAnalysis": [],
+  "summary": {
+    "totalFailures": 0,
+    "analyzedFailures": 0,
+    "highConfidenceFixes": 0,
+    "mediumConfidenceFixes": 0,
+    "lowConfidenceFixes": 0,
+    "databaseQueriesRun": 0
+  },
+  "recommendations": [],
+  "metadata": {
+    "description": "Diagnostic analysis from validation-debugger agent",
+    "usage": "Written by validation-debugger after analyzing test failures, read by validation-expert for implementing fixes"
+  }
+}
