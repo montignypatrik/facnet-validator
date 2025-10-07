@@ -13,7 +13,7 @@ import {
   type InsertDocument,
   type InsertDocumentChunk,
 } from '@shared/schema';
-import { eq, desc, and, sql, count } from 'drizzle-orm';
+import { eq, desc, and, or, sql, count } from 'drizzle-orm';
 
 // ==================== Document Operations ====================
 
@@ -301,4 +301,56 @@ export async function searchChunksBySimilarity(
 
   console.warn('[DocumentStorage] Vector search not yet implemented - pgvector extension required');
   return [];
+}
+
+/**
+ * Search chunks by keyword (fallback until pgvector is installed)
+ *
+ * Performs full-text search on chunk content for keywords
+ */
+export async function searchChunksByKeywords(
+  query: string,
+  limit: number = 5
+): Promise<Array<DocumentChunk & { document: { filename: string; category: string } }>> {
+  const keywords = query.toLowerCase().split(/\s+/).filter(k => k.length > 2);
+
+  if (keywords.length === 0) {
+    return [];
+  }
+
+  // Build LIKE conditions for each keyword
+  const conditions = keywords.map(keyword =>
+    sql`LOWER(${documentChunks.content}) LIKE ${`%${keyword}%`}`
+  );
+
+  const results = await db
+    .select({
+      id: documentChunks.id,
+      documentId: documentChunks.documentId,
+      chunkIndex: documentChunks.chunkIndex,
+      content: documentChunks.content,
+      tokenCount: documentChunks.tokenCount,
+      sectionTitle: documentChunks.sectionTitle,
+      pageNumber: documentChunks.pageNumber,
+      isOverlap: documentChunks.isOverlap,
+      embeddingPending: documentChunks.embeddingPending,
+      metadata: documentChunks.metadata,
+      createdAt: documentChunks.createdAt,
+      document: {
+        filename: documents.filename,
+        category: documents.category,
+      },
+    })
+    .from(documentChunks)
+    .innerJoin(documents, eq(documentChunks.documentId, documents.id))
+    .where(
+      and(
+        eq(documents.status, 'completed'),
+        or(...conditions)
+      )
+    )
+    .orderBy(desc(documentChunks.tokenCount)) // Prefer longer, more detailed chunks
+    .limit(limit);
+
+  return results;
 }

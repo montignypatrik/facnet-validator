@@ -6,6 +6,7 @@
 
 import { Router, type Request, type Response } from "express";
 import { ollamaService, type OllamaRequest } from "./services/ollamaService";
+import { searchChunksByKeywords } from "./storage-documents";
 import { log } from "../../vite";
 
 const router = Router();
@@ -68,12 +69,41 @@ router.post("/api/chatbot/query", async (req: Request, res: Response) => {
     // Log incoming request
     log(`[Chatbot] Received query: "${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}"`);
 
-    // Call Ollama service
-    const result = await ollamaService.query({ prompt, model, options });
+    // RAG Step 1: Search for relevant document chunks
+    const relevantChunks = await searchChunksByKeywords(prompt, 3);
+    log(`[Chatbot] Found ${relevantChunks.length} relevant chunks for context`);
 
-    // Return response
+    // RAG Step 2: Build context from chunks
+    let contextText = '';
+    if (relevantChunks.length > 0) {
+      contextText = '\n\nCONTEXT FROM RAMQ DOCUMENTATION:\n\n';
+      relevantChunks.forEach((chunk, index) => {
+        contextText += `[Source ${index + 1}: ${chunk.document.filename}${chunk.sectionTitle ? ` - ${chunk.sectionTitle}` : ''}]\n`;
+        contextText += `${chunk.content}\n\n`;
+      });
+      contextText += 'Please answer the question based ONLY on the context above from official RAMQ documentation. If the context does not contain the answer, say so.\n\n';
+    }
+
+    // RAG Step 3: Augment prompt with context
+    const augmentedPrompt = contextText + `QUESTION: ${prompt}`;
+
+    // Call Ollama service with augmented prompt
+    const result = await ollamaService.query({
+      prompt: augmentedPrompt,
+      model,
+      options
+    });
+
+    // Return response with sources
     if (result.success) {
-      res.json(result);
+      res.json({
+        ...result,
+        sources: relevantChunks.map(chunk => ({
+          filename: chunk.document.filename,
+          category: chunk.document.category,
+          sectionTitle: chunk.sectionTitle,
+        })),
+      });
     } else {
       res.status(500).json(result);
     }
