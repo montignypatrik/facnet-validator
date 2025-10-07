@@ -974,8 +974,44 @@ The validation system is now fully database-driven, allowing dynamic rule manage
 ### Key Components
 - **Migration System**: `server/migrate-rules.ts` - Populates database with default rules on startup
 - **Database Rule Loader**: `server/validation/databaseRuleLoader.ts` - Converts database rules to executable validation logic
+- **Rule Type Handlers**: `server/validation/ruleTypeHandlers.ts` - Implements validation logic for each rule type
 - **Fallback Mechanism**: Falls back to hardcoded rules if database is empty
 - **Rule Engine**: `server/validation/engine.ts` - Executes validation rules against billing data
+
+### Creating New Validation Rules
+
+**Rule Creation System** (January 2025):
+A comprehensive template system for creating new RAMQ validation rules with Claude:
+
+📋 **Template Files**:
+- [`docs/RULE_TEMPLATE.md`](./docs/RULE_TEMPLATE.md) - Fillable template with all required sections
+- [`docs/RULE_EXAMPLE_OFFICE_FEE.md`](./docs/RULE_EXAMPLE_OFFICE_FEE.md) - Complete real-world example
+- [`docs/RULE_CREATION_GUIDE.md`](./docs/RULE_CREATION_GUIDE.md) - Step-by-step guide with best practices
+
+🚀 **Quick Workflow**:
+1. Copy [`RULE_TEMPLATE.md`](./docs/RULE_TEMPLATE.md)
+2. Fill out all sections (see example for reference)
+3. Send completed template to Claude: "Create new rule: [paste template]"
+4. Claude automatically creates:
+   - ✅ Handler function in `ruleTypeHandlers.ts`
+   - ✅ Route registration in `databaseRuleLoader.ts`
+   - ✅ Comprehensive Vitest tests
+   - ✅ Database rule entry with migration
+   - ✅ Verification and test results (90%+ passing)
+
+📊 **Available Rule Types** (10 built-in patterns):
+- `prohibition` - Codes that can't be billed together
+- `time_restriction` - Time-based rules (after-hours, weekends)
+- `requirement` - Codes requiring other codes/conditions
+- `location_restriction` - Location-based rules (urgence, cabinet)
+- `age_restriction` - Age-based billing rules
+- `amount_limit` - Dollar amount limits per period
+- `mutual_exclusion` - Only one code from group per period
+- `missing_annual_opportunity` - Revenue optimization alerts
+- `annual_limit` - Once-per-year codes (simple)
+- `annual_billing_code` - Once-per-year codes (advanced with leaf matching)
+
+See [`RULE_CREATION_GUIDE.md`](./docs/RULE_CREATION_GUIDE.md) for complete instructions.
 
 ### Database Rule Structure
 ```typescript
@@ -993,13 +1029,34 @@ The validation system is now fully database-driven, allowing dynamic rule manage
 }
 ```
 
-### Office Fee Validation Rule (19928/19929)
-- **Purpose**: Validates daily office fee maximums for Quebec billing codes 19928 and 19929
+### Active Validation Rules
+
+#### 1. Office Fee Validation (19928/19929)
+- **Rule ID**: `OFFICE_FEE_19928_19929`
+- **Type**: `office_fee_validation`
+- **Purpose**: Validates daily office fee maximums for Quebec billing codes
 - **Thresholds**:
   - Code 19928: 6 registered patients, 10 walk-in patients max/day
   - Code 19929: 12 registered patients, 20 walk-in patients max/day
 - **Daily Maximum**: $64.80 per doctor per day
 - **Walk-in Contexts**: #G160, #AR
+- **Documentation**: See [`RULE_EXAMPLE_OFFICE_FEE.md`](./docs/RULE_EXAMPLE_OFFICE_FEE.md)
+
+#### 2. Annual Billing Code (Code à facturation annuel)
+- **Rule ID**: `ANNUAL_BILLING_CODE`
+- **Type**: `annual_billing_code`
+- **Purpose**: Ensures specific billing codes can only be billed once per patient per calendar year
+- **Target Codes** (identified by leaf field):
+  - "Visite de prise en charge" (Initial care visit)
+  - "Visite périodique" (Periodic visit)
+  - "Visite de prise en charge d'un problème musculo squelettique" (Musculoskeletal initial care)
+- **Smart Logic**:
+  - Multiple paid → Critical error (contact RAMQ)
+  - One paid + unpaid → Warning (suggest deleting unpaid)
+  - All unpaid → Warning (suggest keeping only one)
+- **Test Coverage**: 13/14 tests passing (93%)
+- **Implementation Date**: January 2025
+- **Migration**: `migrations/add_annual_billing_code_rule.sql`
 
 ### Security Features
 - **CSV File Cleanup**: Uploaded files automatically deleted after processing
