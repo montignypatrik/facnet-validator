@@ -258,6 +258,14 @@ export function Sidebar() {
                     <Users className="w-4 h-4" />
                     <span>Utilisateurs</span>
                   </Link>
+                  <Link href="/admin/knowledge" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                    isActive("/admin/knowledge")
+                      ? "text-primary bg-primary/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`} data-testid="link-admin-knowledge">
+                    <Database className="w-4 h-4" />
+                    <span>Base de Connaissances</span>
+                  </Link>
                 </CollapsibleContent>
               </Collapsible>
             )}

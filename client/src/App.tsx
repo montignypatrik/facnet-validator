@@ -16,6 +16,7 @@ import Contexts from "./pages/database/Contexts";
 import Establishments from "./pages/database/Establishments";
 import Rules from "./pages/database/Rules";
 import Users from "./pages/admin/Users";
+import KnowledgeAdmin from "./pages/admin/KnowledgeAdmin";
 import Settings from "./pages/Settings";
 import Chatbot from "./pages/Chatbot";
 import Tache from "./pages/Tache";
@@ -110,6 +111,7 @@ function Router() {
         <Redirect to="/admin/users" />
       </Route>
       <Route path="/admin/users" component={Users} />
+      <Route path="/admin/knowledge" component={KnowledgeAdmin} />
 
       {/* Settings */}
       <Route path="/settings" component={Settings} />
