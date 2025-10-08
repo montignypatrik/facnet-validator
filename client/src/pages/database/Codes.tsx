@@ -37,17 +37,18 @@ export default function CodesPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedCode, setSelectedCode] = useState<Code | null>(null);
 
   const { data: codesData, isLoading } = useQuery({
-    queryKey: ["/codes", { search }],
+    queryKey: ["/codes", { search, page, pageSize }],
     queryFn: async () => {
       const params = new URLSearchParams({
-        page: "1",
-        pageSize: "10000", // Load all data for filtering
+        page: String(page),
+        pageSize: String(pageSize),
       });
       if (search) params.append("search", search);
 
@@ -160,7 +161,7 @@ export default function CodesPage() {
       const response = await client.get("/codes/export", {
         responseType: "blob",
       });
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
@@ -176,6 +177,21 @@ export default function CodesPage() {
         variant: "destructive",
       });
     }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setPage(1); // Reset to first page when changing page size
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1); // Reset to first page when search changes
   };
 
   const columns = [
@@ -342,7 +358,12 @@ export default function CodesPage() {
               onExport={handleExport}
               onRefresh={() => queryClient.invalidateQueries({ queryKey: ["/codes"] })}
               searchValue={search}
-              onSearchChange={setSearch}
+              onSearchChange={handleSearchChange}
+              page={page}
+              pageSize={pageSize}
+              totalRecords={codesData?.total || 0}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
             />
           </CardContent>
         </Card>

@@ -23,9 +23,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, MoreHorizontal, Plus, Upload, Download, RefreshCw, Filter, X, Columns } from "lucide-react";
+import { Search, MoreHorizontal, Plus, Upload, Download, RefreshCw, Filter, X, Columns, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Column {
   key: string;
@@ -52,6 +59,13 @@ interface DataTableProps {
   columnFilters?: Record<string, string[]>;
   onColumnFiltersChange?: (filters: Record<string, string[]>) => void;
   allData?: any[]; // For getting unique values from all data, not just current page
+  // Pagination
+  page?: number;
+  pageSize?: number;
+  totalRecords?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+  pageSizeOptions?: number[];
 }
 
 export function DataTable({
@@ -70,6 +84,12 @@ export function DataTable({
   columnFilters: externalColumnFilters,
   onColumnFiltersChange,
   allData,
+  page = 1,
+  pageSize = 20,
+  totalRecords = 0,
+  onPageChange,
+  onPageSizeChange,
+  pageSizeOptions = [10, 20, 50, 100],
 }: DataTableProps) {
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
     const initialWidths: Record<string, number> = {};
@@ -522,6 +542,73 @@ export function DataTable({
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination Controls */}
+      {onPageChange && totalRecords > 0 && (
+        <div className="flex items-center justify-between px-2">
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-muted-foreground">
+              Showing {Math.min((page - 1) * pageSize + 1, totalRecords)} to {Math.min(page * pageSize, totalRecords)} of {totalRecords} records
+            </p>
+            {onSearchChange && (
+              <p className="text-xs text-muted-foreground italic">
+                💡 Tip: Use search to filter across all records
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-6">
+            {/* Page Size Selector */}
+            {onPageSizeChange && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Rows per page:</span>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(value) => onPageSizeChange(Number(value))}
+                >
+                  <SelectTrigger className="w-[70px] h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pageSizeOptions.map((size) => (
+                      <SelectItem key={size} value={String(size)}>
+                        {size}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Page Navigation */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPageChange(page - 1)}
+                disabled={page === 1}
+                data-testid="button-prev-page"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {page} of {Math.max(1, Math.ceil(totalRecords / pageSize))}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPageChange(page + 1)}
+                disabled={page >= Math.ceil(totalRecords / pageSize)}
+                data-testid="button-next-page"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

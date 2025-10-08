@@ -704,7 +704,45 @@ export class DatabaseStorage implements IStorage {
       .where(eq(validationResults.validationRunId, validationRunId))
       .orderBy(asc(validationResults.createdAt));
 
-    return results as any;
+    // Calculate monetary impact for each result
+    const resultsWithImpact = await Promise.all(
+      results.map(async (result) => {
+        const monetaryImpact = await this.calculateMonetaryImpact(result);
+        return {
+          ...result,
+          monetaryImpact,
+        };
+      })
+    );
+
+    return resultsWithImpact as any;
+  }
+
+  private async calculateMonetaryImpact(result: any): Promise<number> {
+    const ruleData = result.ruleData || {};
+    const category = result.category;
+
+    // Office fee validation - missing or insufficient office fees
+    if (category === "office_fees") {
+      const code = ruleData.code;
+
+      // Get tariff value for office fee code
+      const [codeData] = await db
+        .select({ tariffValue: codes.tariffValue })
+        .from(codes)
+        .where(eq(codes.code, code))
+        .limit(1);
+
+      if (codeData && codeData.tariffValue) {
+        // If the message indicates missing patients, the doctor can't bill this office fee
+        // Potential loss = office fee tariff
+        return Number(codeData.tariffValue);
+      }
+    }
+
+    // For other validation types, return 0 for now
+    // TODO: Add calculations for other rule types
+    return 0;
   }
 
   // Validation Logs

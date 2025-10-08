@@ -395,8 +395,67 @@ export default function RunDetailsPage() {
               return acc;
             }, {});
 
+            // Calculate total monetary impact
+            const totalImpact = validationResults.reduce((sum: number, result: any) => {
+              return sum + (result.monetaryImpact || 0);
+            }, 0);
+
+            // Calculate impact by category
+            const impactByCategory = validationResults.reduce((acc: Record<string, number>, result: any) => {
+              const category = result.category || 'other';
+              acc[category] = (acc[category] || 0) + (result.monetaryImpact || 0);
+              return acc;
+            }, {});
+
             return (
               <>
+                {/* Financial Impact Summary Card */}
+                {totalImpact > 0 && (
+                  <Card className="border-l-4 border-l-green-500">
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center mr-3">
+                          <span className="text-2xl">💰</span>
+                        </div>
+                        <div>
+                          <div className="text-lg">Impact financier potentiel</div>
+                          <div className="text-sm text-muted-foreground">
+                            Gain possible si tous les problèmes sont corrigés
+                          </div>
+                        </div>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {/* Total Potential Gain */}
+                        <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-6 text-center">
+                          <div className="text-sm text-muted-foreground mb-1">Gain total potentiel</div>
+                          <div className="text-4xl font-bold text-green-600 dark:text-green-400">
+                            ${totalImpact.toFixed(2)}
+                          </div>
+                        </div>
+
+                        {/* Breakdown by Category */}
+                        <div>
+                          <h4 className="text-sm font-semibold mb-3">Répartition par catégorie:</h4>
+                          <div className="space-y-2">
+                            {Object.entries(impactByCategory).map(([category, amount]: [string, any]) => (
+                              <div key={category} className="flex justify-between items-center p-2 bg-muted rounded">
+                                <span className="text-sm capitalize">
+                                  {category === 'office_fees' ? 'Frais de cabinet' : category}
+                                </span>
+                                <span className="font-semibold text-green-600 dark:text-green-400">
+                                  ${Number(amount).toFixed(2)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Errors Section */}
                 {errors.length > 0 && (
                   <Card>
@@ -492,6 +551,12 @@ export default function RunDetailsPage() {
                                         }
                                       </h4>
                                     </div>
+                                    {/* Monetary Impact Badge */}
+                                    {result.monetaryImpact && result.monetaryImpact > 0 && (
+                                      <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-300 dark:border-green-700">
+                                        💵 Gain: ${result.monetaryImpact.toFixed(2)}
+                                      </Badge>
+                                    )}
                                   </div>
 
                                   {/* What's Wrong */}

@@ -26,17 +26,18 @@ export default function RulesPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedRule, setSelectedRule] = useState<Rule | null>(null);
 
   const { data: rulesData, isLoading } = useQuery({
-    queryKey: ["/rules", { search, page, pageSize: 50 }],
+    queryKey: ["/rules", { search, page, pageSize }],
     queryFn: async () => {
       const params = new URLSearchParams({
-        page: page.toString(),
-        pageSize: "50",
+        page: String(page),
+        pageSize: String(pageSize),
       });
       if (search) params.append("search", search);
 
@@ -156,7 +157,7 @@ export default function RulesPage() {
       const response = await client.get("/rules/export", {
         responseType: "blob",
       });
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
@@ -172,6 +173,21 @@ export default function RulesPage() {
         variant: "destructive",
       });
     }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setPage(1);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
   };
 
   const columns = [
@@ -241,7 +257,12 @@ export default function RulesPage() {
               onExport={handleExport}
               onRefresh={() => queryClient.invalidateQueries({ queryKey: ["/rules"] })}
               searchValue={search}
-              onSearchChange={setSearch}
+              onSearchChange={handleSearchChange}
+              page={page}
+              pageSize={pageSize}
+              totalRecords={rulesData?.total || 0}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
             />
           </CardContent>
         </Card>

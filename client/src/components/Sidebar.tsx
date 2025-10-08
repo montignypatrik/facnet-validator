@@ -2,8 +2,6 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import {
   Home,
-  ShieldCheck,
-  Shield,
   Database,
   Code,
   Layers,
@@ -15,14 +13,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
-  MessageSquare,
-  CheckSquare,
-  FileText,
-  GraduationCap,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useState } from "react";
+import { useEnabledModules } from "@/api/modules";
+import { getModuleConfig, isModuleVisible } from "@/config/modules";
 
 export function Sidebar() {
   const { user, logout } = useAuth();
@@ -30,6 +27,9 @@ export function Sidebar() {
   const [databaseOpen, setDatabaseOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Fetch enabled modules from API
+  const { modules: enabledModules, isLoading } = useEnabledModules();
 
   const isActive = (path: string) => location === path || location.startsWith(path + "/");
 
@@ -108,69 +108,42 @@ export function Sidebar() {
         </Link>
 
         {/* Only show these sections if user is not pending */}
-        {user?.role !== "pending" && (
+        {user?.role !== "pending" && !isLoading && (
           <>
-            {/* Validator Section */}
-            <div className="pt-4">
-              <Link href="/validator" className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-xl font-medium transition-colors ${
-                isActive("/validator")
-                  ? "text-primary bg-primary/10"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`} data-testid="link-validator">
-                <ShieldCheck className={`${sidebarCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
-                {!sidebarCollapsed && <span>Validateur</span>}
-              </Link>
-            </div>
+            {/* Dynamic Module Links (excluding special cases) */}
+            {enabledModules
+              .filter((module) =>
+                // Exclude database and administration (handled separately below)
+                module.name !== "database" &&
+                module.name !== "administration" &&
+                // Check module visibility based on user role
+                isModuleVisible(module.name, module.enabled, user?.role)
+              )
+              .map((module) => {
+                const config = getModuleConfig(module.name);
+                if (!config) return null;
 
-            {/* Chatbot Section */}
-            <div className="pt-4">
-              <Link href="/chatbot" className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-xl font-medium transition-colors ${
-                isActive("/chatbot")
-                  ? "text-primary bg-primary/10"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`} data-testid="link-chatbot">
-                <MessageSquare className={`${sidebarCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
-                {!sidebarCollapsed && <span>Chatbot</span>}
-              </Link>
-            </div>
+                const Icon = config.icon;
+                return (
+                  <div key={module.name} className="pt-4">
+                    <Link
+                      href={config.route}
+                      className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-xl font-medium transition-colors ${
+                        isActive(config.route)
+                          ? "text-primary bg-primary/10"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                      }`}
+                      data-testid={`link-${module.name}`}
+                    >
+                      <Icon className={`${sidebarCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
+                      {!sidebarCollapsed && <span>{config.displayName}</span>}
+                    </Link>
+                  </div>
+                );
+              })}
 
-            {/* Tâche Section */}
-            <div className="pt-4">
-              <Link href="/tache" className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-xl font-medium transition-colors ${
-                isActive("/tache")
-                  ? "text-primary bg-primary/10"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`} data-testid="link-tache">
-                <CheckSquare className={`${sidebarCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
-                {!sidebarCollapsed && <span>Tâche</span>}
-              </Link>
-            </div>
-
-            {/* Formation-Ressourcement Section */}
-            <div className="pt-4">
-              <Link href="/formation" className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-xl font-medium transition-colors ${
-                isActive("/formation")
-                  ? "text-primary bg-primary/10"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`} data-testid="link-formation">
-                <GraduationCap className={`${sidebarCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
-                {!sidebarCollapsed && <span>Formation-Ressourcement</span>}
-              </Link>
-            </div>
-
-            {/* Hors-RAMQ Section */}
-            <div className="pt-4">
-              <Link href="/hors-ramq" className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-xl font-medium transition-colors ${
-                isActive("/hors-ramq")
-                  ? "text-primary bg-primary/10"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`} data-testid="link-hors-ramq">
-                <FileText className={`${sidebarCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
-                {!sidebarCollapsed && <span>Hors-RAMQ</span>}
-              </Link>
-            </div>
-
-            {/* Database Section */}
+            {/* Database Section - Special collapsible handling */}
+            {enabledModules.some((m) => m.name === "database" && m.enabled) && (
             <div className="pt-4">
               {sidebarCollapsed ? (
                 <Link href="/database/codes" className={`flex items-center justify-center px-2 py-2 rounded-xl font-medium transition-colors ${
@@ -226,11 +199,12 @@ export function Sidebar() {
                 </Collapsible>
               )}
             </div>
+            )}
           </>
         )}
 
-        {/* Admin Section - Only visible for admins */}
-        {user?.role === "admin" && (
+        {/* Admin Section - Only visible for admins and if administration module is enabled */}
+        {user?.role === "admin" && !isLoading && enabledModules.some((m) => m.name === "administration" && m.enabled) && (
           <div className="pt-4">
             {sidebarCollapsed ? (
               <Link href="/admin/users" className={`flex items-center justify-center px-2 py-2 rounded-xl font-medium transition-colors ${

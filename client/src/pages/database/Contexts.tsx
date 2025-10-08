@@ -25,17 +25,18 @@ export default function ContextsPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedContext, setSelectedContext] = useState<Context | null>(null);
 
   const { data: contextsData, isLoading } = useQuery({
-    queryKey: ["/contexts", { search, page, pageSize: 50 }],
+    queryKey: ["/contexts", { search, page, pageSize }],
     queryFn: async () => {
       const params = new URLSearchParams({
-        page: page.toString(),
-        pageSize: "50",
+        page: String(page),
+        pageSize: String(pageSize),
       });
       if (search) params.append("search", search);
 
@@ -148,7 +149,7 @@ export default function ContextsPage() {
       const response = await client.get("/contexts/export", {
         responseType: "blob",
       });
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
@@ -164,6 +165,21 @@ export default function ContextsPage() {
         variant: "destructive",
       });
     }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setPage(1);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
   };
 
   const columns = [
@@ -270,7 +286,12 @@ export default function ContextsPage() {
               onExport={handleExport}
               onRefresh={() => queryClient.invalidateQueries({ queryKey: ["/contexts"] })}
               searchValue={search}
-              onSearchChange={setSearch}
+              onSearchChange={handleSearchChange}
+              page={page}
+              pageSize={pageSize}
+              totalRecords={contextsData?.total || 0}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
             />
           </CardContent>
         </Card>

@@ -114,8 +114,25 @@ const createTableRoutes = (
   // Update
   router.patch(`/api/${tableName}/:id`, authenticateToken, requireRole(["editor", "admin"]), async (req: AuthenticatedRequest, res) => {
     try {
+      // Sanitize request body to handle string "null", "false", etc.
+      const sanitizedData = Object.entries(req.body).reduce((acc, [key, value]) => {
+        // Convert string "null", "NULL", "false", or empty strings to null
+        if (typeof value === "string" && (value.toLowerCase() === "null" || value.toLowerCase() === "false" || value === "")) {
+          acc[key] = null;
+        }
+        // Convert string numbers to actual numbers for numeric fields
+        else if (typeof value === "string" && !isNaN(Number(value)) && value.trim() !== "") {
+          acc[key] = Number(value);
+        }
+        // Keep other values as-is
+        else {
+          acc[key] = value;
+        }
+        return acc;
+      }, {} as Record<string, any>);
+
       const item = await (storage as any)[updateMethod](req.params.id, {
-        ...req.body,
+        ...sanitizedData,
         updatedBy: req.user!.uid,
       });
       res.json(item);

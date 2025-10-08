@@ -6,18 +6,19 @@ import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import {
   Upload,
-  ShieldCheck,
-  MessageSquare,
-  CheckSquare,
-  FileText,
   Database,
   Shield,
   Settings
 } from "lucide-react";
 import client from "@/api/client";
+import { useEnabledModules } from "@/api/modules";
+import { getModuleConfig, isModuleVisible } from "@/config/modules";
 
 export default function Dashboard() {
   const { user } = useAuth();
+
+  // Fetch enabled modules from API
+  const { modules: enabledModules, isLoading } = useEnabledModules();
 
   // French translations
   const translations = {
@@ -70,187 +71,169 @@ export default function Dashboard() {
         ) : (
           /* Module Cards Grid */
           <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {isLoading ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Chargement des modules...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-              {/* Validateur Card */}
-              <Card className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-primary" />
-                    Validateur
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Validation des données de facturation RAMQ du Québec
-                  </p>
-                  <Link href="/validator/upload">
-                    <Button className="w-full" data-testid="button-upload-validate">
-                      <Upload className="w-4 h-4 mr-2" />
-                      Télécharger un fichier
-                    </Button>
-                  </Link>
-                  <Link href="/validator">
-                    <Button variant="outline" className="w-full">
-                      Voir le module complet
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
+                {/* Dynamic Module Cards */}
+                {enabledModules
+                  .filter((module) =>
+                    // Exclude settings (handled separately below)
+                    module.name !== "settings" &&
+                    // Check module visibility based on user role
+                    isModuleVisible(module.name, module.enabled, user?.role)
+                  )
+                  .map((module) => {
+                    const config = getModuleConfig(module.name);
+                    if (!config) return null;
 
-              {/* Chatbot Card */}
-              <Card className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MessageSquare className="w-5 h-5 text-primary" />
-                    Chatbot
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Assistant intelligent pour répondre à vos questions
-                  </p>
-                  <Button className="w-full" disabled>
-                    <MessageSquare className="w-4 h-4 mr-2" />
-                    Démarrer une conversation
-                  </Button>
-                  <Link href="/chatbot">
-                    <Button variant="outline" className="w-full">
-                      Voir le module complet
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
+                    const Icon = config.icon;
 
-              {/* Tâche Card */}
-              <Card className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CheckSquare className="w-5 h-5 text-primary" />
-                    Tâche
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Gestion de tâches et workflows pour votre équipe
-                  </p>
-                  <Button className="w-full" disabled>
-                    <CheckSquare className="w-4 h-4 mr-2" />
-                    Créer une tâche
-                  </Button>
-                  <Link href="/tache">
-                    <Button variant="outline" className="w-full">
-                      Voir le module complet
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
+                    // Special handling for validateur module
+                    if (module.name === "validateur") {
+                      return (
+                        <Card key={module.name} className="hover:shadow-lg transition-shadow">
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Icon className="w-5 h-5 text-primary" />
+                              {config.displayName}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                              {config.description}
+                            </p>
+                            <Link href="/validator/upload">
+                              <Button className="w-full" data-testid="button-upload-validate">
+                                <Upload className="w-4 h-4 mr-2" />
+                                Télécharger un fichier
+                              </Button>
+                            </Link>
+                            <Link href={config.route}>
+                              <Button variant="outline" className="w-full">
+                                Voir le module complet
+                              </Button>
+                            </Link>
+                          </CardContent>
+                        </Card>
+                      );
+                    }
 
-              {/* Hors-RAMQ Card */}
-              <Card className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-primary" />
-                    Hors-RAMQ
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Facturation des services médicaux non couverts par la RAMQ
-                  </p>
-                  <Button className="w-full" disabled>
-                    <FileText className="w-4 h-4 mr-2" />
-                    Créer une facture
-                  </Button>
-                  <Link href="/hors-ramq">
-                    <Button variant="outline" className="w-full">
-                      Voir le module complet
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
+                    // Special handling for database module
+                    if (module.name === "database") {
+                      return (
+                        <Card key={module.name} className="hover:shadow-lg transition-shadow">
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Icon className="w-5 h-5 text-primary" />
+                              {config.displayName}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                              {config.description}
+                            </p>
+                            <Link href="/database/codes">
+                              <Button className="w-full">
+                                <Icon className="w-4 h-4 mr-2" />
+                                Gérer les codes
+                              </Button>
+                            </Link>
+                            <Link href={config.route}>
+                              <Button variant="outline" className="w-full">
+                                Voir le module complet
+                              </Button>
+                            </Link>
+                          </CardContent>
+                        </Card>
+                      );
+                    }
 
-              {/* Base de Données Card */}
-              <Card className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Database className="w-5 h-5 text-primary" />
-                    Base de Données
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Gestion des codes, contextes, établissements et règles
-                  </p>
-                  <Link href="/database/codes">
-                    <Button className="w-full">
-                      <Database className="w-4 h-4 mr-2" />
-                      Gérer les codes
-                    </Button>
-                  </Link>
-                  <Link href="/database">
-                    <Button variant="outline" className="w-full">
-                      Voir le module complet
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
+                    // Special handling for administration module
+                    if (module.name === "administration") {
+                      return (
+                        <Card key={module.name} className="hover:shadow-lg transition-shadow">
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Icon className="w-5 h-5 text-primary" />
+                              {config.displayName}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                              {config.description}
+                            </p>
+                            <Link href="/admin/users">
+                              <Button className="w-full">
+                                <Icon className="w-4 h-4 mr-2" />
+                                Gérer les utilisateurs
+                              </Button>
+                            </Link>
+                            <Link href={config.route}>
+                              <Button variant="outline" className="w-full">
+                                Voir le module complet
+                              </Button>
+                            </Link>
+                          </CardContent>
+                        </Card>
+                      );
+                    }
 
-              {/* Administration Card - Only for admins */}
-              {user?.role === "admin" && (
+                    // Generic module card for other modules
+                    return (
+                      <Card key={module.name} className="hover:shadow-lg transition-shadow">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Icon className="w-5 h-5 text-primary" />
+                            {config.displayName}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <p className="text-sm text-muted-foreground">
+                            {config.description}
+                          </p>
+                          <Link href={config.route}>
+                            <Button className="w-full">
+                              <Icon className="w-4 h-4 mr-2" />
+                              Accéder au module
+                            </Button>
+                          </Link>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+
+                {/* Paramètres Card - Always visible */}
                 <Card className="hover:shadow-lg transition-shadow">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Shield className="w-5 h-5 text-primary" />
-                      Administration
+                      <Settings className="w-5 h-5 text-primary" />
+                      Paramètres
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <p className="text-sm text-muted-foreground">
-                      Gestion des utilisateurs et des permissions
+                      Configuration du système et personnalisation
                     </p>
-                    <Link href="/admin/users">
+                    <Link href="/settings">
                       <Button className="w-full">
-                        <Shield className="w-4 h-4 mr-2" />
-                        Gérer les utilisateurs
+                        <Settings className="w-4 h-4 mr-2" />
+                        Configurer
                       </Button>
                     </Link>
-                    <Link href="/admin">
+                    <Link href="/settings">
                       <Button variant="outline" className="w-full">
                         Voir le module complet
                       </Button>
                     </Link>
                   </CardContent>
                 </Card>
-              )}
 
-              {/* Paramètres Card */}
-              <Card className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Settings className="w-5 h-5 text-primary" />
-                    Paramètres
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Configuration du système et personnalisation
-                  </p>
-                  <Link href="/settings">
-                    <Button className="w-full">
-                      <Settings className="w-4 h-4 mr-2" />
-                      Configurer
-                    </Button>
-                  </Link>
-                  <Link href="/settings">
-                    <Button variant="outline" className="w-full">
-                      Voir le module complet
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-
-            </div>
+              </div>
+            )}
           </div>
         )}
       </div>
