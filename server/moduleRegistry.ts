@@ -79,21 +79,21 @@ export async function registerModules(app: Express): Promise<void> {
       version: "1.0.0",
       description: "AI-powered medical billing assistant (Ollama)",
       router: chatbotRoutes,
-      enabled: true,
+      enabled: false, // Disabled
     },
     {
       name: "chatbot-chat",
       version: "1.0.0",
       description: "Chatbot conversation and message management",
       router: chatbotChatRoutes,
-      enabled: true,
+      enabled: false, // Disabled
     },
     {
       name: "chatbot-admin",
       version: "1.0.0",
       description: "Chatbot knowledge base administration (document management)",
       router: chatbotAdminRoutes,
-      enabled: true,
+      enabled: false, // Disabled
       requiredRole: "editor", // Admin or editor required
     },
     {
@@ -101,14 +101,14 @@ export async function registerModules(app: Express): Promise<void> {
       version: "1.0.0",
       description: "Training and resources for healthcare billing professionals",
       router: formationRoutes,
-      enabled: true,
+      enabled: false, // Disabled
     },
     {
       name: "tasks",
       version: "1.0.0",
       description: "Task and workflow management with kanban boards",
       router: taskRoutes,
-      enabled: true,
+      enabled: false, // Disabled
     },
   ];
 
@@ -160,19 +160,19 @@ export async function getModuleList(): Promise<Array<{ name: string; version: st
       name: "chatbot",
       version: "1.0.0",
       description: "AI-powered medical billing assistant",
-      enabled: true,
+      enabled: false,
     },
     {
       name: "tasks",
       version: "1.0.0",
       description: "Task and workflow management with kanban boards",
-      enabled: true,
+      enabled: false,
     },
     {
       name: "formation-ressourcement",
       version: "1.0.0",
       description: "Training and resources for healthcare billing professionals",
-      enabled: true,
+      enabled: false,
     },
     {
       name: "hors-ramq",
