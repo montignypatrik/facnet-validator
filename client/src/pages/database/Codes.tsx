@@ -38,6 +38,7 @@ export default function CodesPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string[]>>({});
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
@@ -226,6 +227,12 @@ export default function CodesPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const handleColumnFiltersChange = (filters: Record<string, string[]>) => {
+    setColumnFilters(filters);
+    // Reset to page 1 when filters change
+    setPage(1);
+  };
+
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
     setPage(1); // Reset to first page when changing page size
@@ -401,6 +408,8 @@ export default function CodesPage() {
               onRefresh={() => queryClient.invalidateQueries({ queryKey: ["/codes"] })}
               searchValue={search}
               onSearchChange={handleSearchChange}
+              columnFilters={columnFilters}
+              onColumnFiltersChange={handleColumnFiltersChange}
               distinctValues={distinctValuesData}
               page={page}
               pageSize={pageSize}
