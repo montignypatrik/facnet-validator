@@ -93,6 +93,27 @@ const createTableRoutes = (
     }
   });
 
+  // Get distinct values for a column (for filters)
+  router.get(`/api/${tableName}/distinct/:column`, authenticateToken, async (req, res) => {
+    try {
+      const { column } = req.params;
+      const { search } = req.query;
+
+      // Capitalize first letter of table name for method name
+      const methodName = `get${tableName.charAt(0).toUpperCase() + tableName.slice(1)}DistinctValues`;
+
+      const values = await (storage as any)[methodName](
+        column,
+        search as string | undefined
+      );
+
+      res.json({ values });
+    } catch (error) {
+      console.error(`Get ${tableName} distinct values error:`, error);
+      res.status(500).json({ error: `Failed to get distinct values for ${tableName}` });
+    }
+  });
+
   // Create
   router.post(`/api/${tableName}`, authenticateToken, requireRole(["editor", "admin"]), async (req: AuthenticatedRequest, res) => {
     try {

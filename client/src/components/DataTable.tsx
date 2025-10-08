@@ -59,6 +59,7 @@ interface DataTableProps {
   columnFilters?: Record<string, string[]>;
   onColumnFiltersChange?: (filters: Record<string, string[]>) => void;
   allData?: any[]; // For getting unique values from all data, not just current page
+  distinctValues?: Record<string, string[]>; // Pre-fetched distinct values from API
   // Pagination
   page?: number;
   pageSize?: number;
@@ -84,6 +85,7 @@ export function DataTable({
   columnFilters: externalColumnFilters,
   onColumnFiltersChange,
   allData,
+  distinctValues,
   page = 1,
   pageSize = 20,
   totalRecords = 0,
@@ -222,8 +224,13 @@ export function DataTable({
 
   // Get unique values for a column
   const getUniqueValues = (columnKey: string): string[] => {
+    // First priority: use pre-fetched distinct values from API
+    if (distinctValues && distinctValues[columnKey]) {
+      return distinctValues[columnKey];
+    }
+
+    // Fallback: extract values from data (allData or current page)
     const values = new Set<string>();
-    // Use allData if provided, otherwise fall back to current data
     (allData || data).forEach((row) => {
       const value = row[columnKey];
       if (value !== null && value !== undefined) {

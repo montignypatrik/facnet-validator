@@ -57,6 +57,48 @@ export default function CodesPage() {
     },
   });
 
+  // Fetch distinct values for filter columns
+  // Map frontend camelCase column names to database snake_case column names
+  const filterColumns: Record<string, string> = {
+    category: "category",
+    place: "place",
+    sourceFile: "source_file",
+    topLevel: "top_level",
+    level1Group: "level1_group",
+    level2Group: "level2_group",
+    leaf: "leaf",
+    indicators: "indicators",
+    active: "active",
+    unitRequire: "unit_require",
+  };
+
+  const { data: distinctValuesData } = useQuery({
+    queryKey: ["/codes/distinct", { search }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (search) params.append("search", search);
+
+      const distinctValues: Record<string, string[]> = {};
+
+      // Fetch distinct values for all filter columns in parallel
+      await Promise.all(
+        Object.entries(filterColumns).map(async ([frontendKey, dbColumn]) => {
+          try {
+            const response = await client.get(`/codes/distinct/${dbColumn}?${params}`);
+            // Store with frontend key for DataTable
+            distinctValues[frontendKey] = response.data.values || [];
+          } catch (error) {
+            console.error(`Failed to fetch distinct values for ${dbColumn}:`, error);
+            distinctValues[frontendKey] = [];
+          }
+        })
+      );
+
+      return distinctValues;
+    },
+    enabled: !isLoading, // Only fetch after codes data is loaded
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await client.post("/codes", data);
@@ -359,6 +401,7 @@ export default function CodesPage() {
               onRefresh={() => queryClient.invalidateQueries({ queryKey: ["/codes"] })}
               searchValue={search}
               onSearchChange={handleSearchChange}
+              distinctValues={distinctValuesData}
               page={page}
               pageSize={pageSize}
               totalRecords={codesData?.total || 0}

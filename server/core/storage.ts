@@ -235,6 +235,33 @@ export class DatabaseStorage implements IStorage {
     return result || undefined;
   }
 
+  async getCodesDistinctValues(column: string, search?: string): Promise<string[]> {
+    // Use raw SQL for efficient DISTINCT query
+    const columnName = column as keyof typeof codes.$inferSelect;
+
+    let query = db.select({ value: sql<string>`DISTINCT ${sql.raw(column)}` })
+      .from(codes);
+
+    if (search) {
+      const searchTerms = search.split(',').map(term => term.trim()).filter(term => term.length > 0);
+      if (searchTerms.length > 0) {
+        const searchConditions = searchTerms.map(term => like(codes.code, `%${term}%`));
+        const combinedCondition = searchConditions.length === 1
+          ? searchConditions[0]
+          : or(...searchConditions);
+        query = query.where(combinedCondition);
+      }
+    }
+
+    const results = await query.limit(500);
+
+    // Filter out null/undefined values and convert to strings
+    return results
+      .map(r => r.value)
+      .filter(v => v !== null && v !== undefined)
+      .sort();
+  }
+
   async createCode(code: InsertCode): Promise<Code> {
     const [created] = await db.insert(codes).values(code).returning();
     // Invalidate codes cache
@@ -332,6 +359,31 @@ export class DatabaseStorage implements IStorage {
   async getContextByName(name: string): Promise<Context | undefined> {
     const [result] = await db.select().from(contexts).where(eq(contexts.name, name));
     return result || undefined;
+  }
+
+  async getContextsDistinctValues(column: string, search?: string): Promise<string[]> {
+    // Use raw SQL for efficient DISTINCT query
+    let query = db.select({ value: sql<string>`DISTINCT ${sql.raw(column)}` })
+      .from(contexts);
+
+    if (search) {
+      const searchTerms = search.split(',').map(term => term.trim()).filter(term => term.length > 0);
+      if (searchTerms.length > 0) {
+        const searchConditions = searchTerms.map(term => like(contexts.name, `%${term}%`));
+        const combinedCondition = searchConditions.length === 1
+          ? searchConditions[0]
+          : or(...searchConditions);
+        query = query.where(combinedCondition);
+      }
+    }
+
+    const results = await query.limit(500);
+
+    // Filter out null/undefined values and convert to strings
+    return results
+      .map(r => r.value)
+      .filter(v => v !== null && v !== undefined)
+      .sort();
   }
 
   async createContext(context: InsertContext): Promise<Context> {
@@ -432,6 +484,31 @@ export class DatabaseStorage implements IStorage {
     return result || undefined;
   }
 
+  async getEstablishmentsDistinctValues(column: string, search?: string): Promise<string[]> {
+    // Use raw SQL for efficient DISTINCT query
+    let query = db.select({ value: sql<string>`DISTINCT ${sql.raw(column)}` })
+      .from(establishments);
+
+    if (search) {
+      const searchTerms = search.split(',').map(term => term.trim()).filter(term => term.length > 0);
+      if (searchTerms.length > 0) {
+        const searchConditions = searchTerms.map(term => like(establishments.name, `%${term}%`));
+        const combinedCondition = searchConditions.length === 1
+          ? searchConditions[0]
+          : or(...searchConditions);
+        query = query.where(combinedCondition);
+      }
+    }
+
+    const results = await query.limit(500);
+
+    // Filter out null/undefined values and convert to strings
+    return results
+      .map(r => r.value)
+      .filter(v => v !== null && v !== undefined)
+      .sort();
+  }
+
   async createEstablishment(establishment: InsertEstablishment): Promise<Establishment> {
     const [created] = await db.insert(establishments).values(establishment).returning();
     // Invalidate establishments cache
@@ -511,6 +588,31 @@ export class DatabaseStorage implements IStorage {
   async getRuleByName(name: string): Promise<Rule | undefined> {
     const [result] = await db.select().from(rules).where(eq(rules.name, name));
     return result || undefined;
+  }
+
+  async getRulesDistinctValues(column: string, search?: string): Promise<string[]> {
+    // Use raw SQL for efficient DISTINCT query
+    let query = db.select({ value: sql<string>`DISTINCT ${sql.raw(column)}` })
+      .from(rules);
+
+    if (search) {
+      const searchTerms = search.split(',').map(term => term.trim()).filter(term => term.length > 0);
+      if (searchTerms.length > 0) {
+        const searchConditions = searchTerms.map(term => like(rules.name, `%${term}%`));
+        const combinedCondition = searchConditions.length === 1
+          ? searchConditions[0]
+          : or(...searchConditions);
+        query = query.where(combinedCondition);
+      }
+    }
+
+    const results = await query.limit(500);
+
+    // Filter out null/undefined values and convert to strings
+    return results
+      .map(r => r.value)
+      .filter(v => v !== null && v !== undefined)
+      .sort();
   }
 
   async createRule(rule: InsertRule): Promise<Rule> {
