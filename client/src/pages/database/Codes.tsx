@@ -45,13 +45,20 @@ export default function CodesPage() {
   const [selectedCode, setSelectedCode] = useState<Code | null>(null);
 
   const { data: codesData, isLoading } = useQuery({
-    queryKey: ["/codes", { search, page, pageSize }],
+    queryKey: ["/codes", { search, page, pageSize, columnFilters }],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: String(page),
         pageSize: String(pageSize),
       });
       if (search) params.append("search", search);
+
+      // Add column filters to query params
+      Object.entries(columnFilters).forEach(([key, values]) => {
+        if (values && values.length > 0) {
+          params.append(`filter[${key}]`, values.join(','));
+        }
+      });
 
       const response = await client.get(`/codes?${params}`);
       return response.data;

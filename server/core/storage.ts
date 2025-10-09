@@ -180,11 +180,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Codes
-  async getCodes(params: { search?: string; page?: number; pageSize?: number }): Promise<{ data: Code[]; total: number }> {
-    const { search, page = 1, pageSize = 50 } = params;
+  async getCodes(params: { search?: string; page?: number; pageSize?: number; filters?: Record<string, string[]> }): Promise<{ data: Code[]; total: number }> {
+    const { search, page = 1, pageSize = 50, filters = {} } = params;
 
-    // Cache only full dataset queries (no search, first page, large page size)
-    const isFullDataset = !search && page === 1 && pageSize >= 1000;
+    // Cache only full dataset queries (no search, first page, large page size, no filters)
+    const isFullDataset = !search && page === 1 && pageSize >= 1000 && Object.keys(filters).length === 0;
 
     if (isFullDataset) {
       // Try cache first for full dataset queries
@@ -199,6 +199,8 @@ export class DatabaseStorage implements IStorage {
     let query = db.select().from(codes);
     let countQuery = db.select({ count: count() }).from(codes);
 
+    const conditions: any[] = [];
+
     if (search) {
       // Support comma-separated search values
       const searchTerms = search.split(',').map(term => term.trim()).filter(term => term.length > 0);
@@ -210,9 +212,45 @@ export class DatabaseStorage implements IStorage {
           ? searchConditions[0]
           : or(...searchConditions);
 
-        query = query.where(combinedCondition);
-        countQuery = countQuery.where(combinedCondition);
+        conditions.push(combinedCondition);
       }
+    }
+
+    // Add column filters
+    Object.entries(filters).forEach(([columnName, values]) => {
+      if (values && values.length > 0) {
+        // Map frontend camelCase to database snake_case
+        const columnMap: Record<string, string> = {
+          category: 'category',
+          place: 'place',
+          sourceFile: 'source_file',
+          topLevel: 'top_level',
+          level1Group: 'level1_group',
+          level2Group: 'level2_group',
+          leaf: 'leaf',
+          indicators: 'indicators',
+          active: 'active',
+          unitRequire: 'unit_require',
+        };
+
+        const dbColumnName = columnMap[columnName] || columnName;
+        const filterConditions = values.map(value => eq(codes[dbColumnName as keyof typeof codes], value));
+        const combinedFilter = filterConditions.length === 1
+          ? filterConditions[0]
+          : or(...filterConditions);
+
+        conditions.push(combinedFilter);
+      }
+    });
+
+    // Apply all conditions with AND logic
+    if (conditions.length > 0) {
+      const combinedCondition = conditions.length === 1
+        ? conditions[0]
+        : and(...conditions);
+
+      query = query.where(combinedCondition);
+      countQuery = countQuery.where(combinedCondition);
     }
 
     const [data, totalResult] = await Promise.all([

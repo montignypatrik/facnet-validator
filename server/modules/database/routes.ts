@@ -80,11 +80,24 @@ const createTableRoutes = (
   // List
   router.get(`/api/${tableName}`, authenticateToken, async (req, res) => {
     try {
-      const { search, page, pageSize } = req.query;
+      const { search, page, pageSize, ...filters } = req.query;
+
+      // Extract column filters from query params (filter[columnName]=value1,value2)
+      const columnFilters: Record<string, string[]> = {};
+      Object.keys(filters).forEach(key => {
+        const match = key.match(/^filter\[(.+)\]$/);
+        if (match) {
+          const columnName = match[1];
+          const values = (filters[key] as string).split(',').map(v => v.trim());
+          columnFilters[columnName] = values;
+        }
+      });
+
       const result = await (storage as any)[getMethod]({
         search: search as string,
         page: page ? parseInt(page as string) : 1,
         pageSize: pageSize ? parseInt(pageSize as string) : 50,
+        filters: columnFilters,
       });
       res.json(result);
     } catch (error) {
