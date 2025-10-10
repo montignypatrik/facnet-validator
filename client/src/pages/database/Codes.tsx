@@ -69,6 +69,7 @@ export default function CodesPage() {
   // Map frontend camelCase column names to database snake_case column names
   const filterColumns: Record<string, string> = {
     category: "category",
+    description: "description",
     place: "place",
     sourceFile: "source_file",
     topLevel: "top_level",

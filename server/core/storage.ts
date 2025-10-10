@@ -33,7 +33,7 @@ export interface IStorage {
   updateUser(id: string, user: Partial<InsertUser>): Promise<User>;
 
   // Codes
-  getCodes(params: { search?: string; page?: number; pageSize?: number }): Promise<{ data: Code[]; total: number }>;
+  getCodes(params: { search?: string; page?: number; pageSize?: number; filters?: Record<string, string[]> }): Promise<{ data: Code[]; total: number }>;
   getCode(id: string): Promise<Code | undefined>;
   createCode(code: InsertCode): Promise<Code>;
   updateCode(id: string, data: Partial<InsertCode>): Promise<Code>;
@@ -186,12 +186,17 @@ export class DatabaseStorage implements IStorage {
     // Cache only full dataset queries (no search, first page, large page size, no filters)
     const isFullDataset = !search && page === 1 && pageSize >= 1000 && Object.keys(filters).length === 0;
 
+    console.log(`[STORAGE getCodes] search=${search}, page=${page}, pageSize=${pageSize}, filters=${JSON.stringify(filters)}, isFullDataset=${isFullDataset}`);
+
     if (isFullDataset) {
       // Try cache first for full dataset queries
       const cached = await cacheService.get<{ data: Code[]; total: number }>(CACHE_KEYS.CODES);
       if (cached) {
+        console.log('[STORAGE getCodes] Returning cached full dataset');
         return cached;
       }
+    } else if (Object.keys(filters).length > 0) {
+      console.log('[STORAGE getCodes] Filters present, skipping cache');
     }
 
     const offset = (page - 1) * pageSize;
@@ -219,22 +224,36 @@ export class DatabaseStorage implements IStorage {
     // Add column filters
     Object.entries(filters).forEach(([columnName, values]) => {
       if (values && values.length > 0) {
-        // Map frontend camelCase to database snake_case
-        const columnMap: Record<string, string> = {
+        // Map frontend camelCase to Drizzle schema fields (which internally handle snake_case)
+        const columnMap: Record<string, keyof typeof codes.$inferSelect> = {
           category: 'category',
+          description: 'description',
           place: 'place',
-          sourceFile: 'source_file',
-          topLevel: 'top_level',
-          level1Group: 'level1_group',
-          level2Group: 'level2_group',
+          source_file: 'sourceFile',  // Handle snake_case from frontend
+          sourceFile: 'sourceFile',
+          top_level: 'topLevel',  // Handle snake_case from frontend
+          topLevel: 'topLevel',
+          level1_group: 'level1Group',  // Handle snake_case from frontend
+          level1Group: 'level1Group',
+          level2_group: 'level2Group',  // Handle snake_case from frontend
+          level2Group: 'level2Group',
           leaf: 'leaf',
           indicators: 'indicators',
           active: 'active',
-          unitRequire: 'unit_require',
+          unit_require: 'unitRequire',  // Handle snake_case from frontend
+          unitRequire: 'unitRequire',
         };
 
-        const dbColumnName = columnMap[columnName] || columnName;
-        const filterConditions = values.map(value => eq(codes[dbColumnName as keyof typeof codes], value));
+        const dbColumnName = columnMap[columnName] || columnName as keyof typeof codes.$inferSelect;
+
+        // Use LIKE for description field (partial match), exact match for others
+        const filterConditions = values.map(value => {
+          if (columnName === 'description') {
+            return like(codes[dbColumnName], `%${value}%`);
+          }
+          return eq(codes[dbColumnName], value);
+        });
+
         const combinedFilter = filterConditions.length === 1
           ? filterConditions[0]
           : or(...filterConditions);
@@ -1300,3 +1319,4 @@ export class DatabaseStorage implements IStorage {
 }
 
 export const storage = new DatabaseStorage();
+// Force reload

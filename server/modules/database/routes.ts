@@ -80,23 +80,46 @@ const createTableRoutes = (
   // List
   router.get(`/api/${tableName}`, authenticateToken, async (req, res) => {
     try {
-      const { search, page, pageSize, ...filters } = req.query;
+      // Parse query string manually to handle filter[column] bracket notation
+      // Use originalUrl to get the raw URL before Express processes it
+      const rawQuery = req.originalUrl.split('?')[1] || '';
+      const params = new URLSearchParams(rawQuery);
 
-      // Extract column filters from query params (filter[columnName]=value1,value2)
+      let search: string | undefined;
+      let page = 1;
+      let pageSize = 50;
       const columnFilters: Record<string, string[]> = {};
-      Object.keys(filters).forEach(key => {
-        const match = key.match(/^filter\[(.+)\]$/);
-        if (match) {
-          const columnName = match[1];
-          const values = (filters[key] as string).split(',').map(v => v.trim());
-          columnFilters[columnName] = values;
+
+      console.log(`[${tableName}] Raw URL:`, req.originalUrl);
+      console.log(`[${tableName}] Parsing query parameters...`);
+
+      for (const [key, value] of params.entries()) {
+        if (key === 'search') {
+          search = value;
+        } else if (key === 'page') {
+          page = parseInt(value);
+        } else if (key === 'pageSize') {
+          pageSize = parseInt(value);
+        } else {
+          // Check for filter[columnName] pattern
+          const match = key.match(/^filter\[(.+)\]$/);
+          if (match) {
+            const columnName = match[1];
+            // Treat filter value as single complete value (don't split on comma)
+            // Database values may contain commas as part of the text
+            const values = [value];
+            columnFilters[columnName] = values;
+            console.log(`[${tableName}] Found filter:`, columnName, '=', values);
+          }
         }
-      });
+      }
+
+      console.log(`[${tableName}] Final columnFilters:`, columnFilters);
 
       const result = await (storage as any)[getMethod]({
-        search: search as string,
-        page: page ? parseInt(page as string) : 1,
-        pageSize: pageSize ? parseInt(pageSize as string) : 50,
+        search,
+        page,
+        pageSize,
         filters: columnFilters,
       });
       res.json(result);
