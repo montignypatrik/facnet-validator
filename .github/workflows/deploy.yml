@@ -38,8 +38,8 @@ jobs:
           sudo -u facnet -i bash << 'EOF'
           cd /var/www/facnet/app
 
-          # Stop application
-          pm2 stop facnet-validator 2>/dev/null || echo "Application not running"
+          # Delete any existing PM2 processes (clean slate)
+          pm2 delete facnet-validator 2>/dev/null || echo "No existing processes to delete"
 
           # Initialize git repository if it doesn't exist
           if [ ! -d ".git" ]; then
@@ -62,8 +62,8 @@ jobs:
           # Run database migrations
           npm run db:push
 
-          # Start/restart application with PM2
-          pm2 start ecosystem.config.js --update-env
+          # Start application with PM2 using config file
+          pm2 start ecosystem.config.cjs
 
           # Save PM2 configuration
           pm2 save
