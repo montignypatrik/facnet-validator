@@ -5,6 +5,7 @@ build/
 .turbo/
 .next/
 .cache/
+coverage/
 
 # uploads & temp
 uploads/
