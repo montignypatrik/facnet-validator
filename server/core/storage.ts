@@ -899,6 +899,32 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    // GMF forfait 8875 validation
+    if (category === "gmf_forfait") {
+      // Get tariff value for code 8875
+      const [codeData] = await db
+        .select({ tariffValue: codes.tariffValue })
+        .from(codes)
+        .where(eq(codes.code, "8875"))
+        .limit(1);
+
+      if (codeData && codeData.tariffValue) {
+        const severity = result.severity;
+
+        // Error (duplicate): Doctor must refund duplicate billing
+        // Potential financial impact = negative (loss of tariff value)
+        if (severity === "error") {
+          return Number(codeData.tariffValue);
+        }
+
+        // Optimization (missed opportunity): Doctor could have billed but didn't
+        // Potential financial gain = tariff value
+        if (severity === "optimization") {
+          return Number(codeData.tariffValue);
+        }
+      }
+    }
+
     // For other validation types, return 0 for now
     // TODO: Add calculations for other rule types
     return 0;
