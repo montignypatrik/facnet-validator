@@ -432,4 +432,14 @@ d'interventions cliniques dans une journée."
 **Date Requested**: 2025-01-10
 **Approved By**: Direction médicale
 **Implementation Deadline**: 2025-01-20
-**Status**: ⏳ En attente d'implémentation
+**Implementation Date**: 2025-01-11
+**Status**: ✅ Implémentée
+
+---
+
+## Implementation Details
+
+**Implementation File**: `server/modules/validateur/validation/rules/interventionCliniqueRule.ts`
+**Test File**: `server/modules/validateur/validation/rules/__tests__/interventionCliniqueRule.test.ts`
+**Test Coverage**: 36 tests covering all scenarios and edge cases
+**Registration**: Automatically loaded in `csvProcessor.ts` as fallback rule

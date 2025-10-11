@@ -261,13 +261,15 @@ export class BillingCSVProcessor {
     // Clear existing rules
     validationEngine.clearRules();
 
-    // If no database rules exist, fall back to hardcoded rule for compatibility
+    // If no database rules exist, fall back to hardcoded rules for compatibility
     if (databaseRules.length === 0) {
-      await logger.info(validationRunId, 'csvProcessor', 'No database rules found, using fallback rule', {
-        ruleCount: 1,
+      await logger.info(validationRunId, 'csvProcessor', 'No database rules found, using fallback rules', {
+        ruleCount: 2,
       });
       const { officeFeeValidationRule } = await import('./rules/officeFeeRule');
+      const { interventionCliniqueRule } = await import('./rules/interventionCliniqueRule');
       validationEngine.registerRule(officeFeeValidationRule);
+      validationEngine.registerRule(interventionCliniqueRule);
     } else {
       // Register database rules
       for (const rule of databaseRules) {
