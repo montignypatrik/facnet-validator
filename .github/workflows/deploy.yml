@@ -1,4 +1,5 @@
 name: Deploy FacNet Validator
+# Manual deployment trigger to restart PM2
 
 on:
   push:
