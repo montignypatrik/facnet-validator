@@ -896,5 +896,40 @@ export async function validateGmfForfait8875(
 
   console.log(`[GMF 8875] Validation complete: ${results.length} results (duplicates + opportunities)`);
 
+  // ==================== INFORMATIONAL SUMMARY ====================
+  // Always add an informational result showing GMF 8875 statistics
+  // This helps users verify the rule is working even when there are no errors
+
+  const total8875Count = code8875Records.length;
+  const paid8875Count = code8875Records.filter(r => Number(r.montantPaye || 0) > 0).length;
+  const unique8875Patients = new Set(code8875Records.map(r => r.patient).filter(Boolean)).size;
+  const totalGmfVisits = gmfVisitRecords.length;
+  const uniqueGmfVisitPatients = new Set(gmfVisitRecords.map(r => r.patient).filter(Boolean)).size;
+
+  // Only add summary if there are relevant records
+  if (total8875Count > 0 || totalGmfVisits > 0) {
+    results.push({
+      validationRunId,
+      ruleId: rule.id,
+      billingRecordId: code8875Records[0]?.id || gmfVisitRecords[0]?.id || null,
+      idRamq: code8875Records[0]?.idRamq || gmfVisitRecords[0]?.idRamq || null,
+      severity: "info",
+      category: "gmf_forfait",
+      message: `Validation GMF 8875 complétée: ${total8875Count} forfait(s) facturé(s) (${paid8875Count} payé(s)) pour ${unique8875Patients} patient(s). ${totalGmfVisits} visite(s) GMF pour ${uniqueGmfVisitPatients} patient(s) unique(s).`,
+      solution: null,
+      affectedRecords: [...code8875Records.map(r => r.id), ...gmfVisitRecords.slice(0, 10).map(r => r.id)].filter(Boolean),
+      ruleData: {
+        total8875Count,
+        paid8875Count,
+        unique8875Patients,
+        totalGmfVisits,
+        uniqueGmfVisitPatients,
+        gmfEstablishmentsCount: gmfEstablishments.size,
+        duplicateErrors: results.filter(r => r.severity === 'error').length,
+        opportunityOptimizations: results.filter(r => r.severity === 'optimization').length
+      }
+    });
+  }
+
   return results;
 }
