@@ -1136,3 +1136,36 @@ export async function validateInterventionCliniqueDailyLimit(
   return results;
 }
 
+
+/**
+ * VISIT DURATION OPTIMIZATION VALIDATION
+ * Identifies consultation/visit codes that could be billed as intervention clinique for higher revenue
+ *
+ * This rule analyzes billing records with:
+ * - Codes in "B - CONSULTATION, EXAMEN ET VISITE" category (474 codes from database)
+ * - Documented visit duration (debut and fin fields populated)
+ * - Suggests billing as intervention clinique (codes 8857 + 8859) when financially advantageous
+ *
+ * References:
+ * - Rule spec: docs/modules/validateur/rules-implemented/VISIT_DURATION_OPTIMIZATION.md
+ * - Code 8857: First 30 minutes ($59.70)
+ * - Code 8859: Per 15-minute period ($29.85)
+ */
+export async function validateVisitDurationOptimization(
+  rule: DatabaseRule,
+  records: BillingRecord[],
+  validationRunId: string
+): Promise<InsertValidationResult[]> {
+  // Import our hardcoded rule and use its validate function
+  const { visitDurationOptimizationRule } = await import('./rules/visitDurationOptimizationRule');
+
+  // Use the hardcoded rule's validation logic
+  const results = await visitDurationOptimizationRule.validate(records, validationRunId);
+
+  // Replace hardcoded ruleId with database rule UUID
+  return results.map(result => ({
+    ...result,
+    ruleId: rule.id
+  }));
+}
+

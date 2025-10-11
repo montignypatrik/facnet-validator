@@ -371,12 +371,23 @@ export default function RunDetailsPage() {
 
           {/* Validation Results Details */}
           {run.status === "completed" && validationResults && validationResults.length > 0 && (() => {
-            // Separate errors from informational messages
+            // Separate errors, optimizations, and informational messages
             const errors = validationResults.filter((r: any) => r.severity === "error");
+            const optimizations = validationResults.filter((r: any) => r.severity === "optimization");
             const infos = validationResults.filter((r: any) => r.severity === "info");
 
             // Group errors by RAMQ ID
             const groupedErrors = errors.reduce((acc: Record<string, any[]>, result: any) => {
+              const ramqId = result.idRamq || "n'existe pas";
+              if (!acc[ramqId]) {
+                acc[ramqId] = [];
+              }
+              acc[ramqId].push(result);
+              return acc;
+            }, {});
+
+            // Group optimizations by RAMQ ID
+            const groupedOptimizations = optimizations.reduce((acc: Record<string, any[]>, result: any) => {
               const ramqId = result.idRamq || "n'existe pas";
               if (!acc[ramqId]) {
                 acc[ramqId] = [];
@@ -615,6 +626,133 @@ export default function RunDetailsPage() {
                       </div>
                     ))}
                   </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Revenue Optimization Opportunities Section */}
+                {optimizations.length > 0 && (
+                  <Card className="mt-6 border-l-4 border-l-amber-500">
+                    <CardHeader>
+                      <CardTitle className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <Info className="w-5 h-5 mr-2 text-amber-600" />
+                          Opportunités d'optimisation ({optimizations.length})
+                        </div>
+                        <Button variant="outline" size="sm">
+                          <Download className="w-4 h-4 mr-2" />
+                          Exporter la liste
+                        </Button>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-8">
+                        {Object.entries(groupedOptimizations).map(([ramqId, results]: [string, any[]]) => (
+                          <div key={ramqId} className="space-y-4">
+                            {/* RAMQ ID Header */}
+                            <div className="flex items-center space-x-2 pb-2 border-b-2 border-amber-300 dark:border-amber-700">
+                              <FileText className="w-5 h-5 text-amber-600" />
+                              <h3 className="text-lg font-bold text-foreground">
+                                RAMQ ID: <span className="font-mono">{ramqId}</span>
+                              </h3>
+                              <Badge variant="outline" className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300">
+                                {results.length} opportunité{results.length > 1 ? 's' : ''}
+                              </Badge>
+                            </div>
+
+                            {/* Optimization opportunities for this RAMQ ID */}
+                            <div className="space-y-4 pl-4">
+                              {results.map((result: any, index: number) => (
+                                <div key={result.id || index} className="border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-950/20 p-4 rounded-r-lg">
+                                  {/* Optimization Header */}
+                                  <div className="flex items-start justify-between mb-3">
+                                    <div className="flex items-center space-x-2">
+                                      <Info className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                                      <h4 className="font-semibold text-amber-900 dark:text-amber-100">
+                                        {result.ruleName || "Optimisation de revenu"}
+                                      </h4>
+                                    </div>
+                                    {/* Monetary Impact Badge */}
+                                    {result.ruleData?.gain && Number(result.ruleData.gain) > 0 && (
+                                      <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-300 dark:border-green-700">
+                                        💵 Gain: ${Number(result.ruleData.gain).toFixed(2)}
+                                      </Badge>
+                                    )}
+                                  </div>
+
+                                  {/* What's the opportunity */}
+                                  <div className="mb-3">
+                                    <h5 className="text-sm font-semibold text-foreground mb-1 flex items-center">
+                                      <AlertCircle className="w-4 h-4 mr-1.5 text-amber-600" />
+                                      {result.message}
+                                    </h5>
+                                  </div>
+
+                                  {/* Details */}
+                                  <div className="mb-3 bg-white dark:bg-gray-900 rounded p-3">
+                                    <h5 className="text-sm font-semibold text-foreground mb-2">Détails</h5>
+                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                      {result.ruleData?.currentCode && (
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Code actuel:</span>
+                                          <span className="font-mono font-medium">{result.ruleData.currentCode}</span>
+                                        </div>
+                                      )}
+                                      {result.ruleData?.duration && (
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Durée:</span>
+                                          <span className="font-medium">{result.ruleData.duration} min</span>
+                                        </div>
+                                      )}
+                                      {result.ruleData?.debut && (
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Début:</span>
+                                          <span className="font-medium">{result.ruleData.debut}</span>
+                                        </div>
+                                      )}
+                                      {result.ruleData?.fin && (
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Fin:</span>
+                                          <span className="font-medium">{result.ruleData.fin}</span>
+                                        </div>
+                                      )}
+                                      {result.ruleData?.currentAmount && (
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Montant actuel:</span>
+                                          <span className="font-medium">${result.ruleData.currentAmount}</span>
+                                        </div>
+                                      )}
+                                      {result.ruleData?.interventionAmount && (
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Montant intervention:</span>
+                                          <span className="font-medium text-green-600 dark:text-green-400">${result.ruleData.interventionAmount}</span>
+                                        </div>
+                                      )}
+                                      {result.ruleData?.suggestedCodes && (
+                                        <div className="col-span-2 flex justify-between">
+                                          <span className="text-muted-foreground">Codes suggérés:</span>
+                                          <span className="font-mono font-medium">{result.ruleData.suggestedCodes.join(', ')}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* How to implement */}
+                                  {result.solution && (
+                                    <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded p-3">
+                                      <h5 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1 flex items-center">
+                                        <CheckCircle className="w-4 h-4 mr-1.5" />
+                                        Action recommandée
+                                      </h5>
+                                      <p className="text-sm text-blue-800 dark:text-blue-200">{result.solution}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </CardContent>
                   </Card>
                 )}

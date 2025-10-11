@@ -102,6 +102,9 @@ async function validateWithDatabaseRule(
       case "intervention_clinique_daily_limit":
         return await RuleHandlers.validateInterventionCliniqueDailyLimit(rule, records, validationRunId);
 
+      case "visit_duration_optimization":
+        return await RuleHandlers.validateVisitDurationOptimization(rule, records, validationRunId);
+
       default:
         console.warn(`[RULES] Unknown rule type: ${ruleType}`);
         return results;

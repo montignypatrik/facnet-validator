@@ -83,6 +83,35 @@ async function migrateOfficeFeeRule() {
       console.log('✅ Intervention clinique rule already exists in database');
     }
 
+    // 4. Visit Duration Optimization Rule
+    const hasVisitDurationRule = existingRules.some(rule =>
+      rule.name.includes('Optimisation intervention clinique vs visite')
+    );
+
+    if (!hasVisitDurationRule) {
+      const visitDurationRule = {
+        name: 'Optimisation intervention clinique vs visite régulière',
+        condition: {
+          type: 'visit_duration_optimization',
+          category: 'revenue_optimization',
+          codes: [], // Dynamically loaded from database (474 consultation/visit codes)
+          topLevel: 'B - CONSULTATION, EXAMEN ET VISITE',
+          excludedCodes: ['8857', '8859'], // Already intervention clinique
+          minimumDuration: 30, // Minimum 30 minutes to suggest optimization
+          pricing: {
+            '8857': 59.70, // Base 30 minutes
+            '8859': 29.85  // Per 15-minute period
+          }
+        },
+        threshold: 0, // No threshold - revenue optimization
+        enabled: true
+      };
+      const created = await storage.createRule(visitDurationRule);
+      console.log('✅ Visit duration optimization rule created successfully:', created.id);
+    } else {
+      console.log('✅ Visit duration optimization rule already exists in database');
+    }
+
     console.log('🎯 Database rules are now active - future validations will use database');
 
   } catch (error) {

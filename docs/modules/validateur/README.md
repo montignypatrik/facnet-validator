@@ -21,7 +21,8 @@ docs/modules/validateur/
 ├── 📗 rules-implemented/             ← Règles actives en production
 │   ├── README.md                     ← Guide des règles implémentées
 │   ├── ANNUAL_BILLING_CODE.md        ← Code facturation annuel
-│   └── OFFICE_FEE_19928_19929.md     ← Frais de bureau
+│   ├── OFFICE_FEE_19928_19929.md     ← Frais de bureau
+│   └── VISIT_DURATION_OPTIMIZATION.md ← Optimisation intervention clinique
 │
 └── 📙 rules-future/                  ← Propositions futures
     ├── README.md                     ← Guide des propositions
@@ -95,6 +96,7 @@ docs/modules/validateur/
 **📗 Règles Implémentées** (référence):
 - [rules-implemented/ANNUAL_BILLING_CODE.md](./rules-implemented/ANNUAL_BILLING_CODE.md)
 - [rules-implemented/OFFICE_FEE_19928_19929.md](./rules-implemented/OFFICE_FEE_19928_19929.md)
+- [rules-implemented/VISIT_DURATION_OPTIMIZATION.md](./rules-implemented/VISIT_DURATION_OPTIMIZATION.md)
 
 **📙 Règles Futures** (planification):
 - [rules-future/PROPOSAL_TEMPLATE.md](./rules-future/PROPOSAL_TEMPLATE.md)
@@ -164,9 +166,9 @@ Le système supporte **10 types de handlers** différents:
 ## 📊 Statistiques
 
 ```
-Règles actives:              2
+Règles actives:              3
 Handlers disponibles:        10
-Types personnalisés:         1
+Types personnalisés:         2
 Propositions en attente:     0
 
 Couverture de tests:         95%
@@ -399,19 +401,20 @@ R: Optimisé pour 10k+ records.
 |------|---------|-------------|
 | 2025-01-06 | 1.0 | Système initial avec 2 règles |
 | 2025-10-10 | 1.1 | Structure de documentation complète |
+| 2025-10-11 | 1.2 | Ajout règle VISIT_DURATION_OPTIMIZATION |
 
 ---
 
-**Dernière mise à jour**: 2025-10-10
+**Dernière mise à jour**: 2025-10-11
 **Maintenu par**: Équipe Dash
-**Version**: 1.1
+**Version**: 1.2
 **License**: Propriétaire
 
 ---
 
 ## 🌟 Points Clés à Retenir
 
-✅ **2 règles actives** en production
+✅ **3 règles actives** en production
 ✅ **10 types de handlers** disponibles
 ✅ **Templates faciles** à remplir
 ✅ **Claude automatise** l'implémentation

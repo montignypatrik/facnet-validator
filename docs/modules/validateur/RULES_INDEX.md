@@ -17,7 +17,8 @@ docs/modules/validateur/
 ├── rules-implemented/                ← Règles actives en production
 │   ├── README.md
 │   ├── ANNUAL_BILLING_CODE.md
-│   └── OFFICE_FEE_19928_19929.md
+│   ├── OFFICE_FEE_19928_19929.md
+│   └── VISIT_DURATION_OPTIMIZATION.md
 │
 └── rules-future/                     ← Propositions futures
     ├── README.md
@@ -26,7 +27,7 @@ docs/modules/validateur/
 
 ---
 
-## ✅ Règles Implémentées (2)
+## ✅ Règles Implémentées (3)
 
 ### 1. Code à Facturation Annuel
 **Fichier**: [rules-implemented/ANNUAL_BILLING_CODE.md](./rules-implemented/ANNUAL_BILLING_CODE.md)
@@ -67,6 +68,31 @@ Code 19928: Min 6 inscrits, Max 10 sans RDV
 Code 19929: Min 12 inscrits, Max 20 sans RDV
 ```
 
+### 3. Optimisation Intervention Clinique
+**Fichier**: [rules-implemented/VISIT_DURATION_OPTIMIZATION.md](./rules-implemented/VISIT_DURATION_OPTIMIZATION.md)
+
+```
+Rule ID: VISIT_DURATION_OPTIMIZATION
+Type: revenue_optimization (custom)
+Sévérité: optimization
+Status: ✅ Actif
+
+Description: Identifie les visites régulières (consultation/examen) qui
+pourraient être facturées comme interventions cliniques pour un revenu supérieur.
+
+Codes ciblés: Tous codes avec top_level = "B - CONSULTATION, EXAMEN ET VISITE" (474 codes)
+Exclusions: 8857, 8859 (déjà intervention clinique)
+
+Critères:
+- Durée ≥ 30 minutes (calculée depuis Début/Fin)
+- Gain financier > 0 (intervention > visite actuelle)
+- Suggestion avec codes 8857 + 8859 selon durée
+
+Tarification:
+- 8857 (30 min base): $59.70
+- 8859 (15 min supplémentaire): $29.85 par période
+```
+
 ---
 
 ## 📋 Propositions Futures (0)
@@ -96,6 +122,7 @@ Les handlers suivants sont implémentés dans [ruleTypeHandlers.ts](../../../ser
 
 **Types personnalisés**:
 - `office_fee_validation`: Validation spécifique frais de bureau
+- `revenue_optimization`: Optimisation revenus (intervention clinique)
 
 ---
 
@@ -142,9 +169,9 @@ Voir [RULE_CREATION_GUIDE.md](./RULE_CREATION_GUIDE.md) pour le guide complet.
 ## 📊 Statistiques
 
 ```
-Règles actives:              2
+Règles actives:              3
 Handlers disponibles:        10
-Types personnalisés:         1
+Types personnalisés:         2
 Propositions en attente:     0
 
 Couverture de tests:         95%
@@ -163,6 +190,9 @@ Performance moyenne:         <200ms pour 10k records
 **Frais de bureau**:
 - ✅ [OFFICE_FEE_19928_19929](./rules-implemented/OFFICE_FEE_19928_19929.md)
 
+**Optimisation revenus**:
+- ✅ [VISIT_DURATION_OPTIMIZATION](./rules-implemented/VISIT_DURATION_OPTIMIZATION.md)
+
 **Prohibition de codes**: (aucune actuellement)
 
 **Restrictions temporelles**: (aucune actuellement)
@@ -180,7 +210,8 @@ Performance moyenne:         <200ms pour 10k records
 
 **Info** (Informationnel): (aucune actuellement)
 
-**Optimization** (Opportunité): (aucune actuellement)
+**Optimization** (Opportunité):
+- ✅ VISIT_DURATION_OPTIMIZATION
 
 ### Par Code RAMQ
 
@@ -335,9 +366,10 @@ R: Ordre aléatoire, les règles doivent être indépendantes
 |------|--------|-------------|
 | 2025-01-06 | Création | Implémentation initiale avec 2 règles |
 | 2025-10-10 | Documentation | Structure complète de documentation |
+| 2025-10-11 | Nouvelle règle | Ajout VISIT_DURATION_OPTIMIZATION |
 
 ---
 
-**Dernière mise à jour**: 2025-10-10
+**Dernière mise à jour**: 2025-10-11
 **Maintenu par**: Équipe Dash
 **Version**: 1.0
