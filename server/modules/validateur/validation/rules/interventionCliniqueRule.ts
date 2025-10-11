@@ -31,6 +31,9 @@ export const interventionCliniqueRule: ValidationRule = {
   async validate(records: BillingRecord[], validationRunId: string): Promise<InsertValidationResult[]> {
     const results: InsertValidationResult[] = [];
 
+    // Track all intervention records for summary statistics
+    const interventionRecords: BillingRecord[] = [];
+
     // Group data by doctor and date
     const doctorDayMap = new Map<string, DoctorDayInterventionData>();
 
@@ -44,6 +47,9 @@ export const interventionCliniqueRule: ValidationRule = {
 
       // Exclude records with special contexts (ICEP, ICSM, ICTOX)
       if (isExcludedContext(record.elementContexte)) continue;
+
+      // Add to tracked records for summary
+      interventionRecords.push(record);
 
       // Create grouping key (doctor + date without time)
       const key = `${record.doctorInfo}_${record.dateService.toISOString().split('T')[0]}`;
@@ -77,6 +83,59 @@ export const interventionCliniqueRule: ValidationRule = {
     // Second pass: validate each doctor-day
     for (const [key, dayData] of doctorDayMap.entries()) {
       results.push(...validateDoctorDay(dayData, validationRunId));
+    }
+
+    // Add informational summary result (always, even when no errors)
+    if (interventionRecords.length > 0) {
+      const totalMinutes = interventionRecords.reduce((sum, r) =>
+        sum + calculateDuration(r.code, r.unites), 0
+      );
+      const totalAmount = interventionRecords.reduce((sum, r) =>
+        sum + Number(r.montantPreliminaire || 0), 0
+      );
+      const paidCount = interventionRecords.filter(r =>
+        Number(r.montantPaye || 0) > 0
+      ).length;
+      const uniqueDoctors = new Set(interventionRecords.map(r => r.doctorInfo)).size;
+      const uniqueDays = new Set(
+        interventionRecords.map(r => r.dateService?.toISOString().split('T')[0])
+      ).size;
+
+      const code8857Count = interventionRecords.filter(r => r.code === '8857').length;
+      const code8859Count = interventionRecords.filter(r => r.code === '8859').length;
+      const code8857Minutes = interventionRecords
+        .filter(r => r.code === '8857')
+        .reduce((sum, r) => sum + calculateDuration(r.code, r.unites), 0);
+      const code8859Minutes = interventionRecords
+        .filter(r => r.code === '8859')
+        .reduce((sum, r) => sum + calculateDuration(r.code, r.unites), 0);
+
+      results.push({
+        validationRunId,
+        ruleId: "INTERVENTION_CLINIQUE_DAILY_LIMIT",
+        billingRecordId: interventionRecords[0]?.id || null,
+        idRamq: interventionRecords[0]?.idRamq || null,
+        severity: "info",
+        category: "intervention_clinique",
+        message: `Validation interventions cliniques complétée: ${interventionRecords.length} intervention(s) facturée(s) (${paidCount} payée(s)) pour ${totalMinutes} minutes totales. Montant: ${totalAmount.toFixed(2)}$.`,
+        solution: null,
+        affectedRecords: interventionRecords.slice(0, 10).map(r => r.id).filter(Boolean) as string[],
+        ruleData: {
+          totalInterventions: interventionRecords.length,
+          paidInterventions: paidCount,
+          totalMinutesAll: totalMinutes,
+          totalAmount: totalAmount.toFixed(2),
+          monetaryImpact: totalAmount.toFixed(2),
+          uniqueDoctors,
+          uniqueDays,
+          code8857Count,
+          code8859Count,
+          code8857Minutes,
+          code8859Minutes,
+          limitViolations: results.filter(r => r.severity === 'error').length,
+          dailyLimit: 180
+        }
+      });
     }
 
     return results;
@@ -145,6 +204,11 @@ function validateDoctorDay(dayData: DoctorDayInterventionData, validationRunId: 
       .map(intervention => intervention.id)
       .filter(id => id !== null) as string[];
 
+    // Calculate monetary impact for this violation
+    const totalAmount = dayData.interventions.reduce((sum, r) =>
+      sum + Number(r.montantPreliminaire || 0), 0
+    );
+
     results.push({
       validationRunId,
       ruleId: "INTERVENTION_CLINIQUE_DAILY_LIMIT",
@@ -163,7 +227,9 @@ function validateDoctorDay(dayData: DoctorDayInterventionData, validationRunId: 
         excessMinutes,
         code8857Minutes: dayData.code8857Minutes,
         code8859Minutes: dayData.code8859Minutes,
-        recordCount: dayData.interventions.length
+        recordCount: dayData.interventions.length,
+        totalAmount: totalAmount.toFixed(2),
+        monetaryImpact: totalAmount.toFixed(2)
       }
     });
   }

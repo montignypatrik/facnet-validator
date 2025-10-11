@@ -67,7 +67,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
 
     it('should pass at exactly 180 minutes (6 records of 8857)', async () => {
@@ -82,7 +82,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
 
     it('should exclude ICEP contexts from calculation (200 total but 120 counted)', async () => {
@@ -101,7 +101,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
 
     it('should exclude ICSM contexts from calculation', async () => {
@@ -119,7 +119,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
 
     it('should exclude ICTOX contexts from calculation', async () => {
@@ -134,7 +134,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
 
     it('should calculate separate totals for different doctors', async () => {
@@ -159,7 +159,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
 
     it('should calculate separate totals for different days', async () => {
@@ -183,7 +183,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
 
     it('should ignore non-intervention codes', async () => {
@@ -204,7 +204,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
   });
 
@@ -222,17 +222,18 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(1);
-      expect(results[0].severity).toBe('error');
-      expect(results[0].category).toBe('intervention_clinique');
-      expect(results[0].ruleId).toBe('INTERVENTION_CLINIQUE_DAILY_LIMIT');
-      expect(results[0].message).toContain('210 minutes');
-      expect(results[0].message).toContain('180 minutes par jour');
-      expect(results[0].solution).toContain('30 minutes');
-      expect(results[0].affectedRecords).toHaveLength(7);
+      const errors = results.filter(r => r.severity !== 'info');
+      expect(errors).toHaveLength(1);
+      expect(errors[0].severity).toBe('error');
+      expect(errors[0].category).toBe('intervention_clinique');
+      expect(errors[0].ruleId).toBe('INTERVENTION_CLINIQUE_DAILY_LIMIT');
+      expect(errors[0].message).toContain('210 minutes');
+      expect(errors[0].message).toContain('180 minutes par jour');
+      expect(errors[0].solution).toContain('30 minutes');
+      expect(errors[0].affectedRecords).toHaveLength(7);
 
       // Check ruleData details
-      expect(results[0].ruleData).toMatchObject({
+      expect(errors[0].ruleData).toMatchObject({
         totalMinutes: 210,
         limit: 180,
         excessMinutes: 30,
@@ -259,13 +260,14 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(1);
-      expect(results[0].severity).toBe('error');
-      expect(results[0].message).toContain('195 minutes');
-      expect(results[0].solution).toContain('15 minutes');
-      expect(results[0].affectedRecords).toHaveLength(6);
+      const errors = results.filter(r => r.severity !== 'info');
+      expect(errors).toHaveLength(1);
+      expect(errors[0].severity).toBe('error');
+      expect(errors[0].message).toContain('195 minutes');
+      expect(errors[0].solution).toContain('15 minutes');
+      expect(errors[0].affectedRecords).toHaveLength(6);
 
-      expect(results[0].ruleData).toMatchObject({
+      expect(errors[0].ruleData).toMatchObject({
         totalMinutes: 195,
         limit: 180,
         excessMinutes: 15,
@@ -288,8 +290,9 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(1);
-      expect(results[0].billingRecordId).toBe('record-1'); // Earliest record
+      const errors = results.filter(r => r.severity !== 'info');
+      expect(errors).toHaveLength(1);
+      expect(errors[0].billingRecordId).toBe('record-1'); // Earliest record
     });
 
     it('should create separate violations for different doctors exceeding limit', async () => {
@@ -319,10 +322,11 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(2);
+      const errors = results.filter(r => r.severity !== 'info');
+      expect(errors).toHaveLength(2);
 
-      const doctor1Result = results.find(r => r.ruleData?.doctor === doctor1);
-      const doctor2Result = results.find(r => r.ruleData?.doctor === doctor2);
+      const doctor1Result = errors.find(r => r.ruleData?.doctor === doctor1);
+      const doctor2Result = errors.find(r => r.ruleData?.doctor === doctor2);
 
       expect(doctor1Result).toBeDefined();
       expect(doctor1Result?.ruleData?.totalMinutes).toBe(210);
@@ -349,7 +353,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
 
     it('should exclude mixed context "ICEP,ICSM" (contains both excluded codes)', async () => {
@@ -364,7 +368,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
 
     it('should count context "CLSC" (not an excluded context)', async () => {
@@ -381,8 +385,9 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(1);
-      expect(results[0].ruleData?.totalMinutes).toBe(210);
+      const errors = results.filter(r => r.severity !== 'info');
+      expect(errors).toHaveLength(1);
+      expect(errors[0].ruleData?.totalMinutes).toBe(210);
     });
 
     it('should count empty string context (not excluded)', async () => {
@@ -399,8 +404,9 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(1);
-      expect(results[0].ruleData?.totalMinutes).toBe(210);
+      const errors = results.filter(r => r.severity !== 'info');
+      expect(errors).toHaveLength(1);
+      expect(errors[0].ruleData?.totalMinutes).toBe(210);
     });
 
     it('should count NULL context (not excluded)', async () => {
@@ -417,8 +423,9 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(1);
-      expect(results[0].ruleData?.totalMinutes).toBe(210);
+      const errors = results.filter(r => r.severity !== 'info');
+      expect(errors).toHaveLength(1);
+      expect(errors[0].ruleData?.totalMinutes).toBe(210);
     });
 
     it('should NOT exclude "EPICENE" (false positive check - contains "ICEP" as substring)', async () => {
@@ -435,8 +442,9 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(1);
-      expect(results[0].ruleData?.totalMinutes).toBe(210);
+      const errors = results.filter(r => r.severity !== 'info');
+      expect(errors).toHaveLength(1);
+      expect(errors[0].ruleData?.totalMinutes).toBe(210);
     });
 
     it('should NOT exclude "MUSICAL" (false positive check - contains "ICSM" as substring)', async () => {
@@ -453,8 +461,9 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(1);
-      expect(results[0].ruleData?.totalMinutes).toBe(210);
+      const errors = results.filter(r => r.severity !== 'info');
+      expect(errors).toHaveLength(1);
+      expect(errors[0].ruleData?.totalMinutes).toBe(210);
     });
 
     it('should handle whitespace in comma-separated contexts', async () => {
@@ -467,7 +476,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
 
     it('should handle case-insensitive context matching', async () => {
@@ -480,7 +489,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
   });
 
@@ -496,7 +505,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
 
     it('should treat code 8859 with NULL unites as 0 minutes', async () => {
@@ -510,7 +519,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
 
     it('should handle code 8859 with numeric unites value', async () => {
@@ -524,7 +533,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
 
     it('should handle code 8859 with invalid/non-numeric unites as 0 minutes', async () => {
@@ -538,7 +547,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
   });
 
@@ -557,7 +566,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
 
     it('should skip records with NULL dateService', async () => {
@@ -574,7 +583,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
 
     it('should process valid records and skip invalid records in mixed dataset', async () => {
@@ -593,7 +602,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0); // 120 minutes is under limit
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0); // 120 minutes is under limit
     });
   });
 
@@ -612,9 +621,10 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(1);
-      expect(results[0].ruleData?.totalMinutes).toBe(210);
-      expect(results[0].ruleData?.date).toBe('2025-01-07');
+      const errors = results.filter(r => r.severity !== 'info');
+      expect(errors).toHaveLength(1);
+      expect(errors[0].ruleData?.totalMinutes).toBe(210);
+      expect(errors[0].ruleData?.date).toBe('2025-01-07');
     });
 
     it('should handle timezone differences correctly', async () => {
@@ -629,7 +639,7 @@ describe('interventionCliniqueRule', () => {
 
       // First two should be grouped together, last two should be grouped together
       // Each group has 60 minutes (under limit)
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
   });
 
@@ -650,7 +660,7 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(0);
+      const errors = results.filter(r => r.severity !== 'info'); expect(errors).toHaveLength(0);
     });
 
     it('should handle mixed regular and ICEP interventions', async () => {
@@ -677,9 +687,10 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(1);
-      expect(results[0].ruleData?.totalMinutes).toBe(240);
-      expect(results[0].ruleData?.excessMinutes).toBe(60);
+      const errors = results.filter(r => r.severity !== 'info');
+      expect(errors).toHaveLength(1);
+      expect(errors[0].ruleData?.totalMinutes).toBe(240);
+      expect(errors[0].ruleData?.excessMinutes).toBe(60);
     });
 
     it('should handle multi-doctor clinic with one violation', async () => {
@@ -713,9 +724,10 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results).toHaveLength(1);
-      expect(results[0].ruleData?.doctor).toBe(doctor2);
-      expect(results[0].ruleData?.totalMinutes).toBe(210);
+      const errors = results.filter(r => r.severity !== 'info');
+      expect(errors).toHaveLength(1);
+      expect(errors[0].ruleData?.doctor).toBe(doctor2);
+      expect(errors[0].ruleData?.totalMinutes).toBe(210);
     });
   });
 
@@ -733,13 +745,14 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results[0].message).toMatch(/Limite quotidienne d'interventions cliniques dépassée/);
-      expect(results[0].message).toMatch(/minutes facturées/);
-      expect(results[0].message).toMatch(/maximum : 180 minutes par jour/);
+      const errors = results.filter(r => r.severity !== 'info');
+      expect(errors[0].message).toMatch(/Limite quotidienne d'interventions cliniques dépassée/);
+      expect(errors[0].message).toMatch(/minutes facturées/);
+      expect(errors[0].message).toMatch(/maximum : 180 minutes par jour/);
 
-      expect(results[0].solution).toMatch(/Veuillez vérifier/);
-      expect(results[0].solution).toMatch(/ICEP, ICSM ou ICTOX/);
-      expect(results[0].solution).toMatch(/minutes d'interventions/);
+      expect(errors[0].solution).toMatch(/Veuillez vérifier/);
+      expect(errors[0].solution).toMatch(/ICEP, ICSM ou ICTOX/);
+      expect(errors[0].solution).toMatch(/minutes d'interventions/);
     });
 
     it('should include date in French format in error message', async () => {
@@ -755,8 +768,9 @@ describe('interventionCliniqueRule', () => {
 
       const results = await interventionCliniqueRule.validate(records, validationRunId);
 
-      expect(results[0].message).toContain('2025-02-06');
-      expect(results[0].ruleData?.date).toBe('2025-02-06');
+      const errors = results.filter(r => r.severity !== 'info');
+      expect(errors[0].message).toContain('2025-02-06');
+      expect(errors[0].ruleData?.date).toBe('2025-02-06');
     });
   });
 });

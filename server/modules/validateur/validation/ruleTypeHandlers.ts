@@ -1046,6 +1046,11 @@ export async function validateInterventionCliniqueDailyLimit(
         .filter(r => r.code === '8859')
         .reduce((sum, r) => sum + r.minutes, 0);
 
+      // Calculate monetary impact (estimated based on billing amounts)
+      const totalAmount = sortedRecords.reduce((sum, r) =>
+        sum + Number(r.montantPreliminaire || 0), 0
+      );
+
       results.push({
         validationRunId,
         ruleId: rule.id,
@@ -1064,10 +1069,68 @@ export async function validateInterventionCliniqueDailyLimit(
           excessMinutes,
           code8857Minutes,
           code8859Minutes,
-          recordCount: dayRecords.length
+          recordCount: dayRecords.length,
+          totalAmount: totalAmount.toFixed(2),
+          monetaryImpact: totalAmount.toFixed(2)
         }
       });
     }
+  }
+
+  // ==================== INFORMATIONAL SUMMARY ====================
+  // Always add an informational result showing intervention clinique statistics
+  // This helps users verify the rule is working even when there are no errors
+
+  const totalInterventions = interventionRecords.length;
+  const totalMinutesAll = interventionRecords.reduce((sum, r) => sum + r.minutes, 0);
+  const totalAmount = interventionRecords.reduce((sum, r) =>
+    sum + Number(r.montantPreliminaire || 0), 0
+  );
+  const paidInterventions = interventionRecords.filter(r =>
+    Number(r.montantPaye || 0) > 0
+  ).length;
+  const uniqueDoctors = new Set(interventionRecords.map(r => r.doctorInfo).filter(Boolean)).size;
+  const uniqueDays = new Set(
+    interventionRecords.map(r => r.dateService?.toISOString().split('T')[0]).filter(Boolean)
+  ).size;
+
+  const code8857Count = interventionRecords.filter(r => r.code === '8857').length;
+  const code8859Count = interventionRecords.filter(r => r.code === '8859').length;
+  const code8857Minutes = interventionRecords
+    .filter(r => r.code === '8857')
+    .reduce((sum, r) => sum + r.minutes, 0);
+  const code8859Minutes = interventionRecords
+    .filter(r => r.code === '8859')
+    .reduce((sum, r) => sum + r.minutes, 0);
+
+  // Only add summary if there are relevant records
+  if (totalInterventions > 0) {
+    results.push({
+      validationRunId,
+      ruleId: rule.id,
+      billingRecordId: interventionRecords[0]?.id || null,
+      idRamq: interventionRecords[0]?.idRamq || null,
+      severity: "info",
+      category: "intervention_clinique",
+      message: `Validation interventions cliniques complétée: ${totalInterventions} intervention(s) facturée(s) (${paidInterventions} payée(s)) pour ${totalMinutesAll} minutes totales. Montant: ${totalAmount.toFixed(2)}$.`,
+      solution: null,
+      affectedRecords: interventionRecords.slice(0, 10).map(r => r.id),
+      ruleData: {
+        totalInterventions,
+        paidInterventions,
+        totalMinutesAll,
+        totalAmount: totalAmount.toFixed(2),
+        monetaryImpact: totalAmount.toFixed(2),
+        uniqueDoctors,
+        uniqueDays,
+        code8857Count,
+        code8859Count,
+        code8857Minutes,
+        code8859Minutes,
+        limitViolations: results.filter(r => r.severity === 'error').length,
+        dailyLimit
+      }
+    });
   }
 
   return results;
