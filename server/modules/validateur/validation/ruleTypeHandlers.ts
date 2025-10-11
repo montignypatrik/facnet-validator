@@ -933,3 +933,143 @@ export async function validateGmfForfait8875(
 
   return results;
 }
+
+
+/**
+ * INTERVENTION CLINIQUE DAILY LIMIT VALIDATION
+ * Validates daily 180-minute limit for clinical interventions (RAMQ article 2.2.6 B)
+ *
+ * This rule validates that doctors don't bill more than 180 minutes of clinical
+ * interventions (codes 8857 and 8859) per day, excluding interventions with special
+ * contexts (ICEP, ICSM, ICTOX).
+ *
+ * References:
+ * - Rule spec: docs/modules/validateur/rules-implemented/intervention_clinique_rule.md
+ * - RAMQ article 2.2.6 B: Maximum 180 minutes per day
+ * - Code 8857: First period (30 minutes fixed)
+ * - Code 8859: Additional periods (variable from unites column)
+ */
+export async function validateInterventionCliniqueDailyLimit(
+  rule: DatabaseRule,
+  records: BillingRecord[],
+  validationRunId: string
+): Promise<InsertValidationResult[]> {
+  const results: InsertValidationResult[] = [];
+  const condition = rule.condition;
+
+  // Get configuration from database rule
+  const codes = condition.codes || ['8857', '8859'];
+  const excludedContexts = condition.excludedContexts || ['ICEP', 'ICSM', 'ICTOX'];
+  const dailyLimit = Number(rule.threshold) || 180; // Maximum minutes per doctor per day
+
+  /**
+   * Helper: Check if record has excluded context (exact match after comma split)
+   * Prevents false positives like "EPICENE" matching "ICEP"
+   */
+  function hasExcludedContext(elementContexte: string | null): boolean {
+    if (!elementContexte) return false;
+
+    // Split by comma and trim whitespace
+    const contextCodes = elementContexte.toUpperCase().split(',').map(c => c.trim());
+
+    // Check if ANY excluded context matches exactly (not substring)
+    return contextCodes.some(code => excludedContexts.map(c => c.toUpperCase()).includes(code));
+  }
+
+  /**
+   * Helper: Calculate duration for a billing record
+   */
+  function calculateDuration(code: string, unites: any): number {
+    if (code === '8857') return 30; // Fixed 30 minutes for first period
+    if (code === '8859') return parseInt(unites) || 0; // Variable from unites column
+    return 0;
+  }
+
+  // First pass: collect all intervention clinique records
+  const interventionRecords: Array<BillingRecord & { minutes: number }> = [];
+
+  for (const record of records) {
+    // Filter for intervention clinique codes only
+    if (!codes.includes(record.code)) continue;
+
+    // Skip records with missing required fields
+    if (!record.doctorInfo || !record.dateService) continue;
+
+    // Skip records with excluded contexts
+    if (hasExcludedContext(record.elementContexte)) continue;
+
+    // Calculate duration and add to list
+    const minutes = calculateDuration(record.code, record.unites);
+    interventionRecords.push({ ...record, minutes });
+  }
+
+  // Second pass: group by doctor + date and check limits
+  const doctorDayMap = new Map<string, typeof interventionRecords>();
+
+  for (const record of interventionRecords) {
+    const key = `${record.doctorInfo}_${record.dateService!.toISOString().split('T')[0]}`;
+
+    if (!doctorDayMap.has(key)) {
+      doctorDayMap.set(key, []);
+    }
+
+    doctorDayMap.get(key)!.push(record);
+  }
+
+  // Third pass: validate each doctor-day
+  for (const [key, dayRecords] of doctorDayMap.entries()) {
+    const totalMinutes = dayRecords.reduce((sum, r) => sum + r.minutes, 0);
+
+    // Only flag if STRICTLY greater than limit (180 minutes exactly is OK)
+    if (totalMinutes > dailyLimit) {
+      const [doctor, date] = key.split('_');
+      const excessMinutes = totalMinutes - dailyLimit;
+
+      // Sort records chronologically to get first record
+      const sortedRecords = [...dayRecords].sort((a, b) => {
+        const dateA = new Date(a.dateService!);
+        const dateB = new Date(b.dateService!);
+        if (dateA.getTime() !== dateB.getTime()) {
+          return dateA.getTime() - dateB.getTime();
+        }
+        // If same date, sort by debut time
+        const timeA = a.debut || '';
+        const timeB = b.debut || '';
+        return timeA.localeCompare(timeB);
+      });
+
+      // Calculate code subtotals
+      const code8857Minutes = dayRecords
+        .filter(r => r.code === '8857')
+        .reduce((sum, r) => sum + r.minutes, 0);
+      const code8859Minutes = dayRecords
+        .filter(r => r.code === '8859')
+        .reduce((sum, r) => sum + r.minutes, 0);
+
+      results.push({
+        validationRunId,
+        ruleId: rule.id,
+        billingRecordId: sortedRecords[0].id,
+        idRamq: sortedRecords[0].idRamq || null,
+        severity: "error",
+        category: "intervention_clinique",
+        message: `Limite quotidienne d'interventions cliniques dépassée : ${totalMinutes} minutes facturées le ${date} (maximum : ${dailyLimit} minutes par jour).`,
+        solution: `Veuillez vérifier si les éléments de contexte ICEP, ICSM ou ICTOX sont manquants. Autrement, réduire le nombre d'interventions cliniques ou annuler ${excessMinutes} minutes d'interventions pour respecter la limite de ${dailyLimit} minutes par jour.`,
+        affectedRecords: sortedRecords.map(r => r.id),
+        ruleData: {
+          doctor,
+          date,
+          totalMinutes,
+          limit: dailyLimit,
+          excessMinutes,
+          code8857Minutes,
+          code8859Minutes,
+          recordCount: dayRecords.length
+        }
+      });
+    }
+  }
+
+  return results;
+}
+

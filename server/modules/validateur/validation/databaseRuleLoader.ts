@@ -99,6 +99,9 @@ async function validateWithDatabaseRule(
       case "gmf_annual_forfait":
         return await RuleHandlers.validateGmfForfait8875(rule, records, validationRunId);
 
+      case "intervention_clinique_daily_limit":
+        return await RuleHandlers.validateInterventionCliniqueDailyLimit(rule, records, validationRunId);
+
       default:
         console.warn(`[RULES] Unknown rule type: ${ruleType}`);
         return results;

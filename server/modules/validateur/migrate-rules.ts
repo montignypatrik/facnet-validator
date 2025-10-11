@@ -56,6 +56,33 @@ async function migrateOfficeFeeRule() {
       console.log('✅ GMF forfait rule already exists in database');
     }
 
+    // 3. Intervention Clinique Daily Limit Rule
+    const hasInterventionCliniqueRule = existingRules.some(rule =>
+      rule.name.includes('Limite quotidienne interventions cliniques')
+    );
+
+    if (!hasInterventionCliniqueRule) {
+      const interventionCliniqueRule = {
+        name: 'Limite quotidienne interventions cliniques (180 min)',
+        condition: {
+          type: 'intervention_clinique_daily_limit',
+          category: 'intervention_clinique',
+          codes: ['8857', '8859'],
+          excludedContexts: ['ICEP', 'ICSM', 'ICTOX'],
+          durations: {
+            '8857': 30, // Fixed 30 minutes for first period
+            '8859': 'unites' // Variable from unites column
+          }
+        },
+        threshold: 180, // Maximum 180 minutes per doctor per day
+        enabled: true
+      };
+      const created = await storage.createRule(interventionCliniqueRule);
+      console.log('✅ Intervention clinique rule created successfully:', created.id);
+    } else {
+      console.log('✅ Intervention clinique rule already exists in database');
+    }
+
     console.log('🎯 Database rules are now active - future validations will use database');
 
   } catch (error) {
