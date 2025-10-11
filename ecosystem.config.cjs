@@ -12,12 +12,12 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 5000,
-        DATABASE_URL: 'postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator'
+        DATABASE_URL: 'postgresql://dashvalidator_user:DashValidator2024@localhost:5432/dashvalidator'
       },
       env_production: {
         NODE_ENV: 'production',
         PORT: 5000,
-        DATABASE_URL: 'postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator'
+        DATABASE_URL: 'postgresql://dashvalidator_user:DashValidator2024@localhost:5432/dashvalidator'
       },
       // Logging configuration
       log_file: '/var/www/facnet/logs/combined.log',
