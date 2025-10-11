@@ -12,12 +12,18 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 5000,
-        DATABASE_URL: 'postgresql://dashvalidator_user:DashValidator2024@localhost:5432/dashvalidator'
+        DATABASE_URL: 'postgresql://dashvalidator_user:DashValidator2024@localhost:5432/dashvalidator',
+        AUTH0_ISSUER_BASE_URL: 'https://dev-x63i3b6hf5kch7ab.ca.auth0.com',
+        AUTH0_AUDIENCE: 'facnet-validator-api',
+        AUTH0_CLIENT_SECRET: 'fNxeP-Gq0kSe6EjEcgCYaHoCPoIYOKheH2sh0NjdefrlhOk9n6PUSg4te3likmk'
       },
       env_production: {
         NODE_ENV: 'production',
         PORT: 5000,
-        DATABASE_URL: 'postgresql://dashvalidator_user:DashValidator2024@localhost:5432/dashvalidator'
+        DATABASE_URL: 'postgresql://dashvalidator_user:DashValidator2024@localhost:5432/dashvalidator',
+        AUTH0_ISSUER_BASE_URL: 'https://dev-x63i3b6hf5kch7ab.ca.auth0.com',
+        AUTH0_AUDIENCE: 'facnet-validator-api',
+        AUTH0_CLIENT_SECRET: 'fNxeP-Gq0kSe6EjEcgCYaHoCPoIYOKheH2sh0NjdefrlhOk9n6PUSg4te3likmk'
       },
       // Logging configuration
       log_file: '/var/www/facnet/logs/combined.log',
@@ -30,10 +36,7 @@ module.exports = {
       max_restarts: 10,
 
       // Health check
-      health_check_grace_period: 3000,
-
-      // Environment file
-      env_file: '.env'
+      health_check_grace_period: 3000
     }
   ]
 };
