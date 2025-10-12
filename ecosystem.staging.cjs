@@ -13,7 +13,7 @@ module.exports = {
       env: {
         NODE_ENV: 'staging',
         PORT: 3001, // Different port from production
-        DATABASE_URL: 'postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator_staging',
+        DATABASE_URL: 'postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator_staging?sslmode=disable',
         REDIS_URL: 'redis://localhost:6379',
         AUTH0_ISSUER_BASE_URL: 'https://dev-x63i3b6hf5kch7ab.ca.auth0.com',
         AUTH0_AUDIENCE: 'facnet-validator-api',
@@ -23,7 +23,7 @@ module.exports = {
       env_staging: {
         NODE_ENV: 'staging',
         PORT: 3001,
-        DATABASE_URL: 'postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator_staging',
+        DATABASE_URL: 'postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator_staging?sslmode=disable',
         REDIS_URL: 'redis://localhost:6379',
         AUTH0_ISSUER_BASE_URL: 'https://dev-x63i3b6hf5kch7ab.ca.auth0.com',
         AUTH0_AUDIENCE: 'facnet-validator-api',
