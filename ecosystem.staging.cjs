@@ -13,12 +13,22 @@ module.exports = {
       env: {
         NODE_ENV: 'staging',
         PORT: 3001, // Different port from production
-        DATABASE_URL: 'postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator_staging'
+        DATABASE_URL: 'postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator_staging',
+        REDIS_URL: 'redis://localhost:6379',
+        AUTH0_ISSUER_BASE_URL: 'https://dev-x63i3b6hf5kch7ab.ca.auth0.com',
+        AUTH0_AUDIENCE: 'facnet-validator-api',
+        AUTH0_CLIENT_SECRET: 'fNxeP-Gq0kSe6EjEcgCYaHoCPoIYOKheH2sh0NjdefrlhOk9n6PUSg4te3likmk',
+        PHI_REDACTION_SALT: '99396260a8d4111225c83d71a260fcdaed678481cd868fe0e35b1969dc273f1b'
       },
       env_staging: {
         NODE_ENV: 'staging',
         PORT: 3001,
-        DATABASE_URL: 'postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator_staging'
+        DATABASE_URL: 'postgresql://dashvalidator_user:dashvalidator123!@localhost:5432/dashvalidator_staging',
+        REDIS_URL: 'redis://localhost:6379',
+        AUTH0_ISSUER_BASE_URL: 'https://dev-x63i3b6hf5kch7ab.ca.auth0.com',
+        AUTH0_AUDIENCE: 'facnet-validator-api',
+        AUTH0_CLIENT_SECRET: 'fNxeP-Gq0kSe6EjEcgCYaHoCPoIYOKheH2sh0NjdefrlhOk9n6PUSg4te3likmk',
+        PHI_REDACTION_SALT: '99396260a8d4111225c83d71a260fcdaed678481cd868fe0e35b1969dc273f1b'
       },
       // Logging configuration for staging
       log_file: '/var/www/facnet/logs/staging-combined.log',
