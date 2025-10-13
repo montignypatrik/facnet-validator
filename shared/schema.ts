@@ -79,7 +79,22 @@ export const establishments = pgTable("establishments", {
   updatedBy: text("updated_by"),
 });
 
-// Rules table
+/**
+ * Rules table - DEPRECATED
+ *
+ * ⚠️ This table is no longer used for validation rules.
+ * All validation rules are now hardcoded in TypeScript files.
+ *
+ * Location: server/modules/validateur/validation/rules/
+ * Registry: server/modules/validateur/validation/ruleRegistry.ts
+ *
+ * This table is kept for:
+ * - Historical data and audit trail
+ * - Database management UI (viewing/editing legacy rules)
+ * - Future administrative features
+ *
+ * Do NOT add new validation logic here. Create a new TypeScript rule file instead.
+ */
 export const rules = pgTable("rules", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   ruleId: text("rule_id").unique(), // Human-readable unique identifier (e.g., "OFFICE_FEE_19928")

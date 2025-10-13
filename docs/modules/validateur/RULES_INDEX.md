@@ -27,7 +27,7 @@ docs/modules/validateur/
 
 ---
 
-## ✅ Règles Implémentées (3)
+## ✅ Règles Implémentées (5)
 
 ### 1. Code à Facturation Annuel
 **Fichier**: [rules-implemented/ANNUAL_BILLING_CODE.md](./rules-implemented/ANNUAL_BILLING_CODE.md)
@@ -93,6 +93,51 @@ Tarification:
 - 8859 (15 min supplémentaire): $29.85 par période
 ```
 
+### 4. Forfait de Prise en Charge GMF (8875)
+**Fichier**: [rules-implemented/gmf_8875_validation.md](./rules-implemented/gmf_8875_validation.md)
+
+```
+Rule ID: GMF_FORFAIT_8875
+Type: gmf_forfait (custom)
+Sévérité: error / optimization
+Status: ✅ Actif
+
+Description: Valide le forfait GMF annuel (code 8875) avec deux scénarios:
+1. Détection de duplicatas (error): Code 8875 ne peut être facturé qu'une fois par patient par année
+2. Opportunités manquées (optimization): Patients GMF sans forfait 8875 facturé
+
+Code: 8875 (Forfait de prise en charge GMF - 9.35$)
+Établissements GMF: ep_33 = true
+Exclusions contexte: MTA13, GMFU, GAP, G160, AR
+
+Critères:
+- Détecte paiements multiples pour même patient/année
+- Identifie patients avec visites GMF mais sans forfait
+- Calcule revenu potentiel perdu
+```
+
+### 5. Intervention Clinique (Limite 180 minutes)
+**Fichier**: [rules-implemented/intervention_clinique_rule.md](./rules-implemented/intervention_clinique_rule.md)
+
+```
+Rule ID: INTERVENTION_CLINIQUE_180MIN
+Type: time_limit (custom)
+Sévérité: error
+Status: ✅ Actif
+
+Description: Valide que les interventions cliniques (8857 + 8859) ne dépassent
+pas 180 minutes par jour par médecin selon règlements RAMQ.
+
+Codes: 8857 (30 min base), 8859 (15 min additionnel)
+Maximum quotidien: 180 minutes par médecin
+
+Logique:
+- 8857 = 30 minutes (base)
+- 8859 = 15 minutes (additionnel)
+- Calcul automatique du total par médecin par jour
+- Erreur si total > 180 minutes
+```
+
 ---
 
 ## 📋 Propositions Futures (0)
@@ -103,26 +148,30 @@ Pour créer une nouvelle proposition, voir [Comment Créer une Nouvelle Règle](
 
 ---
 
-## 🛠️ Types de Règles Disponibles
+## 🛠️ Règles TypeScript Hardcodées
 
-Les handlers suivants sont implémentés dans [ruleTypeHandlers.ts](../../../server/modules/validateur/validation/ruleTypeHandlers.ts):
+Toutes les règles sont maintenant implémentées comme des fichiers TypeScript individuels dans `server/modules/validateur/validation/rules/`:
 
-| Type | Handler | Description | Exemples d'Usage |
-|------|---------|-------------|------------------|
-| `prohibition` | `validateProhibition` | Codes ne pouvant être facturés ensemble | Codes A + B interdits sur même facture |
-| `time_restriction` | `validateTimeRestriction` | Règles temporelles | After-hours, week-ends, jours fériés |
-| `requirement` | `validateRequirement` | Codes nécessitant autres codes | Procédure nécessite visite consultation |
-| `location_restriction` | `validateLocationRestriction` | Restrictions de lieu | Codes réservés urgence/cabinet |
-| `age_restriction` | `validateAgeRestriction` | Restrictions d'âge | Codes pédiatriques < 18 ans |
-| `amount_limit` | `validateAmountLimit` | Limites de montant | Maximum $X par jour/semaine |
-| `mutual_exclusion` | `validateMutualExclusion` | Un seul du groupe | Un seul examen annuel par an |
-| `missing_annual_opportunity` | `validateMissingAnnualOpportunity` | Optimisation revenus | Patient manque examen annuel |
-| `annual_limit` | `validateAnnualLimit` | Limite annuelle simple | Code 1x par an (basique) |
-| `annual_billing_code` | `validateAnnualBillingCode` | Limite annuelle avancée | ✅ Code 1x par an (leaf patterns) |
+| Règle | Fichier | Type | Description |
+|-------|---------|------|-------------|
+| ✅ Office Fee | `officeFeeRule.ts` | `office_fee_validation` | Validation frais de bureau (19928, 19929) |
+| ✅ Intervention Clinique | `interventionCliniqueRule.ts` | `time_limit` | Limite 180 min/jour intervention clinique |
+| ✅ Visit Duration | `visitDurationOptimizationRule.ts` | `revenue_optimization` | Optimisation durée visite → intervention |
+| ✅ GMF Forfait 8875 | `gmfForfait8875Rule.ts` | `gmf_forfait` | Forfait GMF annuel (duplicatas + opportunités) |
+| ✅ Annual Billing Code | `annualBillingCodeRule.ts` | `annual_limit` | Codes annuels (identifiés par leaf patterns) |
 
-**Types personnalisés**:
-- `office_fee_validation`: Validation spécifique frais de bureau
-- `revenue_optimization`: Optimisation revenus (intervention clinique)
+**Architecture**:
+- Règles TypeScript avec interface `ValidationRule`
+- Enregistrement centralisé dans `ruleRegistry.ts`
+- Type safety à la compilation
+- Pas de requête base de données au démarrage (performance)
+- Chaque règle = fichier indépendant avec logique + tests
+
+**⚠️ Migration**: L'ancien système de handlers database-driven (10 types) a été remplacé par des règles TypeScript hardcodées pour:
+- ✅ Meilleure performance (pas de requête DB au démarrage)
+- ✅ Type safety à la compilation
+- ✅ Code plus simple et maintenable
+- ✅ Tests plus faciles
 
 ---
 
@@ -151,11 +200,10 @@ Les handlers suivants sont implémentés dans [ruleTypeHandlers.ts](../../../ser
    ```
 
 4. **Claude créera**
-   - ✅ Handler function
-   - ✅ Route registration
+   - ✅ TypeScript rule file in `rules/` folder
+   - ✅ Rule registration in `ruleRegistry.ts`
    - ✅ Comprehensive tests
-   - ✅ Database entry
-   - ✅ Run tests
+   - ✅ Run tests and verify
 
 5. **Déplacer documentation**
    Une fois testée, déplacer vers `rules-implemented/`
@@ -169,13 +217,14 @@ Voir [RULE_CREATION_GUIDE.md](./RULE_CREATION_GUIDE.md) pour le guide complet.
 ## 📊 Statistiques
 
 ```
-Règles actives:              3
-Handlers disponibles:        10
-Types personnalisés:         2
+Règles actives:              5
+Architecture:                TypeScript hardcodé
+Format:                      ValidationRule interface
 Propositions en attente:     0
 
 Couverture de tests:         95%
 Performance moyenne:         <200ms pour 10k records
+Temps de chargement:         0ms (pas de DB query)
 ```
 
 ---
@@ -260,7 +309,7 @@ npm test -- --coverage
 - [ ] Tests unitaires: ✅ Pass
 - [ ] Tests intégration: ✅ Pass
 - [ ] Documentation: ✅ Complète
-- [ ] Database entry: ✅ Créée
+- [ ] Registry entry: ✅ Ajoutée
 - [ ] Messages français: ✅ Corrects
 - [ ] Performance: ✅ <200ms
 - [ ] Edge cases: ✅ Gérés
@@ -273,7 +322,7 @@ npm test -- --coverage
 ### Modifier une Règle Existante
 
 1. Lire la documentation actuelle
-2. Modifier le handler dans `ruleTypeHandlers.ts`
+2. Modifier le fichier TypeScript dans `rules/` folder
 3. Mettre à jour les tests
 4. Mettre à jour la documentation
 5. Ajouter entrée dans "Maintenance Log"
@@ -282,21 +331,24 @@ npm test -- --coverage
 
 ### Désactiver une Règle
 
-```sql
-UPDATE rules
-SET enabled = false
-WHERE rule_id = 'RULE_ID';
+Dans le fichier TypeScript de la règle:
+```typescript
+export const myRule: ValidationRule = {
+  id: "MY_RULE",
+  enabled: false,  // Set to false to disable
+  // ... rest of rule
+};
 ```
 
-Redémarrer le serveur pour recharger les règles.
+Redémarrer le serveur pour appliquer les changements.
 
 ### Supprimer une Règle
 
 1. Désactiver d'abord (période de test)
 2. Monitorer l'impact pendant 1 semaine
 3. Si OK, supprimer:
-   - Database entry
-   - Handler code
+   - TypeScript rule file from `rules/` folder
+   - Registration from `ruleRegistry.ts`
    - Tests
    - Documentation
 4. Archiver documentation dans `docs/history/`
@@ -310,10 +362,11 @@ Redémarrer le serveur pour recharger les règles.
 - [RULE_CREATION_GUIDE.md](./RULE_CREATION_GUIDE.md) - Guide complet
 - [RULE_EXAMPLE_OFFICE_FEE.md](./RULE_EXAMPLE_OFFICE_FEE.md) - Exemple détaillé
 - [AGENT_VALIDATION_WORKFLOW.md](./AGENT_VALIDATION_WORKFLOW.md) - Workflow agents
+- [MONETARY_IMPACT_GUIDE.md](./MONETARY_IMPACT_GUIDE.md) - Guide impact financier
 
 ### Code Source
-- [ruleTypeHandlers.ts](../../../server/modules/validateur/validation/ruleTypeHandlers.ts) - Handlers
-- [databaseRuleLoader.ts](../../../server/modules/validateur/validation/databaseRuleLoader.ts) - Loader
+- [rules/](../../../server/modules/validateur/validation/rules/) - Règles TypeScript individuelles
+- [ruleRegistry.ts](../../../server/modules/validateur/validation/ruleRegistry.ts) - Enregistrement central
 - [tests/validation-rules/](../../../tests/validation-rules/) - Tests
 
 ### Guides Connexes

@@ -204,20 +204,44 @@ function validateDoctorDay(dayData: DoctorDayInterventionData, validationRunId: 
       .map(intervention => intervention.id)
       .filter(id => id !== null) as string[];
 
-    // Calculate monetary impact for this violation
+    // Calculate total amount (all interventions)
     const totalAmount = dayData.interventions.reduce((sum, r) =>
       sum + Number(r.montantPreliminaire || 0), 0
     );
+
+    // Calculate monetary impact: value of UNPAID visits over the 180-minute limit
+    // Filter for interventions that were NOT paid (montantPaye = 0 or null)
+    const unpaidInterventions = dayData.interventions.filter(r =>
+      Number(r.montantPaye || 0) === 0
+    );
+
+    // Calculate total unpaid amount for interventions over the limit
+    const unpaidAmount = unpaidInterventions.reduce((sum, r) =>
+      sum + Number(r.montantPreliminaire || 0), 0
+    );
+
+    // Determine severity: ERROR if unpaid interventions exist, INFO if all paid
+    const severity: "error" | "info" = unpaidAmount > 0 ? "error" : "info";
+
+    // Build message based on paid status
+    const message = unpaidAmount > 0
+      ? `Limite quotidienne d'interventions cliniques dépassée : ${dayData.totalMinutes} minutes facturées le ${dayData.date} (maximum : 180 minutes par jour). ${unpaidInterventions.length} intervention(s) non payée(s).`
+      : `Limite quotidienne d'interventions cliniques dépassée : ${dayData.totalMinutes} minutes facturées le ${dayData.date} (maximum : 180 minutes par jour), mais toutes les interventions ont été payées par la RAMQ.`;
+
+    // Solution: only provide if there are unpaid interventions to fix
+    const solution = unpaidAmount > 0
+      ? `Veuillez vérifier si les éléments de contexte ICEP, ICSM ou ICTOX sont manquants. Autrement, annuler ${excessMinutes} minutes d'interventions non payées pour respecter la limite de 180 minutes par jour.`
+      : null;
 
     results.push({
       validationRunId,
       ruleId: "INTERVENTION_CLINIQUE_DAILY_LIMIT",
       billingRecordId: firstRecord.id,
       idRamq: firstRecord.idRamq,
-      severity: "error",
+      severity,
       category: "intervention_clinique",
-      message: `Limite quotidienne d'interventions cliniques dépassée : ${dayData.totalMinutes} minutes facturées le ${dayData.date} (maximum : 180 minutes par jour).`,
-      solution: `Veuillez vérifier si les éléments de contexte ICEP, ICSM ou ICTOX sont manquants. Autrement, réduire le nombre d'interventions cliniques ou annuler ${excessMinutes} minutes d'interventions pour respecter la limite de 180 minutes par jour.`,
+      message,
+      solution,
       affectedRecords: affectedRecordIds,
       ruleData: {
         doctor: dayData.doctor,
@@ -228,8 +252,10 @@ function validateDoctorDay(dayData: DoctorDayInterventionData, validationRunId: 
         code8857Minutes: dayData.code8857Minutes,
         code8859Minutes: dayData.code8859Minutes,
         recordCount: dayData.interventions.length,
+        unpaidCount: unpaidInterventions.length,
         totalAmount: totalAmount.toFixed(2),
-        monetaryImpact: totalAmount.toFixed(2)
+        unpaidAmount: unpaidAmount.toFixed(2),
+        monetaryImpact: unpaidAmount.toFixed(2)
       }
     });
   }

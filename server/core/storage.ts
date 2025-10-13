@@ -65,7 +65,6 @@ export interface IStorage {
   createRule(rule: InsertRule): Promise<Rule>;
   updateRule(id: string, data: Partial<InsertRule>): Promise<Rule>;
   deleteRule(id: string): Promise<void>;
-  upsertRules(rules: InsertRule[]): Promise<void>;
 
   // Field Catalog
   getFieldCatalog(tableName?: string): Promise<FieldCatalog[]>;
@@ -692,25 +691,6 @@ export class DatabaseStorage implements IStorage {
     await cacheService.invalidate(CACHE_KEYS.RULES);
   }
 
-  async upsertRules(ruleList: InsertRule[]): Promise<void> {
-    if (ruleList.length === 0) return;
-
-    await db.insert(rules).values(ruleList).onConflictDoUpdate({
-      target: rules.name,
-      set: {
-        condition: sql`EXCLUDED.condition`,
-        threshold: sql`EXCLUDED.threshold`,
-        enabled: sql`EXCLUDED.enabled`,
-        customFields: sql`EXCLUDED.custom_fields`,
-        updatedAt: sql`EXCLUDED.updated_at`,
-        updatedBy: sql`EXCLUDED.updated_by`
-      }
-    });
-
-    // Invalidate rules cache after bulk upsert
-    await cacheService.invalidate(CACHE_KEYS.RULES);
-  }
-
   // Field Catalog
   async getFieldCatalog(tableName?: string): Promise<FieldCatalog[]> {
     const conditions = [eq(fieldCatalog.active, true)];
@@ -841,6 +821,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getValidationResults(validationRunId: string): Promise<ValidationResult[]> {
+    // Import rule registry to get rule names from hardcoded TypeScript rules
+    const { getRuleById } = await import('../modules/validateur/validation/ruleRegistry.js');
+
     const results = await db
       .select({
         id: validationResults.id,
@@ -854,21 +837,25 @@ export class DatabaseStorage implements IStorage {
         affectedRecords: validationResults.affectedRecords,
         ruleData: validationResults.ruleData,
         createdAt: validationResults.createdAt,
-        ruleName: rules.name,
-        idRamq: validationResults.idRamq, // Fixed: read from validation_results table, not billing_records
+        idRamq: validationResults.idRamq,
       })
       .from(validationResults)
-      .leftJoin(rules, sql`${validationResults.ruleId}::uuid = ${rules.id}`)
       .leftJoin(billingRecords, eq(validationResults.billingRecordId, billingRecords.id))
       .where(eq(validationResults.validationRunId, validationRunId))
       .orderBy(asc(validationResults.createdAt));
 
-    // Calculate monetary impact for each result
+    // Calculate monetary impact and add rule name from registry
     const resultsWithImpact = await Promise.all(
       results.map(async (result) => {
         const monetaryImpact = await this.calculateMonetaryImpact(result);
+
+        // Get rule name from hardcoded TypeScript rules instead of database
+        const rule = getRuleById(result.ruleId);
+        const ruleName = rule?.name || result.ruleId; // Fallback to ruleId if rule not found
+
         return {
           ...result,
+          ruleName,
           monetaryImpact,
         };
       })
@@ -880,53 +867,75 @@ export class DatabaseStorage implements IStorage {
   private async calculateMonetaryImpact(result: any): Promise<number> {
     const ruleData = result.ruleData || {};
     const category = result.category;
+    const severity = result.severity;
 
-    // Office fee validation - missing or insufficient office fees
-    if (category === "office_fees") {
-      const code = ruleData.code;
-
-      // Get tariff value for office fee code
-      const [codeData] = await db
-        .select({ tariffValue: codes.tariffValue })
-        .from(codes)
-        .where(eq(codes.code, code))
-        .limit(1);
-
-      if (codeData && codeData.tariffValue) {
-        // If the message indicates missing patients, the doctor can't bill this office fee
-        // Potential loss = office fee tariff
-        return Number(codeData.tariffValue);
+    // ===== INTERVENTION CLINIQUE DAILY LIMIT =====
+    // Calculate the value of UNPAID visits over the 180-minute limit
+    if (category === "intervention_clinique") {
+      // The rule already calculates monetaryImpact in ruleData
+      // Use it if present, otherwise return 0
+      if (ruleData.monetaryImpact) {
+        return Number(ruleData.monetaryImpact);
       }
+      return 0;
     }
 
-    // GMF forfait 8875 validation
+    // ===== REVENUE OPTIMIZATION (Visit Duration) =====
+    // Potential revenue gain from billing intervention clinique instead of visit
+    if (category === "revenue_optimization" && severity === "optimization") {
+      // The rule already calculates monetaryImpact in ruleData
+      if (ruleData.monetaryImpact || ruleData.gain) {
+        return Number(ruleData.monetaryImpact || ruleData.gain);
+      }
+      return 0;
+    }
+
+    // ===== GMF FORFAIT 8875 =====
     if (category === "gmf_forfait") {
-      // Get tariff value for code 8875
-      const [codeData] = await db
-        .select({ tariffValue: codes.tariffValue })
-        .from(codes)
-        .where(eq(codes.code, "8875"))
-        .limit(1);
+      // Error (duplicate): Paid duplicates never happen, so impact = 0
+      if (severity === "error") {
+        return 0;
+      }
 
-      if (codeData && codeData.tariffValue) {
-        const severity = result.severity;
-
-        // Error (duplicate): Doctor must refund duplicate billing
-        // Potential financial impact = negative (loss of tariff value)
-        if (severity === "error") {
-          return Number(codeData.tariffValue);
+      // Optimization (missed opportunity): Doctor could have billed but didn't
+      if (severity === "optimization") {
+        // Use potentialRevenue from ruleData if present
+        if (ruleData.potentialRevenue) {
+          return Number(ruleData.potentialRevenue);
         }
 
-        // Optimization (missed opportunity): Doctor could have billed but didn't
-        // Potential financial gain = tariff value
-        if (severity === "optimization") {
+        // Fallback: Get tariff value for code 8875
+        const [codeData] = await db
+          .select({ tariffValue: codes.tariffValue })
+          .from(codes)
+          .where(eq(codes.code, "8875"))
+          .limit(1);
+
+        if (codeData && codeData.tariffValue) {
           return Number(codeData.tariffValue);
         }
       }
+      return 0;
     }
 
-    // For other validation types, return 0 for now
-    // TODO: Add calculations for other rule types
+    // ===== OFFICE FEE VALIDATION =====
+    if (category === "office_fees") {
+      // The rule should calculate and provide monetaryImpact in ruleData
+      // This represents the incorrectly claimed amount
+      if (ruleData.monetaryImpact) {
+        return Number(ruleData.monetaryImpact);
+      }
+
+      // Fallback: return 0 (let the rule handlers calculate proper impact)
+      return 0;
+    }
+
+    // ===== DEFAULT =====
+    // For all other categories, check if monetaryImpact is in ruleData
+    if (ruleData.monetaryImpact) {
+      return Number(ruleData.monetaryImpact);
+    }
+
     return 0;
   }
 
@@ -977,23 +986,6 @@ export class DatabaseStorage implements IStorage {
       data,
       total: Number(totalResult.count),
     };
-  }
-
-  // Rules
-  async getAllRules(): Promise<Rule[]> {
-    // Try cache first
-    const cached = await cacheService.get<Rule[]>(CACHE_KEYS.RULES);
-    if (cached) {
-      return cached;
-    }
-
-    // Cache miss - query database
-    const rulesData = await db.select().from(rules).where(eq(rules.enabled, true));
-
-    // Cache with 24 hour TTL (rules are stable)
-    await cacheService.set(CACHE_KEYS.RULES, rulesData);
-
-    return rulesData;
   }
 
   // SECURITY: Data cleanup methods for sensitive information

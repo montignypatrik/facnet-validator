@@ -113,15 +113,16 @@ export function redactBillingRecord(
  * // Does NOT redact idRamq field
  */
 export function redactValidationResult(
-  result: ValidationResult,
+  result: ValidationResult & { monetaryImpact?: number },
   enabled: boolean = true
-): ValidationResult {
+): ValidationResult & { monetaryImpact?: number } {
   if (!enabled) {
     return result;
   }
 
   // Create a copy to avoid mutating the original
-  const redactedResult = { ...result };
+  // IMPORTANT: Use spread to preserve all fields, including dynamically added ones like monetaryImpact
+  const redactedResult = { ...result } as ValidationResult & { monetaryImpact?: number };
 
   // Redact ruleData if it contains patient information
   if (result.ruleData && typeof result.ruleData === 'object') {
@@ -148,6 +149,7 @@ export function redactValidationResult(
 
   // IMPORTANT: idRamq field is NOT redacted - it's billing data, not PHI
   // The idRamq field is used for grouping validation results by invoice
+  // IMPORTANT: monetaryImpact field is preserved (added dynamically in storage.getValidationResults())
 
   return redactedResult;
 }

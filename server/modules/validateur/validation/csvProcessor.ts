@@ -3,12 +3,11 @@ import fs from 'fs';
 import path from 'path';
 import { BillingRecord, InsertBillingRecord } from "@shared/schema";
 import { validationEngine } from './engine';
-import { loadDatabaseRules } from './databaseRuleLoader';
-import { storage } from '../../../core/storage';
+import { getAllValidationRules } from './ruleRegistry';
 import { logger } from '../logger';
 import { withSpan, withSpanSync } from '../../../observability';
 
-// Database rules will be loaded dynamically
+// All validation rules are now hardcoded in TypeScript
 
 export interface CSVRow {
   '#': string;
@@ -254,33 +253,19 @@ export class BillingCSVProcessor {
   }
 
   async validateBillingRecords(records: BillingRecord[], validationRunId: string) {
-    // Load rules from database and register them
-    await logger.debug(validationRunId, 'csvProcessor', 'Loading validation rules from database');
-    const databaseRules = await loadDatabaseRules();
+    // Register all hardcoded validation rules
+    await logger.debug(validationRunId, 'csvProcessor', 'Registering validation rules');
 
-    // Clear existing rules
     validationEngine.clearRules();
 
-    // If no database rules exist, fall back to hardcoded rules for compatibility
-    if (databaseRules.length === 0) {
-      await logger.info(validationRunId, 'csvProcessor', 'No database rules found, using fallback rules', {
-        ruleCount: 3,
-      });
-      const { officeFeeValidationRule } = await import('./rules/officeFeeRule');
-      const { interventionCliniqueRule } = await import('./rules/interventionCliniqueRule');
-      const { visitDurationOptimizationRule } = await import('./rules/visitDurationOptimizationRule');
-      validationEngine.registerRule(officeFeeValidationRule);
-      validationEngine.registerRule(interventionCliniqueRule);
-      validationEngine.registerRule(visitDurationOptimizationRule);
-    } else {
-      // Register database rules
-      for (const rule of databaseRules) {
-        validationEngine.registerRule(rule);
-      }
-      await logger.info(validationRunId, 'csvProcessor', `Registered ${databaseRules.length} validation rules`, {
-        ruleCount: databaseRules.length,
-      });
+    const rules = getAllValidationRules();
+    for (const rule of rules) {
+      validationEngine.registerRule(rule);
     }
+
+    await logger.info(validationRunId, 'csvProcessor', `Registered ${rules.length} validation rules`, {
+      ruleCount: rules.length,
+    });
 
     return await validationEngine.validateRecords(records, validationRunId);
   }

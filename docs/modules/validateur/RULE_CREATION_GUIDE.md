@@ -122,11 +122,10 @@ Please create the rule using all relevant agents.
 
 Claude will:
 1. ✅ Analyze your requirements
-2. ✅ Create handler function in `ruleTypeHandlers.ts`
-3. ✅ Register route in `databaseRuleLoader.ts`
+2. ✅ Create TypeScript rule file in `server/modules/validateur/validation/rules/`
+3. ✅ Register rule in `ruleRegistry.ts`
 4. ✅ Write comprehensive Vitest tests
-5. ✅ Insert database rule entry
-6. ✅ Run tests and verify (aim for 90%+ passing)
+5. ✅ Run tests and verify (aim for 90%+ passing)
 
 ### Step 5: Review & Test
 
@@ -134,7 +133,7 @@ Claude will provide:
 - ✅ **Test results summary** (X/Y tests passing)
 - ✅ **File locations** with line numbers
 - ✅ **Example error messages** in French
-- ✅ **Database rule verification**
+- ✅ **Rule registration verification**
 
 If tests fail:
 1. Claude will explain what's wrong
@@ -271,9 +270,9 @@ Message: "Maximum quotidien de {limit}$ dépassé"
 **Problem**: Uploaded CSV doesn't show expected errors
 
 **Solutions**:
-1. Verify rule is enabled in database: `SELECT * FROM rules WHERE rule_id = 'YOUR_RULE_ID'`
+1. Verify rule is registered in `ruleRegistry.ts` and `enabled: true`
 2. Check if target codes match CSV data
-3. Restart server to reload rules from database
+3. Restart server to reload rules
 4. Review console logs for rule execution messages
 
 ### Issue: Wrong Error Message
@@ -281,10 +280,10 @@ Message: "Maximum quotidien de {limit}$ dépassé"
 **Problem**: Error message doesn't match template
 
 **Solutions**:
-1. Check if rule condition JSON has correct messages
+1. Check if rule file has correct message strings
 2. Verify French language has proper accents
-3. Update database rule entry with correct messages
-4. Clear cache and restart server
+3. Update rule TypeScript file with correct messages
+4. Restart server to apply changes
 
 ### Issue: Performance Problems
 
@@ -323,6 +322,7 @@ Message: "Maximum quotidien de {limit}$ dépassé"
 See complete examples:
 - [`RULE_EXAMPLE_OFFICE_FEE.md`](./RULE_EXAMPLE_OFFICE_FEE.md) - Complex rule with multiple thresholds
 - [`RULE_TEMPLATE.md`](./RULE_TEMPLATE.md) - Blank template to copy
+- [`MONETARY_IMPACT_GUIDE.md`](./MONETARY_IMPACT_GUIDE.md) - How to implement financial impact tracking
 
 ---
 
@@ -330,7 +330,7 @@ See complete examples:
 
 If you're stuck:
 
-1. **Check existing rules**: Look at `server/modules/validateur/validation/ruleTypeHandlers.ts` for examples
+1. **Check existing rules**: Look at `server/modules/validateur/validation/rules/` for examples
 2. **Review test files**: See `tests/validation-rules/` for test patterns
 3. **Ask Claude**: "How do I create a rule that checks [your requirement]?"
 4. **Start simple**: Create basic version first, add complexity later

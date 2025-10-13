@@ -102,8 +102,8 @@
 │  │  │ ├─ validation/                                      │   │  │
 │  │  │ │   ├─ engine.ts (Orchestration)                    │   │  │
 │  │  │ │   ├─ csvProcessor.ts (File Parsing)               │   │  │
-│  │  │ │   ├─ databaseRuleLoader.ts (Rule Loading)         │   │  │
-│  │  │ │   └─ ruleTypeHandlers.ts (Business Logic)         │   │  │
+│  │  │ │   ├─ ruleRegistry.ts (Rule Registration)          │   │  │
+│  │  │ │   └─ rules/ (TypeScript validation rules)         │   │  │
 │  │  │ └─ schema.ts (Data Models)                          │   │  │
 │  │  └─────────────────────────────────────────────────────┘   │  │
 │  │                                                              │  │
@@ -165,9 +165,9 @@
                               ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │  VALIDATION ENGINE                                                  │
-│  ├─ databaseRuleLoader.ts loads active rules                        │
+│  ├─ ruleRegistry.ts loads hardcoded TypeScript rules                │
 │  ├─ engine.ts orchestrates validation                               │
-│  └─ ruleTypeHandlers.ts executes business logic                     │
+│  └─ rules/*.ts execute business logic                               │
 └─────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -183,12 +183,11 @@
 │  └─────────────────────────────────────────────────────────────┘  │
 │                                                                      │
 │  ┌─────────────────────────────────────────────────────────────┐  │
-│  │  Other Rule Types (Database-Driven)                         │  │
-│  │  ├─ Multiple Visits Same Day (Context #85 Required)         │  │
-│  │  ├─ Units Validation (Time/Length Requirements)             │  │
-│  │  ├─ Role Restrictions (Primary vs Assistant)                │  │
-│  │  ├─ Code Conflicts (Incompatible Billing Codes)             │  │
-│  │  └─ Sector Compliance (Hospital vs Clinic Rules)            │  │
+│  │  Other Active Rules (TypeScript Hardcoded)                  │  │
+│  │  ├─ Annual Billing Code (Leaf pattern validation)           │  │
+│  │  ├─ GMF Forfait 8875 (Duplicate + opportunity detection)    │  │
+│  │  ├─ Intervention Clinique (180 min/day limit)               │  │
+│  │  └─ Visit Duration Optimization (Revenue optimization)      │  │
 │  └─────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
                               │

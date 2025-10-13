@@ -8,10 +8,11 @@
  * - Loads all RAMQ codes (~6,740 records, ~4MB)
  * - Loads all contexts (~200 records, ~60KB)
  * - Loads all establishments (~1,000 records, ~300KB)
- * - Loads all validation rules (~50 rules, ~100KB)
+ *
+ * Note: Validation rules are now hardcoded in TypeScript (no caching needed)
  *
  * Total cache size: ~5MB of reference data
- * Expected warm-up time: 1-3 seconds
+ * Expected warm-up time: 1-2 seconds
  */
 
 import { storage } from '../core/storage.js';
@@ -38,10 +39,6 @@ export async function warmupCache(): Promise<void> {
     // Warm up establishments cache
     console.log('[CACHE WARMUP] Loading healthcare establishments...');
     await storage.getEstablishments({ page: 1, pageSize: 2000 }); // Load all establishments
-
-    // Warm up rules cache
-    console.log('[CACHE WARMUP] Loading validation rules...');
-    await storage.getAllRules(); // Load all enabled rules
 
     const duration = Date.now() - startTime;
     console.log(`[CACHE WARMUP] ✓ Cache warm-up complete in ${duration}ms`);

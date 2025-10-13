@@ -18,9 +18,6 @@ export const CACHE_KEYS = {
   /** RAMQ billing codes (6,740 records, ~4MB) - TTL: 1 hour */
   CODES: 'ramq:codes:all',
 
-  /** Validation rules (~50 rules, ~100KB) - TTL: 24 hours */
-  RULES: 'validation:rules:all',
-
   /** Service contexts (~200 records, ~60KB) - TTL: 1 hour */
   CONTEXTS: 'ramq:contexts:all',
 
@@ -36,11 +33,6 @@ export const CACHE_CONFIG: Record<string, CacheConfig> = {
     key: CACHE_KEYS.CODES,
     ttl: 3600, // 1 hour (RAMQ updates monthly)
     description: 'Quebec RAMQ billing codes - 6,740 records',
-  },
-  [CACHE_KEYS.RULES]: {
-    key: CACHE_KEYS.RULES,
-    ttl: 86400, // 24 hours (business rules stable)
-    description: 'Validation rules - enabled rules only',
   },
   [CACHE_KEYS.CONTEXTS]: {
     key: CACHE_KEYS.CONTEXTS,

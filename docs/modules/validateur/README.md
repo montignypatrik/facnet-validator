@@ -84,6 +84,7 @@ docs/modules/validateur/
 | Voir règles actives | [rules-implemented/README.md](./rules-implemented/README.md) |
 | Proposer une règle | [rules-future/README.md](./rules-future/README.md) |
 | Comprendre les agents | [AGENT_VALIDATION_WORKFLOW.md](./AGENT_VALIDATION_WORKFLOW.md) |
+| Implémenter impact financier | [MONETARY_IMPACT_GUIDE.md](./MONETARY_IMPACT_GUIDE.md) |
 
 ### Par Type de Document
 
@@ -92,6 +93,7 @@ docs/modules/validateur/
 - [RULE_CREATION_GUIDE.md](./RULE_CREATION_GUIDE.md)
 - [RULE_EXAMPLE_OFFICE_FEE.md](./RULE_EXAMPLE_OFFICE_FEE.md)
 - [AGENT_VALIDATION_WORKFLOW.md](./AGENT_VALIDATION_WORKFLOW.md)
+- [MONETARY_IMPACT_GUIDE.md](./MONETARY_IMPACT_GUIDE.md)
 
 **📗 Règles Implémentées** (référence):
 - [rules-implemented/ANNUAL_BILLING_CODE.md](./rules-implemented/ANNUAL_BILLING_CODE.md)
@@ -119,21 +121,18 @@ docs/modules/validateur/
 │  2. Parse Records            │                 │            │
 │     │                   ┌────│  • codes        │            │
 │     ▼                   │    │  • contexts     │            │
-│  3. Load Rules ─────────┘    │  • establishments│           │
-│     │                        │  • rules        │            │
-│     ▼                        └──────────────────┘            │
-│  4. Apply Handlers                                           │
+│  3. Load Hardcoded ─────┘    │  • establishments│           │
+│     TypeScript Rules         └──────────────────┘            │
+│     (ruleRegistry.ts)                                        │
 │     │                                                        │
-│     ├─→ validateProhibition                                 │
-│     ├─→ validateTimeRestriction                             │
-│     ├─→ validateRequirement                                 │
-│     ├─→ validateLocationRestriction                         │
-│     ├─→ validateAgeRestriction                              │
-│     ├─→ validateAmountLimit                                 │
-│     ├─→ validateMutualExclusion                             │
-│     ├─→ validateMissingAnnualOpportunity                    │
-│     ├─→ validateAnnualLimit                                 │
-│     └─→ validateAnnualBillingCode                           │
+│     ▼                                                        │
+│  4. Apply Rules                                              │
+│     │                                                        │
+│     ├─→ officeFeeValidationRule                             │
+│     ├─→ interventionCliniqueRule                            │
+│     ├─→ visitDurationOptimizationRule                       │
+│     ├─→ gmfForfait8875Rule                                  │
+│     └─→ annualBillingCodeRule                               │
 │     │                                                        │
 │     ▼                                                        │
 │  5. Collect Results                                          │
@@ -146,34 +145,36 @@ docs/modules/validateur/
 
 ### Types de Règles
 
-Le système supporte **10 types de handlers** différents:
+Le système utilise maintenant **des règles TypeScript hardcodées** pour une meilleure performance et maintenabilité:
 
-| Type | Description | Exemple |
-|------|-------------|---------|
-| prohibition | Codes interdits ensemble | A + B interdit |
-| time_restriction | Restrictions horaires | After-hours only |
-| requirement | Exigences | Code A nécessite code B |
-| location_restriction | Restrictions de lieu | Cabinet seulement |
-| age_restriction | Restrictions d'âge | < 18 ans |
-| amount_limit | Limites de montant | Max $X/jour |
-| mutual_exclusion | Un seul du groupe | Un examen annuel |
-| missing_annual_opportunity | Optimisation | Examen manquant |
-| annual_limit | Limite annuelle simple | 1x par an |
-| annual_billing_code | Limite annuelle avancée | 1x par an (leaf) |
+| Règle Active | Fichier | Description |
+|--------------|---------|-------------|
+| Office Fee | officeFeeRule.ts | Frais de bureau (19928, 19929) |
+| Intervention Clinique | interventionCliniqueRule.ts | Limite 180 min/jour |
+| Visit Duration | visitDurationOptimizationRule.ts | Optimisation intervention clinique |
+| GMF Forfait 8875 | gmfForfait8875Rule.ts | Forfait GMF annuel |
+| Annual Billing Code | annualBillingCodeRule.ts | Codes annuels (leaf patterns) |
+
+**⚠️ Migration**: L'ancien système de handlers database-driven a été remplacé par des règles TypeScript pour:
+- ✅ Meilleure performance (pas de requête DB au démarrage)
+- ✅ Type safety à la compilation
+- ✅ Code plus simple et maintenable
+- ✅ Tests plus faciles
 
 ---
 
 ## 📊 Statistiques
 
 ```
-Règles actives:              3
-Handlers disponibles:        10
-Types personnalisés:         2
+Règles actives:              5
+Architecture:                TypeScript hardcodé
+Format:                      ValidationRule interface
 Propositions en attente:     0
 
 Couverture de tests:         95%
 Performance moyenne:         <200ms pour 10k records
 Codes RAMQ supportés:        6,740
+Temps de chargement:         0ms (pas de DB query)
 ```
 
 ---

@@ -562,10 +562,13 @@ export default function RunDetailsPage() {
                                         }
                                       </h4>
                                     </div>
-                                    {/* Monetary Impact Badge */}
-                                    {result.monetaryImpact && result.monetaryImpact > 0 && (
-                                      <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-300 dark:border-green-700">
-                                        💵 Gain: ${result.monetaryImpact.toFixed(2)}
+                                    {/* Monetary Impact Badge - Always show for errors (even $0) */}
+                                    {result.monetaryImpact !== undefined && result.monetaryImpact !== null && (
+                                      <Badge className={result.monetaryImpact > 0
+                                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-300 dark:border-green-700"
+                                        : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-300 dark:border-red-700"
+                                      }>
+                                        💵 {result.monetaryImpact > 0 ? 'Gain' : 'Perte'}: ${result.monetaryImpact.toFixed(2)}
                                       </Badge>
                                     )}
                                   </div>
@@ -578,44 +581,63 @@ export default function RunDetailsPage() {
                                     </h5>
                                   </div>
 
-                                  {/* Details - Simplified */}
-                                  <div className="mb-3 bg-white dark:bg-gray-900 rounded p-3">
-                                    <h5 className="text-sm font-semibold text-foreground mb-2">Détails</h5>
-                                    <div className="grid grid-cols-2 gap-2 text-sm">
-                                      {result.ruleData?.code && (
+                                  {/* Billing Details - Show what was actually billed */}
+                                  {(result.ruleName === "Office Fee Validation (19928/19929)" || result.category === "office_fees") &&
+                                   result.ruleData?.billedCode && (
+                                    <div className="mb-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded p-3">
+                                      <h5 className="text-sm font-semibold text-foreground mb-2">Facturation</h5>
+                                      <div className="space-y-1 text-sm">
                                         <div className="flex justify-between">
-                                          <span className="text-muted-foreground">Code:</span>
-                                          <span className="font-mono font-medium">{result.ruleData.code}</span>
+                                          <span className="text-muted-foreground">Code facturé:</span>
+                                          <span className="font-semibold">{result.ruleData.billedCode} ({result.ruleData.billedAmount}$)</span>
                                         </div>
-                                      )}
-                                      {result.ruleData?.date && (
                                         <div className="flex justify-between">
-                                          <span className="text-muted-foreground">Date:</span>
-                                          <span className="font-medium">{result.ruleData.date}</span>
+                                          <span className="text-muted-foreground">Type:</span>
+                                          <span className="font-medium">
+                                            {result.ruleData.hasContext
+                                              ? "Sans rendez-vous (#G160 ou #AR)"
+                                              : "Inscrits (aucun contexte)"
+                                            }
+                                          </span>
                                         </div>
-                                      )}
-                                      {(result.ruleData?.type === 'registered' || result.ruleData?.type === 'walk_in') && result.ruleData?.paidVisits !== undefined && (
-                                        <div className="flex justify-between">
-                                          <span className="text-muted-foreground">Visites payées:</span>
-                                          <span className="font-medium">{result.ruleData.paidVisits}</span>
-                                        </div>
-                                      )}
-                                      {(result.ruleData?.type === 'registered' || result.ruleData?.type === 'walk_in') && result.ruleData?.unpaidVisits !== undefined && (
-                                        <div className="flex justify-between">
-                                          <span className="text-muted-foreground">Visites non payées:</span>
-                                          <span className="font-medium">{result.ruleData.unpaidVisits}</span>
-                                        </div>
-                                      )}
+                                      </div>
                                     </div>
-                                  </div>
+                                  )}
+
+                                  {/* Visit Details - Show for Office Fee rule */}
+                                  {(result.ruleName === "Office Fee Validation (19928/19929)" || result.category === "office_fees") &&
+                                   (result.ruleData?.registeredPaidCount !== undefined || result.ruleData?.walkInPaidCount !== undefined) && (
+                                    <div className="mb-3 bg-white dark:bg-gray-900 rounded p-3">
+                                      <h5 className="text-sm font-semibold text-foreground mb-2">Détails des visites</h5>
+                                      <div className="grid grid-cols-2 gap-2 text-sm">
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Inscrits payés:</span>
+                                          <span className="font-medium">{result.ruleData?.registeredPaidCount || 0}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Inscrits non payés:</span>
+                                          <span className="font-medium">{result.ruleData?.registeredUnpaidCount || 0}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Sans RDV payés:</span>
+                                          <span className="font-medium">{result.ruleData?.walkInPaidCount || 0}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Sans RDV non payés:</span>
+                                          <span className="font-medium">{result.ruleData?.walkInUnpaidCount || 0}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
 
                                   {/* How to Fix */}
                                   {result.solution && (
                                     <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded p-3">
                                       <h5 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1 flex items-center">
                                         <CheckCircle className="w-4 h-4 mr-1.5" />
-                                        {result.solution}
+                                        Solution recommandée
                                       </h5>
+                                      <p className="text-sm text-blue-800 dark:text-blue-200">{result.solution}</p>
                                     </div>
                                   )}
                                 </div>
@@ -673,9 +695,9 @@ export default function RunDetailsPage() {
                                       </h4>
                                     </div>
                                     {/* Monetary Impact Badge */}
-                                    {result.ruleData?.gain && Number(result.ruleData.gain) > 0 && (
+                                    {result.monetaryImpact && result.monetaryImpact > 0 && (
                                       <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-300 dark:border-green-700">
-                                        💵 Gain: ${Number(result.ruleData.gain).toFixed(2)}
+                                        💵 Gain: ${result.monetaryImpact.toFixed(2)}
                                       </Badge>
                                     )}
                                   </div>
@@ -688,54 +710,31 @@ export default function RunDetailsPage() {
                                     </h5>
                                   </div>
 
-                                  {/* Details */}
-                                  <div className="mb-3 bg-white dark:bg-gray-900 rounded p-3">
-                                    <h5 className="text-sm font-semibold text-foreground mb-2">Détails</h5>
-                                    <div className="grid grid-cols-2 gap-2 text-sm">
-                                      {result.ruleData?.currentCode && (
+                                  {/* Visit Details - Show for Office Fee rule */}
+                                  {(result.ruleName === "Office Fee Validation (19928/19929)" || result.category === "office_fees") &&
+                                   (result.ruleData?.registeredPaidCount !== undefined || result.ruleData?.walkInPaidCount !== undefined) && (
+                                    <div className="mb-3 bg-white dark:bg-gray-900 rounded p-3">
+                                      <h5 className="text-sm font-semibold text-foreground mb-2">Détails des visites</h5>
+                                      <div className="grid grid-cols-2 gap-2 text-sm">
                                         <div className="flex justify-between">
-                                          <span className="text-muted-foreground">Code actuel:</span>
-                                          <span className="font-mono font-medium">{result.ruleData.currentCode}</span>
+                                          <span className="text-muted-foreground">Inscrits payés:</span>
+                                          <span className="font-medium">{result.ruleData?.registeredPaidCount || 0}</span>
                                         </div>
-                                      )}
-                                      {result.ruleData?.duration && (
                                         <div className="flex justify-between">
-                                          <span className="text-muted-foreground">Durée:</span>
-                                          <span className="font-medium">{result.ruleData.duration} min</span>
+                                          <span className="text-muted-foreground">Inscrits non payés:</span>
+                                          <span className="font-medium">{result.ruleData?.registeredUnpaidCount || 0}</span>
                                         </div>
-                                      )}
-                                      {result.ruleData?.debut && (
                                         <div className="flex justify-between">
-                                          <span className="text-muted-foreground">Début:</span>
-                                          <span className="font-medium">{result.ruleData.debut}</span>
+                                          <span className="text-muted-foreground">Sans RDV payés:</span>
+                                          <span className="font-medium">{result.ruleData?.walkInPaidCount || 0}</span>
                                         </div>
-                                      )}
-                                      {result.ruleData?.fin && (
                                         <div className="flex justify-between">
-                                          <span className="text-muted-foreground">Fin:</span>
-                                          <span className="font-medium">{result.ruleData.fin}</span>
+                                          <span className="text-muted-foreground">Sans RDV non payés:</span>
+                                          <span className="font-medium">{result.ruleData?.walkInUnpaidCount || 0}</span>
                                         </div>
-                                      )}
-                                      {result.ruleData?.currentAmount && (
-                                        <div className="flex justify-between">
-                                          <span className="text-muted-foreground">Montant actuel:</span>
-                                          <span className="font-medium">${result.ruleData.currentAmount}</span>
-                                        </div>
-                                      )}
-                                      {result.ruleData?.interventionAmount && (
-                                        <div className="flex justify-between">
-                                          <span className="text-muted-foreground">Montant intervention:</span>
-                                          <span className="font-medium text-green-600 dark:text-green-400">${result.ruleData.interventionAmount}</span>
-                                        </div>
-                                      )}
-                                      {result.ruleData?.suggestedCodes && (
-                                        <div className="col-span-2 flex justify-between">
-                                          <span className="text-muted-foreground">Codes suggérés:</span>
-                                          <span className="font-mono font-medium">{result.ruleData.suggestedCodes.join(', ')}</span>
-                                        </div>
-                                      )}
+                                      </div>
                                     </div>
-                                  </div>
+                                  )}
 
                                   {/* How to implement */}
                                   {result.solution && (
