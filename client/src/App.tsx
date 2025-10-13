@@ -11,6 +11,7 @@ import Upload from "./pages/validator/Upload";
 import Runs from "./pages/validator/Runs";
 import RunDetails from "./pages/validator/RunDetails";
 import Analytics from "./pages/validator/Analytics";
+import { ValidationResultPreview } from "./pages/validator/ValidationResultPreview";
 import Codes from "./pages/database/Codes";
 import Contexts from "./pages/database/Contexts";
 import Establishments from "./pages/database/Establishments";
@@ -90,6 +91,7 @@ function Router() {
       <Route path="/validator/runs" component={Runs} />
       <Route path="/validator/runs/:id" component={RunDetails} />
       <Route path="/validator/analytics" component={Analytics} />
+      <Route path="/validator/preview" component={ValidationResultPreview} />
 
       {/* Module routes */}
       <Route path="/chatbot" component={Chatbot} />
