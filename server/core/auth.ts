@@ -31,8 +31,14 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export async function authenticateToken(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  // Support both Authorization header and query parameter (for SSE/EventSource)
   const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.split(' ')[1];
+  let token = authHeader && authHeader.split(' ')[1];
+
+  // Fallback to query parameter for SSE connections (EventSource can't set headers)
+  if (!token && req.query.token) {
+    token = req.query.token as string;
+  }
 
   console.log("Auth Debug:", { authHeader, token, path: req.path });
 
