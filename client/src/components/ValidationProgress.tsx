@@ -73,10 +73,13 @@ export function ValidationProgress({ validationId, realProgress = 0, status }: V
     enabled: status === 'queued' || status === 'processing',
   });
 
-  // Don't show progress component if validation is completed or failed
-  if (status !== 'queued' && status !== 'processing') {
+  // Keep showing progress component until minimum time is met, even if completed/failed
+  if (status !== 'queued' && status !== 'processing' && isMinimumTimeMet) {
     return null;
   }
+
+  // If status is completed/failed but minimum time not met, continue showing as processing
+  const displayStatus = (status === 'completed' || status === 'failed') && !isMinimumTimeMet ? 'processing' : status;
 
   const PhaseIcon = PHASE_ICONS[phase];
   const phaseMessage = PHASE_MESSAGES[phase];
@@ -97,7 +100,7 @@ export function ValidationProgress({ validationId, realProgress = 0, status }: V
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {status === 'queued' ? (
+        {displayStatus === 'queued' ? (
           <div className="space-y-4">
             <Alert>
               <Clock className="h-4 w-4" />

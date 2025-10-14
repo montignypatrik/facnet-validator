@@ -32,23 +32,16 @@ export function useSmartProgress({ realProgress = 0, status }: UseSmartProgressO
   const startTimeRef = useRef<number>(Date.now());
   const animationFrameRef = useRef<number>();
 
-  // Reset start time when status changes to running/queued
+  // Reset start time only when job first starts (queued status)
   useEffect(() => {
-    if (status === 'queued' || status === 'processing') {
+    if (status === 'queued') {
       startTimeRef.current = Date.now();
       setIsMinimumTimeMet(false);
       setDisplayProgress(0);
     }
-  }, [status]);
+  }, [status === 'queued']); // Only reset when becoming queued
 
   useEffect(() => {
-    // Don't animate if completed or failed
-    if (status === 'completed' || status === 'failed') {
-      setDisplayProgress(realProgress);
-      setIsMinimumTimeMet(true);
-      return;
-    }
-
     // Animate progress smoothly using requestAnimationFrame
     const animate = () => {
       const elapsed = Date.now() - startTimeRef.current;
@@ -57,22 +50,32 @@ export function useSmartProgress({ realProgress = 0, status }: UseSmartProgressO
       // Minimum 5-second display time
       const minimumTime = 5;
 
+      // Enforce 5-second minimum even if completed/failed
       if (elapsedSeconds >= minimumTime) {
         setIsMinimumTimeMet(true);
-        // After 5 seconds, use real progress from backend
-        setDisplayProgress(realProgress);
+        // After 5 seconds, show real progress (or 100% if completed)
+        const finalProgress = (status === 'completed' || status === 'failed') ? 100 : realProgress;
+        setDisplayProgress(finalProgress);
+
+        // Stop animating once minimum time is met and job is done
+        if (status === 'completed' || status === 'failed') {
+          return;
+        }
       } else {
         // Generate artificial smooth progress over 5 seconds
         // Using easeOutQuad for smooth deceleration
         const normalizedTime = elapsedSeconds / minimumTime;
         const easedProgress = 1 - Math.pow(1 - normalizedTime, 2);
 
+        // If job completed early, animate smoothly to 95% over remaining time
+        const targetProgress = (status === 'completed' || status === 'failed') ? 95 : realProgress;
+
         // Cap artificial progress at 95% to leave room for real completion
         const artificialProgress = Math.min(easedProgress * 95, 95);
 
-        // Blend artificial and real progress, favoring artificial early on
+        // Blend artificial and real/target progress
         const blendFactor = normalizedTime; // 0 to 1 over 5 seconds
-        const blended = artificialProgress * (1 - blendFactor) + realProgress * blendFactor;
+        const blended = artificialProgress * (1 - blendFactor) + targetProgress * blendFactor;
 
         setDisplayProgress(Math.min(blended, 95));
       }
