@@ -64,9 +64,14 @@ export default function RunDetailsPage() {
     run?.status === 'queued' || run?.status === 'processing'
   );
 
+  // Calculate progress percentage inline to avoid initialization issues
+  const progressPercentage = (!run?.totalRows || run.totalRows === 0)
+    ? 0
+    : Math.round((run.processedRows / run.totalRows) * 100);
+
   // Get progress animation state
   const { isMinimumTimeMet } = useSmartProgress({
-    realProgress: streamData?.progress || getProgressPercentage(),
+    realProgress: streamData?.progress || progressPercentage,
     status: run?.status || 'queued',
   });
 
