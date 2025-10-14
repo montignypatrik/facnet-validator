@@ -54,14 +54,11 @@ jobs:
             git reset --hard origin/main
           fi
 
-          # Install ALL dependencies (including devDependencies for building)
+          # Install ALL dependencies (server imports from vite.ts which needs Vite)
           npm ci
 
           # Build application
           npm run build
-
-          # Remove devDependencies to save space (optional)
-          npm prune --production
 
           # Run database migrations
           npm run db:push
