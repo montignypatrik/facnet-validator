@@ -10,6 +10,29 @@ export interface DoctorDayData {
   totalAmount: number;
 }
 
+/**
+ * Redact doctor name for PHI compliance
+ * Input: "1901594-22114 | Morin, Caroline - Omnipraticien"
+ * Output: "Dr. M***"
+ */
+function redactDoctorName(fullName: string): string {
+  const parts = fullName.split('|');
+  if (parts.length < 2) return "Dr. ***";
+
+  const namePart = parts[1].trim(); // "Morin, Caroline - Omnipraticien"
+  const lastName = namePart.split(',')[0].trim(); // "Morin"
+  const initial = lastName.charAt(0).toUpperCase(); // "M"
+
+  return `Dr. ${initial}***`;
+}
+
+/**
+ * Format currency in Quebec French format (XX,XX$)
+ */
+function formatCurrency(amount: number): string {
+  return amount.toFixed(2).replace('.', ',') + '$';
+}
+
 export const officeFeeValidationRule: ValidationRule = {
   id: "office-fee-validation",
   name: "Office Fee Validation (19928/19929)",
@@ -59,18 +82,41 @@ export const officeFeeValidationRule: ValidationRule = {
 
     // Second pass: validate each doctor-day
     for (const [key, dayData] of doctorDayMap.entries()) {
-      results.push(...validateDoctorDay(dayData, validationRunId));
+      results.push(...validateDoctorDay(dayData, records, validationRunId));
     }
 
     return results;
   }
 };
 
-function validateDoctorDay(dayData: DoctorDayData, validationRunId: string): InsertValidationResult[] {
+function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], validationRunId: string): InsertValidationResult[] {
   const results: InsertValidationResult[] = [];
 
   const registeredCount = dayData.registeredPatients.size;
   const walkInCount = dayData.walkInPatients.size;
+
+  // Calculate visit statistics for display (used by all error types)
+  // Count visits with payment status by examining patient records
+  const registeredPaidCount = [...dayData.registeredPatients].filter(patientId => {
+    // A patient is "paid" if ANY of their records for this day has montantPaye > 0
+    return records.some(r =>
+      r.patient === patientId &&
+      r.dateService?.toISOString().split('T')[0] === dayData.date &&
+      r.montantPaye && parseFloat(r.montantPaye.toString()) > 0
+    );
+  }).length;
+
+  const registeredUnpaidCount = dayData.registeredPatients.size - registeredPaidCount;
+
+  const walkInPaidCount = [...dayData.walkInPatients].filter(patientId => {
+    return records.some(r =>
+      r.patient === patientId &&
+      r.dateService?.toISOString().split('T')[0] === dayData.date &&
+      r.montantPaye && parseFloat(r.montantPaye.toString()) > 0
+    );
+  }).length;
+
+  const walkInUnpaidCount = dayData.walkInPatients.size - walkInPaidCount;
 
   // Determine eligibility
   const registeredEligible = determineEligibility(registeredCount, 'registered');
@@ -111,12 +157,20 @@ function validateDoctorDay(dayData: DoctorDayData, validationRunId: string): Ins
             affectedRecords: [officeFee.id],
             ruleData: {
               code: "19928",
+              billedCode: officeFee.code || "19928",
+              billedAmount: officeFee.montantPreliminaire?.toString() || "32.10",
+              hasContext: true,
               type: "walk_in",
               required: 10,
               actual: walkInCount,
               doctor: dayData.doctor,
               date: dayData.date,
-              monetaryImpact: "0.00"
+              monetaryImpact: "0.00",
+              // Visit statistics for display
+              registeredPaidCount,
+              registeredUnpaidCount,
+              walkInPaidCount,
+              walkInUnpaidCount
             }
           });
         }
@@ -139,12 +193,20 @@ function validateDoctorDay(dayData: DoctorDayData, validationRunId: string): Ins
             affectedRecords: [officeFee.id],
             ruleData: {
               code: "19928",
+              billedCode: officeFee.code || "19928",
+              billedAmount: officeFee.montantPreliminaire?.toString() || "32.10",
+              hasContext: false,
               type: "registered",
               required: 6,
               actual: registeredCount,
               doctor: dayData.doctor,
               date: dayData.date,
-              monetaryImpact: "0.00"
+              monetaryImpact: "0.00",
+              // Visit statistics for display
+              registeredPaidCount,
+              registeredUnpaidCount,
+              walkInPaidCount,
+              walkInUnpaidCount
             }
           });
         }
@@ -163,12 +225,20 @@ function validateDoctorDay(dayData: DoctorDayData, validationRunId: string): Ins
             affectedRecords: [officeFee.id],
             ruleData: {
               code: "19929",
+              billedCode: officeFee.code || "19929",
+              billedAmount: officeFee.montantPreliminaire?.toString() || "64.20",
+              hasContext: true,
               type: "walk_in",
               required: 20,
               actual: walkInCount,
               doctor: dayData.doctor,
               date: dayData.date,
-              monetaryImpact: "0.00"
+              monetaryImpact: "0.00",
+              // Visit statistics for display
+              registeredPaidCount,
+              registeredUnpaidCount,
+              walkInPaidCount,
+              walkInUnpaidCount
             }
           });
         }
@@ -191,12 +261,20 @@ function validateDoctorDay(dayData: DoctorDayData, validationRunId: string): Ins
             affectedRecords: [officeFee.id],
             ruleData: {
               code: "19929",
+              billedCode: officeFee.code || "19929",
+              billedAmount: officeFee.montantPreliminaire?.toString() || "64.20",
+              hasContext: false,
               type: "registered",
               required: 12,
               actual: registeredCount,
               doctor: dayData.doctor,
               date: dayData.date,
-              monetaryImpact: "0.00"
+              monetaryImpact: "0.00",
+              // Visit statistics for display
+              registeredPaidCount,
+              registeredUnpaidCount,
+              walkInPaidCount,
+              walkInUnpaidCount
             }
           });
         }
@@ -207,20 +285,89 @@ function validateDoctorDay(dayData: DoctorDayData, validationRunId: string): Ins
   // E5: Check daily maximum ($64.80)
   if (dayData.totalAmount > 64.80) {
     const affectedIds = dayData.officeFees.map(fee => fee.id).filter(id => id !== null) as string[];
+
+    // Extract unique RAMQ IDs from all affected fees
+    const affectedRamqIds = dayData.officeFees
+      .map(fee => fee.idRamq)
+      .filter((id, index, self) => id && self.indexOf(id) === index) as string[];
+
+    // Build fee breakdown with patient association (including payment status)
+    const feeBreakdownWithPatients = dayData.officeFees.map(fee => ({
+      code: fee.code || 'Unknown',
+      amount: parseFloat(fee.montantPreliminaire || '0'),
+      idRamq: fee.idRamq || 'Unknown',
+      paid: fee.montantPaye ? parseFloat(fee.montantPaye.toString()) : 0
+    }));
+
+    // Calculate overage
+    const overage = dayData.totalAmount - 64.80;
+
+    // Redact doctor name
+    const redactedDoctor = redactDoctorName(dayData.doctor);
+
+    // Check if all office fees are paid (indicates likely data error in CSV)
+    // When RAMQ has already paid the fees, they validated before payment, so errors are rare
+    const allFeesPaid = dayData.officeFees.every(fee =>
+      fee.montantPaye && parseFloat(fee.montantPaye.toString()) > 0
+    );
+
+    // Determine severity and messages based on payment status
+    const severity = allFeesPaid ? "warning" : "error";
+
+    let message, solution;
+    if (allFeesPaid) {
+      // All fees are paid - likely a data error in the CSV file
+      message = `Anomalie de données: Maximum quotidien de frais de bureau de 64,80$ dépassé pour ${redactedDoctor} le ${dayData.date} (${affectedRamqIds.length} patient${affectedRamqIds.length > 1 ? 's' : ''}, total: ${formatCurrency(dayData.totalAmount)}, excédent: ${formatCurrency(overage)}). Toutes les facturations sont PAYÉES - vérifier l'exactitude du fichier CSV.`;
+
+      solution = `⚠️ PROBABLE ERREUR DE DONNÉES: Ces facturations ont déjà été payées par la RAMQ, qui valide avant de payer. Vérifier que le fichier CSV ne contient pas de données erronées ou dupliquées. Si les données sont exactes, contacter la RAMQ pour clarification.`;
+    } else {
+      // Some or all fees are unpaid - standard billing error
+      message = `Maximum quotidien de frais de bureau de 64,80$ dépassé pour ${redactedDoctor} le ${dayData.date} (${affectedRamqIds.length} patient${affectedRamqIds.length > 1 ? 's' : ''}, total: ${formatCurrency(dayData.totalAmount)}, excédent: ${formatCurrency(overage)})`;
+
+      // Identify unpaid fees to recommend for cancellation
+      const unpaidFees = feeBreakdownWithPatients.filter(fee => fee.paid === 0);
+
+      if (unpaidFees.length > 0) {
+        // Recommend canceling specific unpaid fees
+        if (unpaidFees.length === 1) {
+          solution = `Le médecin doit annuler la facture ${unpaidFees[0].idRamq} pour respecter le maximum quotidien de 64,80$ par médecin.`;
+        } else {
+          const unpaidIds = unpaidFees.map(f => f.idRamq).join(', ');
+          solution = `Le médecin doit annuler les factures non payées (${unpaidIds}) pour respecter le maximum quotidien de 64,80$ par médecin.`;
+        }
+      } else {
+        // All fees are paid but still exceeding (shouldn't happen due to allFeesPaid check, but safety)
+        solution = `Le médecin doit retirer 1 ou plusieurs facturations de frais de bureau (19928 ou 19929) pour respecter le maximum quotidien de 64,80$ par médecin.`;
+      }
+    }
+
     results.push({
       validationRunId,
       ruleId: "office-fee-validation",
       billingRecordId: null,
-      severity: "error",
+      idRamq: null,  // Leave null for multi-patient errors
+      severity,
       category: "office_fees",
-      message: `Maximum quotidien de frais de bureau de 64,80$ dépassé pour ${dayData.doctor} le ${dayData.date} (total: ${dayData.totalAmount.toFixed(2)}$)`,
+      message,
+      solution,
       affectedRecords: affectedIds,
       ruleData: {
-        doctor: dayData.doctor,
+        doctor: redactedDoctor,
         date: dayData.date,
-        totalAmount: dayData.totalAmount.toFixed(2),
-        maximum: 64.80,
-        monetaryImpact: "0.00"
+        totalAmount: formatCurrency(dayData.totalAmount),
+        maximum: "64,80",
+        overage: formatCurrency(overage),
+        affectedRamqIds,
+        feeBreakdownWithPatients,
+        patientCount: affectedRamqIds.length,
+        monetaryImpact: formatCurrency(overage),
+        likelyDataError: allFeesPaid,
+        allFeesPaid,
+        // Visit statistics for display
+        registeredPaidCount,
+        registeredUnpaidCount,
+        walkInPaidCount,
+        walkInUnpaidCount
       }
     });
   }
@@ -244,20 +391,29 @@ function validateDoctorDay(dayData: DoctorDayData, validationRunId: string): Ins
           affectedRecords: [],
           ruleData: {
             code: "19929",
+            billedCode: null,
+            billedAmount: null,
+            hasContext: false,
             type: "registered",
             eligibleCount: registeredCount,
             potentialRevenue: "64.20",
             monetaryImpact: "64.20",
             doctor: dayData.doctor,
-            date: dayData.date
+            date: dayData.date,
+            // Visit statistics for display
+            registeredPaidCount,
+            registeredUnpaidCount,
+            walkInPaidCount,
+            walkInUnpaidCount
           }
         });
       } else if (billed19928Registered && !billed19929Registered) {
         // O3: Billed 19928 but eligible for 19929
+        const billedFee = registeredOfficeFees.find(f => f.code === "19928");
         results.push({
           validationRunId,
           ruleId: "office-fee-validation",
-          billingRecordId: registeredOfficeFees.find(f => f.code === "19928")?.id || null,
+          billingRecordId: billedFee?.id || null,
           severity: "optimization",
           category: "office_fees",
           message: `Optimisation de revenus: ${dayData.doctor} a vu ${registeredCount} patients avec rendez-vous le ${dayData.date} et a facturé 19928 (32,10$), mais pourrait facturer 19929 (64,20$)`,
@@ -265,6 +421,9 @@ function validateDoctorDay(dayData: DoctorDayData, validationRunId: string): Ins
           affectedRecords: registeredOfficeFees.filter(f => f.code === "19928").map(f => f.id),
           ruleData: {
             code: "19929",
+            billedCode: billedFee?.code || "19928",
+            billedAmount: billedFee?.montantPreliminaire?.toString() || "32.10",
+            hasContext: false,
             type: "registered",
             currentCode: "19928",
             eligibleCount: registeredCount,
@@ -272,7 +431,12 @@ function validateDoctorDay(dayData: DoctorDayData, validationRunId: string): Ins
             currentRevenue: "32.10",
             monetaryImpact: "32.10",
             doctor: dayData.doctor,
-            date: dayData.date
+            date: dayData.date,
+            // Visit statistics for display
+            registeredPaidCount,
+            registeredUnpaidCount,
+            walkInPaidCount,
+            walkInUnpaidCount
           }
         });
       }
@@ -291,12 +455,20 @@ function validateDoctorDay(dayData: DoctorDayData, validationRunId: string): Ins
           affectedRecords: [],
           ruleData: {
             code: "19928",
+            billedCode: null,
+            billedAmount: null,
+            hasContext: false,
             type: "registered",
             eligibleCount: registeredCount,
             potentialRevenue: "32.10",
             monetaryImpact: "32.10",
             doctor: dayData.doctor,
-            date: dayData.date
+            date: dayData.date,
+            // Visit statistics for display
+            registeredPaidCount,
+            registeredUnpaidCount,
+            walkInPaidCount,
+            walkInUnpaidCount
           }
         });
       }
@@ -320,21 +492,30 @@ function validateDoctorDay(dayData: DoctorDayData, validationRunId: string): Ins
           affectedRecords: [],
           ruleData: {
             code: "19929",
+            billedCode: null,
+            billedAmount: null,
+            hasContext: true,
             type: "walk_in",
             eligibleCount: walkInCount,
             potentialRevenue: "64.20",
             monetaryImpact: "64.20",
             doctor: dayData.doctor,
             date: dayData.date,
-            requiredContext: "#G160 ou #AR"
+            requiredContext: "#G160 ou #AR",
+            // Visit statistics for display
+            registeredPaidCount,
+            registeredUnpaidCount,
+            walkInPaidCount,
+            walkInUnpaidCount
           }
         });
       } else if (billed19928WalkIn && !billed19929WalkIn) {
         // O6: Billed 19928#G160 but eligible for 19929#G160
+        const billedFee = walkInOfficeFees.find(f => f.code === "19928");
         results.push({
           validationRunId,
           ruleId: "office-fee-validation",
-          billingRecordId: walkInOfficeFees.find(f => f.code === "19928")?.id || null,
+          billingRecordId: billedFee?.id || null,
           severity: "optimization",
           category: "office_fees",
           message: `Optimisation de revenus: ${dayData.doctor} a vu ${walkInCount} patients sans rendez-vous le ${dayData.date} et a facturé 19928 (32,10$), mais pourrait facturer 19929 (64,20$)`,
@@ -342,6 +523,9 @@ function validateDoctorDay(dayData: DoctorDayData, validationRunId: string): Ins
           affectedRecords: walkInOfficeFees.filter(f => f.code === "19928").map(f => f.id),
           ruleData: {
             code: "19929",
+            billedCode: billedFee?.code || "19928",
+            billedAmount: billedFee?.montantPreliminaire?.toString() || "32.10",
+            hasContext: true,
             type: "walk_in",
             currentCode: "19928",
             eligibleCount: walkInCount,
@@ -350,7 +534,12 @@ function validateDoctorDay(dayData: DoctorDayData, validationRunId: string): Ins
             monetaryImpact: "32.10",
             doctor: dayData.doctor,
             date: dayData.date,
-            requiredContext: "#G160 ou #AR"
+            requiredContext: "#G160 ou #AR",
+            // Visit statistics for display
+            registeredPaidCount,
+            registeredUnpaidCount,
+            walkInPaidCount,
+            walkInUnpaidCount
           }
         });
       }
@@ -369,13 +558,21 @@ function validateDoctorDay(dayData: DoctorDayData, validationRunId: string): Ins
           affectedRecords: [],
           ruleData: {
             code: "19928",
+            billedCode: null,
+            billedAmount: null,
+            hasContext: true,
             type: "walk_in",
             eligibleCount: walkInCount,
             potentialRevenue: "32.10",
             monetaryImpact: "32.10",
             doctor: dayData.doctor,
             date: dayData.date,
-            requiredContext: "#G160 ou #AR"
+            requiredContext: "#G160 ou #AR",
+            // Visit statistics for display
+            registeredPaidCount,
+            registeredUnpaidCount,
+            walkInPaidCount,
+            walkInUnpaidCount
           }
         });
       }
@@ -397,13 +594,21 @@ function validateDoctorDay(dayData: DoctorDayData, validationRunId: string): Ins
         affectedRecords: [officeFee.id],
         ruleData: {
           code: "19928",
+          billedCode: officeFee.code || "19928",
+          billedAmount: officeFee.montantPreliminaire?.toString() || "32.10",
+          hasContext: false,
           type: "context_missing",
           walkInCount,
           registeredCount,
           monetaryImpact: "32.10",
           doctor: dayData.doctor,
           date: dayData.date,
-          requiredContext: "#G160 ou #AR"
+          requiredContext: "#G160 ou #AR",
+          // Visit statistics for display
+          registeredPaidCount,
+          registeredUnpaidCount,
+          walkInPaidCount,
+          walkInUnpaidCount
         }
       });
     } else if (officeFee.code === "19929" && walkInEligible === '19929' && registeredCount < 12) {
@@ -419,13 +624,21 @@ function validateDoctorDay(dayData: DoctorDayData, validationRunId: string): Ins
         affectedRecords: [officeFee.id],
         ruleData: {
           code: "19929",
+          billedCode: officeFee.code || "19929",
+          billedAmount: officeFee.montantPreliminaire?.toString() || "64.20",
+          hasContext: false,
           type: "context_missing",
           walkInCount,
           registeredCount,
           monetaryImpact: "64.20",
           doctor: dayData.doctor,
           date: dayData.date,
-          requiredContext: "#G160 ou #AR"
+          requiredContext: "#G160 ou #AR",
+          // Visit statistics for display
+          registeredPaidCount,
+          registeredUnpaidCount,
+          walkInPaidCount,
+          walkInUnpaidCount
         }
       });
     }

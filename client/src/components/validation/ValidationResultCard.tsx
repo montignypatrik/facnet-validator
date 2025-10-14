@@ -21,6 +21,7 @@ import { MonetaryImpactBadge } from "./MonetaryImpactBadge";
 import { BillingDetailsBox } from "./BillingDetailsBox";
 import { VisitStatisticsGrid } from "./VisitStatisticsGrid";
 import { SolutionBox } from "./SolutionBox";
+import { OfficeFeeBreakdownBox } from "./OfficeFeeBreakdownBox";
 
 export function ValidationResultCard({ result, showDetails = false }: ValidationResultCardProps) {
   const [isExpanded, setIsExpanded] = useState(showDetails);
@@ -30,6 +31,11 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
   // Type guards for rule-specific data
   const isOfficeFeeRule = (data: any): data is OfficeFeeRuleData => {
     return 'code' in data && 'billedAmount' in data;
+  };
+
+  // E5 daily maximum error has multi-patient data
+  const isOfficeFeeE5Error = (data: any): data is OfficeFeeRuleData => {
+    return 'affectedRamqIds' in data && 'feeBreakdownWithPatients' in data;
   };
 
   const isGmfForfaitRule = (data: any): data is GmfForfaitRuleData => {
@@ -44,16 +50,30 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
   return (
     <Card className={`${style.border} border-l-4 transition-all duration-200 hover:shadow-md`}>
       <CardHeader className={`${style.background} pb-3`}>
-        {/* Top Row: Icon + RAMQ Badge + Rule Name + Monetary Impact */}
+        {/* Top Row: Icon + RAMQ Badge(s) + Rule Name + Monetary Impact */}
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-2 flex-1">
             <Icon className={`${style.iconColor} w-5 h-5 flex-shrink-0`} />
             <div className="flex flex-col gap-1">
-              {result.idRamq && (
+              {/* Multi-RAMQ badges for doctor-level errors (E5) */}
+              {isOfficeFeeE5Error(result.ruleData) && result.ruleData.affectedRamqIds && result.ruleData.affectedRamqIds.length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  {result.ruleData.affectedRamqIds.slice(0, 3).map((ramqId) => (
+                    <Badge key={ramqId} variant="outline" className="font-mono text-xs">
+                      {ramqId}
+                    </Badge>
+                  ))}
+                  {result.ruleData.affectedRamqIds.length > 3 && (
+                    <Badge variant="outline" className="text-xs text-gray-600 dark:text-gray-400">
+                      +{result.ruleData.affectedRamqIds.length - 3} autres
+                    </Badge>
+                  )}
+                </div>
+              ) : result.idRamq ? (
                 <Badge className={style.badge}>
                   {result.idRamq}
                 </Badge>
-              )}
+              ) : null}
               <span className={`text-sm font-semibold ${style.headerText}`}>
                 {getRuleDisplayName(result.ruleName)}
               </span>
@@ -98,11 +118,35 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
             <SolutionBox solution={result.solution} severity={result.severity} />
           )}
 
-          {/* Office Fee Rule - Billing Details & Visit Statistics */}
-          {isOfficeFeeRule(result.ruleData) && (
+          {/* Office Fee E5 Error - Daily Maximum with Multi-Patient Breakdown */}
+          {isOfficeFeeE5Error(result.ruleData) && result.ruleData.feeBreakdownWithPatients && (
+            <>
+              <OfficeFeeBreakdownBox
+                feeBreakdownWithPatients={result.ruleData.feeBreakdownWithPatients}
+                totalAmount={result.ruleData.totalAmount || "0,00"}
+                maximum={result.ruleData.maximum || "64,80"}
+                overage={result.ruleData.overage || "0,00"}
+                patientCount={result.ruleData.patientCount || 0}
+                likelyDataError={result.ruleData.likelyDataError || false}
+              />
+
+              {/* Visit Statistics Grid - Show if visit counts are available */}
+              {hasVisitStatistics(result.ruleData) && (
+                <VisitStatisticsGrid
+                  registeredPaid={result.ruleData.registeredPaidCount || 0}
+                  registeredUnpaid={result.ruleData.registeredUnpaidCount || 0}
+                  walkinPaid={result.ruleData.walkInPaidCount || 0}
+                  walkinUnpaid={result.ruleData.walkInUnpaidCount || 0}
+                />
+              )}
+            </>
+          )}
+
+          {/* Office Fee Rule - Billing Details & Visit Statistics (E1-E4) */}
+          {isOfficeFeeRule(result.ruleData) && !isOfficeFeeE5Error(result.ruleData) && (
             <>
               <BillingDetailsBox
-                code={result.ruleData.code}
+                code={result.ruleData.code || "N/A"}
                 amount={result.ruleData.billedAmount || "N/A"}
                 type={result.ruleData.billedCode || "N/A"}
                 hasContext={result.ruleData.hasContext}
