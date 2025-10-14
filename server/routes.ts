@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import cors from "cors";
 import { registerModules, getModuleList } from "./moduleRegistry";
 import { cacheService } from "./cache/index.js";
+import { apiLimiter } from "./middleware/rateLimiter";
 
 /**
  * Dash Application Routes
@@ -16,6 +17,8 @@ const corsOptions = {
   origin: [
     "http://localhost:5173",
     "http://localhost:5000",
+    "https://148.113.196.245",        // Production
+    "https://148.113.196.245:3001",   // Staging
     ...(process.env.REPLIT_DOMAINS ? process.env.REPLIT_DOMAINS.split(",") : [])
   ],
   credentials: true,
@@ -25,7 +28,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Apply CORS middleware
   app.use(cors(corsOptions));
 
-  // Health check endpoint
+  // Health check endpoint (exempt from rate limiting)
   app.get("/api/health", (req, res) => {
     res.json({
       status: "healthy",
@@ -33,6 +36,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       platform: "Dash - Modular SAAS Platform",
     });
   });
+
+  // Apply rate limiting to all other /api routes
+  app.use("/api", apiLimiter);
 
   // Module information endpoint
   app.get("/api/modules", async (req, res) => {

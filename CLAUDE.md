@@ -116,28 +116,33 @@ node scripts/import_establishments.cjs   # Import establishments
 
 ```bash
 # Database (PostgreSQL with SSL/TLS)
-DATABASE_URL=postgresql://dashvalidator_user:PASSWORD@localhost:5432/dashvalidator?sslmode=require
+DATABASE_URL=postgresql://dashvalidator_user:<your-password>@localhost:5432/dashvalidator?sslmode=require
 
 # Redis (caching + BullMQ)
 REDIS_URL=redis://localhost:6379
 
 # Auth0 (frontend - VITE_ prefix required)
-VITE_AUTH0_DOMAIN=dev-x63i3b6hf5kch7ab.ca.auth0.com
-VITE_AUTH0_CLIENT_ID=ECieaY4IiPbZNbWMoGJTPmD4pGsEi2rr
+VITE_AUTH0_DOMAIN=<your-auth0-domain>.ca.auth0.com
+VITE_AUTH0_CLIENT_ID=<your-auth0-client-id>
 VITE_AUTH0_AUDIENCE=facnet-validator-api
 
 # Auth0 (backend)
-AUTH0_CLIENT_SECRET=fNxeP-Gq0kSe6EjEcgCYaHoCPoIYOKheH2sh0NjdefrlhOk9n6PUSg4te3likmk
-AUTH0_ISSUER_BASE_URL=https://dev-x63i3b6hf5kch7ab.ca.auth0.com
+# Get from Auth0 Dashboard → Applications → Settings
+AUTH0_CLIENT_SECRET=<your-auth0-client-secret>
+AUTH0_ISSUER_BASE_URL=https://<your-auth0-domain>.ca.auth0.com
 
 # Client API Base URL
 VITE_API_BASE_URL=http://localhost:5000/api
 
 # PHI Security
-PHI_REDACTION_SALT=99396260a8d4111225c83d71a260fcdaed678481cd868fe0e35b1969dc273f1b
+# Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+PHI_REDACTION_SALT=<generate-random-64-char-hex-string>
 ```
 
-**⚠️ Important**: `VITE_*` variables must be present at build time (embedded in JavaScript bundle).
+**⚠️ Important**:
+- `VITE_*` variables must be present at build time (embedded in JavaScript bundle)
+- **NEVER commit actual credentials to version control**
+- See [Database Credentials](docs/operations/DATABASE_CREDENTIALS.md) for accessing production credentials securely
 
 ## Production Deployment
 

@@ -79,23 +79,31 @@ export async function authenticateToken(req: AuthenticatedRequest, res: Response
         }
       }
 
-      // Validate @facturation.net email domain (disabled for development)
-      // TODO: Re-enable for production environment
-      // if (!email || !email.endsWith("@facturation.net")) {
-      //   console.error("Invalid email domain:", email);
-      //   return res.status(403).json({ error: "Access restricted to @facturation.net email addresses" });
-      // }
+      // Validate @facturation.net email domain in production
+      const isProd = process.env.NODE_ENV === 'production';
+      if (isProd && (!email || !email.endsWith("@facturation.net"))) {
+        console.error("Invalid email domain:", email);
+        return res.status(403).json({
+          error: "Accès restreint aux adresses email @facturation.net"
+        });
+      }
 
       // Fetch user role from database
-      let role = "admin"; // Default role (admin for local development)
+      // Default to viewer for security (least privilege principle)
+      let role = "viewer";
+
       try {
         const dbUser = await storage.getUserByEmail(email);
         if (dbUser) {
           role = dbUser.role;
+        } else if (process.env.NODE_ENV !== 'production') {
+          // Only grant admin in development with explicit flag
+          role = process.env.DEV_DEFAULT_ADMIN === 'true' ? 'admin' : 'viewer';
+          console.log(`[DEV] New user ${email}, assigned role: ${role}`);
         }
       } catch (dbError) {
         console.warn("Database unavailable, using default role:", dbError.message);
-        // Continue with default role instead of failing
+        // Fail securely - use viewer role even on database errors
       }
 
       req.user = {

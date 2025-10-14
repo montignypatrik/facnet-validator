@@ -24,19 +24,25 @@ import { closeDocumentQueue } from "./modules/chatbot/queue/documentQueue";
 const app = express();
 
 // Security headers with Helmet (CSP configured for file uploads and Auth0)
+const isDevelopment = process.env.NODE_ENV !== "production";
+
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Allow inline scripts for Vite in dev
+        // Only allow unsafe-inline/unsafe-eval in development (required for Vite HMR)
+        scriptSrc: [
+          "'self'",
+          ...(isDevelopment ? ["'unsafe-inline'", "'unsafe-eval'"] : [])
+        ],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"], // Allow Google Fonts
         imgSrc: ["'self'", "data:", "blob:", "https:"], // Allow data URLs and external images
         fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"], // Allow Google Fonts
         connectSrc: [
           "'self'",
           "https://dev-x63i3b6hf5kch7ab.ca.auth0.com", // Auth0 domain
-          "http://localhost:*", // Allow local API calls in development
+          ...(isDevelopment ? ["http://localhost:*"] : []), // Local API calls only in dev
         ],
         frameSrc: ["'self'", "https://dev-x63i3b6hf5kch7ab.ca.auth0.com"], // Auth0 login frame
         objectSrc: ["'none'"],

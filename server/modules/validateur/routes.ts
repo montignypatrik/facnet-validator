@@ -18,7 +18,24 @@ if (!fs.existsSync(uploadDir)) {
 
 const upload = multer({
   dest: uploadDir,
-  limits: { fileSize: 50 * 1024 * 1024 } // 50MB
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  fileFilter: (req, file, cb) => {
+    // Validate file extension
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedExtensions = ['.csv'];
+
+    if (!allowedExtensions.includes(ext)) {
+      return cb(new Error('Seuls les fichiers CSV sont acceptés'));
+    }
+
+    // Validate MIME type
+    const allowedMimeTypes = ['text/csv', 'application/vnd.ms-excel', 'text/plain'];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      return cb(new Error('Type de fichier invalide'));
+    }
+
+    cb(null, true);
+  }
 });
 
 const router = Router();

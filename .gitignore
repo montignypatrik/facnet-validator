@@ -11,9 +11,8 @@ coverage/
 uploads/
 
 # env & local configs
-.env
-.env.test
-client/.env
+.env*
+!.env.example
 .claude/
 *.local.json
 
