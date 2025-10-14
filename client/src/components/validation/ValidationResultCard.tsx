@@ -30,7 +30,7 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
 
   // Type guards for rule-specific data
   const isOfficeFeeRule = (data: any): data is OfficeFeeRuleData => {
-    return 'code' in data && 'billedAmount' in data;
+    return 'code' in data;
   };
 
   // E5 daily maximum error has multi-patient data
