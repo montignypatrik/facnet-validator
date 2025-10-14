@@ -27,28 +27,6 @@ jobs:
     - name: Build application
       run: npm run build
 
-    - name: Create deployment archive
-      run: |
-        tar -czf deployment.tar.gz \
-          dist/ \
-          server/ \
-          shared/ \
-          drizzle/ \
-          package.json \
-          package-lock.json \
-          ecosystem.config.cjs \
-          drizzle.config.ts \
-          tsconfig.json
-
-    - name: Upload build artifacts to VPS
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.VPS_HOST }}
-        username: ubuntu
-        key: ${{ secrets.VPS_SSH_KEY }}
-        source: "deployment.tar.gz"
-        target: "/tmp/"
-
     - name: Deploy to VPS
       uses: appleboy/ssh-action@v1.0.3
       with:
@@ -63,12 +41,27 @@ jobs:
           # Delete any existing PM2 processes (clean slate)
           pm2 delete facnet-validator 2>/dev/null || echo "No existing processes to delete"
 
-          # Extract deployment archive
-          tar -xzf /tmp/deployment.tar.gz -C /var/www/facnet/app/
-          rm /tmp/deployment.tar.gz
+          # Initialize git repository if it doesn't exist
+          if [ ! -d ".git" ]; then
+            echo "Initializing git repository..."
+            git init
+            git remote add origin https://github.com/montignypatrik/facnet-validator.git
+            git fetch origin
+            git checkout -b main origin/main
+          else
+            # Pull latest changes
+            git fetch origin
+            git reset --hard origin/main
+          fi
 
-          # Install production dependencies only
-          npm ci --only=production
+          # Install ALL dependencies (including devDependencies for building)
+          npm ci
+
+          # Build application
+          npm run build
+
+          # Remove devDependencies to save space (optional)
+          npm prune --production
 
           # Run database migrations
           npm run db:push
