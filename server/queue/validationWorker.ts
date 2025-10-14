@@ -17,7 +17,7 @@ import { withSpan } from '../observability';
 
 let worker: Worker<ValidationJobData> | null = null;
 
-const uploadDir = './uploads';
+const uploadDir = path.join(process.cwd(), 'uploads');
 
 /**
  * Process a validation job
