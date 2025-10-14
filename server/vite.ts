@@ -26,9 +26,10 @@ export async function setupVite(app: Express, server: Server) {
     allowedHosts: true as const,
   };
 
+  // Let Vite load config naturally - it will handle .env file cascade automatically
   const vite = await createViteServer({
-    ...viteConfig,
-    configFile: false,
+    server: serverOptions,
+    appType: "custom",
     customLogger: {
       ...viteLogger,
       error: (msg, options) => {
@@ -36,8 +37,6 @@ export async function setupVite(app: Express, server: Server) {
         process.exit(1);
       },
     },
-    server: serverOptions,
-    appType: "custom",
   });
 
   app.use(vite.middlewares);

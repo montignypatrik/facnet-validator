@@ -10,19 +10,25 @@ import client from "@/api/client";
 interface QueueHealthData {
   redis: {
     connected: boolean;
-    latency: number;
+    responseTime: number | null;
   };
   worker: {
-    active: boolean;
-    lastActivity: string;
+    status: string;
+    lastHeartbeat: string;
+    timeSinceHeartbeat: number;
   };
-  counts: {
+  queue: {
     waiting: number;
     active: number;
     completed: number;
     failed: number;
+    delayed: number;
+    stalled: number;
   };
-  health: 'healthy' | 'degraded' | 'unhealthy';
+  metrics: {
+    averageProcessingTime: number;
+    averageWaitTime: number;
+  };
 }
 
 /**
@@ -56,6 +62,26 @@ export function QueueHealthBadge() {
     return null;
   }
 
+  // Validate health data structure
+  if (!health.redis || !health.worker || !health.queue) {
+    console.error('Invalid queue health data structure:', health);
+    return null;
+  }
+
+  // Calculate health status from the data
+  const isRedisConnected = health.redis.connected;
+  const isWorkerActive = health.worker.status === 'running';
+  const waitingJobs = health.queue.waiting;
+
+  let healthStatus: 'healthy' | 'degraded' | 'unhealthy';
+  if (!isRedisConnected || !isWorkerActive || waitingJobs > 50) {
+    healthStatus = 'unhealthy';
+  } else if (waitingJobs >= 10) {
+    healthStatus = 'degraded';
+  } else {
+    healthStatus = 'healthy';
+  }
+
   // Determine color based on health status
   const statusConfig = {
     healthy: {
@@ -75,7 +101,7 @@ export function QueueHealthBadge() {
     },
   };
 
-  const config = statusConfig[health.health];
+  const config = statusConfig[healthStatus];
 
   // Format last activity time
   const formatLastActivity = (dateString: string) => {
@@ -96,7 +122,7 @@ export function QueueHealthBadge() {
     <Tooltip>
       <TooltipTrigger asChild>
         <Badge variant={config.badgeVariant} className="cursor-pointer">
-          <div className={`w-2 h-2 rounded-full ${config.color} mr-2 ${health.health === 'healthy' ? 'animate-pulse' : ''}`} />
+          <div className={`w-2 h-2 rounded-full ${config.color} mr-2 ${healthStatus === 'healthy' ? 'animate-pulse' : ''}`} />
           <span className="text-xs font-medium">File d'attente</span>
         </Badge>
       </TooltipTrigger>
@@ -105,7 +131,7 @@ export function QueueHealthBadge() {
           <div className="flex items-center justify-between">
             <span className="font-semibold">{config.label}</span>
             <Badge variant="outline" className="text-xs">
-              {health.health}
+              {healthStatus}
             </Badge>
           </div>
 
@@ -113,14 +139,14 @@ export function QueueHealthBadge() {
             <div className="flex justify-between">
               <span className="text-muted-foreground">Redis:</span>
               <span className={health.redis.connected ? 'text-green-600' : 'text-red-600'}>
-                {health.redis.connected ? `Connecté (${health.redis.latency}ms)` : 'Déconnecté'}
+                {health.redis.connected ? `Connecté (${health.redis.responseTime}ms)` : 'Déconnecté'}
               </span>
             </div>
 
             <div className="flex justify-between">
               <span className="text-muted-foreground">Worker:</span>
-              <span className={health.worker.active ? 'text-green-600' : 'text-red-600'}>
-                {health.worker.active ? `Actif (${formatLastActivity(health.worker.lastActivity)})` : 'Arrêté'}
+              <span className={isWorkerActive ? 'text-green-600' : 'text-red-600'}>
+                {isWorkerActive ? `Actif (${formatLastActivity(health.worker.lastHeartbeat)})` : 'Arrêté'}
               </span>
             </div>
 
@@ -128,19 +154,19 @@ export function QueueHealthBadge() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <div className="text-muted-foreground">En attente</div>
-                  <div className="font-semibold">{health.counts.waiting}</div>
+                  <div className="font-semibold">{health.queue.waiting}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">En cours</div>
-                  <div className="font-semibold">{health.counts.active}</div>
+                  <div className="font-semibold">{health.queue.active}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Terminés</div>
-                  <div className="font-semibold text-green-600">{health.counts.completed}</div>
+                  <div className="font-semibold text-green-600">{health.queue.completed}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Échoués</div>
-                  <div className="font-semibold text-red-600">{health.counts.failed}</div>
+                  <div className="font-semibold text-red-600">{health.queue.failed}</div>
                 </div>
               </div>
             </div>
