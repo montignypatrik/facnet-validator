@@ -1,43 +1,36 @@
+// Load environment variables from .env file (if exists)
+// PM2 will inherit these, but we keep minimal config here
 module.exports = {
   apps: [
     {
       name: 'facnet-validator',
       script: 'dist/server/index.js',
       interpreter: 'node',
-      instances: 'max', // Use all CPU cores
-      exec_mode: 'cluster', // Enable clustering for better performance
+      instances: 'max', // Use all CPU cores (6 on production server)
+      exec_mode: 'cluster', // Enable clustering for zero-downtime reload
       autorestart: true,
       watch: false,
       max_memory_restart: '1G',
+
+      // Environment variables (inherit from .env file on server)
+      // This avoids hardcoding credentials in version control
       env: {
-        NODE_ENV: 'production',
-        PORT: 5000,
-        DATABASE_URL: 'postgresql://dashvalidator_user:DashValidator2024@localhost:5432/dashvalidator',
-        REDIS_URL: 'redis://localhost:6379',
-        AUTH0_ISSUER_BASE_URL: 'https://dev-x63i3b6hf5kch7ab.ca.auth0.com',
-        AUTH0_AUDIENCE: 'facnet-validator-api',
-        AUTH0_CLIENT_SECRET: 'fNxeP-Gq0kSe6EjEcgCYaHoCPoIYOKheH2sh0NjdefrlhOk9n6PUSg4te3likmk',
-        PHI_REDACTION_SALT: '99396260a8d4111225c83d71a260fcdaed678481cd868fe0e35b1969dc273f1b'
+        NODE_ENV: 'production'
       },
-      env_production: {
-        NODE_ENV: 'production',
-        PORT: 5000,
-        DATABASE_URL: 'postgresql://dashvalidator_user:DashValidator2024@localhost:5432/dashvalidator',
-        REDIS_URL: 'redis://localhost:6379',
-        AUTH0_ISSUER_BASE_URL: 'https://dev-x63i3b6hf5kch7ab.ca.auth0.com',
-        AUTH0_AUDIENCE: 'facnet-validator-api',
-        AUTH0_CLIENT_SECRET: 'fNxeP-Gq0kSe6EjEcgCYaHoCPoIYOKheH2sh0NjdefrlhOk9n6PUSg4te3likmk',
-        PHI_REDACTION_SALT: '99396260a8d4111225c83d71a260fcdaed678481cd868fe0e35b1969dc273f1b'
-      },
+
       // Logging configuration
       log_file: '/var/www/facnet/logs/combined.log',
       out_file: '/var/www/facnet/logs/out.log',
       error_file: '/var/www/facnet/logs/error.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      merge_logs: true,
 
-      // Process management
+      // Process management (critical for zero-downtime reload)
       min_uptime: '10s',
       max_restarts: 10,
+      kill_timeout: 5000,        // Wait 5s for graceful shutdown (SIGTERM)
+      wait_ready: true,          // Wait for app.listen() before considering process online
+      listen_timeout: 10000,     // Max wait time for app to be ready
 
       // Health check
       health_check_grace_period: 3000

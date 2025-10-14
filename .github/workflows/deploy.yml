@@ -38,9 +38,6 @@ jobs:
           sudo -u facnet -i bash << 'EOF'
           cd /var/www/facnet/app
 
-          # Delete any existing PM2 processes (clean slate)
-          pm2 delete facnet-validator 2>/dev/null || echo "No existing processes to delete"
-
           # Initialize git repository if it doesn't exist
           if [ ! -d ".git" ]; then
             echo "Initializing git repository..."
@@ -63,15 +60,28 @@ jobs:
           # Run database migrations
           npm run db:push
 
-          # Start application with PM2 using config file
-          pm2 start ecosystem.config.cjs
+          # Check if PM2 processes exist
+          if pm2 describe facnet-validator >/dev/null 2>&1; then
+            echo "PM2 processes exist - performing zero-downtime reload..."
+            # Zero-downtime reload (restarts processes one by one)
+            pm2 reload ecosystem.config.cjs --update-env
+          else
+            echo "No existing PM2 processes - performing initial start..."
+            # Initial start (first deployment or after manual deletion)
+            pm2 start ecosystem.config.cjs
+          fi
 
           # Save PM2 configuration
           pm2 save
 
-          # Check application status
+          # Wait for processes to stabilize
           sleep 5
+
+          # Verify all processes are online
           pm2 status facnet-validator
+
+          # Check health endpoint
+          curl -f http://localhost:5000/api/health || echo "Warning: Health check failed"
 
           echo "Deployment completed successfully!"
           EOF
