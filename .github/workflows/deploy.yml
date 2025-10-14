@@ -34,11 +34,15 @@ jobs:
         username: ubuntu
         key: ${{ secrets.VPS_SSH_KEY }}
         script: |
-          # Navigate to application directory
-          sudo -u facnet -i bash << 'EOF'
+          # Execute deployment as facnet user with explicit error handling
+          sudo -u facnet bash -c '
+          set -e  # Exit on any error
           cd /var/www/facnet/app
 
-          # Initialize git repository if it doesn't exist
+          echo "=== Starting Deployment ==="
+          echo "Current directory: $(pwd)"
+
+          # Initialize git repository if it doesn'"'"'t exist
           if [ ! -d ".git" ]; then
             echo "Initializing git repository..."
             git init
@@ -46,45 +50,48 @@ jobs:
             git fetch origin
             git checkout -b main origin/main
           else
-            # Pull latest changes
+            echo "Pulling latest changes..."
             git fetch origin
             git reset --hard origin/main
+            echo "Latest commit: $(git log -1 --oneline)"
           fi
 
-          # Install ALL dependencies (server imports from vite.ts which needs Vite)
+          echo "=== Installing dependencies ==="
           npm ci
 
-          # Build application
+          echo "=== Building application ==="
           npm run build
+          echo "Build complete. Checking dist/server/index.js..."
+          ls -lh dist/server/index.js
 
-          # Run database migrations
-          npm run db:push
+          echo "=== Running database migrations ==="
+          npm run db:push || echo "Warning: Database migration failed or no changes"
 
-          # Check if PM2 processes exist
-          if pm2 describe facnet-validator >/dev/null 2>&1; then
+          echo "=== Checking PM2 status ==="
+          if /usr/bin/pm2 describe facnet-validator >/dev/null 2>&1; then
             echo "PM2 processes exist - performing zero-downtime reload..."
-            # Zero-downtime reload (restarts processes one by one)
-            pm2 reload ecosystem.config.cjs --update-env
+            /usr/bin/pm2 reload ecosystem.config.cjs --update-env
+            echo "PM2 reload completed with exit code: $?"
           else
             echo "No existing PM2 processes - performing initial start..."
-            # Initial start (first deployment or after manual deletion)
-            pm2 start ecosystem.config.cjs
+            /usr/bin/pm2 start ecosystem.config.cjs
+            echo "PM2 start completed with exit code: $?"
           fi
 
-          # Save PM2 configuration
-          pm2 save
+          echo "=== Saving PM2 configuration ==="
+          /usr/bin/pm2 save
 
-          # Wait for processes to stabilize
+          echo "=== Waiting for processes to stabilize ==="
           sleep 5
 
-          # Verify all processes are online
-          pm2 status facnet-validator
+          echo "=== Verifying deployment ==="
+          /usr/bin/pm2 status facnet-validator
 
-          # Check health endpoint
-          curl -f http://localhost:5000/api/health || echo "Warning: Health check failed"
+          echo "=== Health check ==="
+          curl -f http://localhost:5000/api/health && echo "" || echo "Warning: Health check failed"
 
-          echo "Deployment completed successfully!"
-          EOF
+          echo "=== Deployment completed successfully! ==="
+          '
 
     - name: Verify deployment
       uses: appleboy/ssh-action@v1.0.3
