@@ -263,21 +263,18 @@ export default function RunDetailsPage() {
       <div className="flex-1 p-6 overflow-y-auto">
         <div className="max-w-6xl mx-auto space-y-6">
           {/* Progress Section - Using ValidationProgress Component */}
-          {(run.status === "running" || run.status === "queued" || run.status === "processing") && (
-            <>
-              <ValidationProgress
-                validationId={runId || ""}
-                realProgress={streamData?.progress || getProgressPercentage()}
-                status={run.status}
-              />
-              {/* Live Preview Component */}
-              {run.status === "processing" && (
-                <ValidationPreview
-                  validationId={runId || ""}
-                  enabled={run.status === "processing"}
-                />
-              )}
-            </>
+          {/* Always render ValidationProgress for active/recent validations - it controls its own visibility */}
+          <ValidationProgress
+            validationId={runId || ""}
+            realProgress={streamData?.progress || getProgressPercentage()}
+            status={run.status}
+          />
+          {/* Live Preview Component */}
+          {run.status === "processing" && (
+            <ValidationPreview
+              validationId={runId || ""}
+              enabled={run.status === "processing"}
+            />
           )}
 
           {/* Summary Cards */}

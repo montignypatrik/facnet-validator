@@ -39,7 +39,7 @@ export function useSmartProgress({ realProgress = 0, status }: UseSmartProgressO
       setIsMinimumTimeMet(false);
       setDisplayProgress(0);
     }
-  }, [status === 'queued']); // Only reset when becoming queued
+  }, [status]); // Only reset when status changes AND status is 'queued'
 
   useEffect(() => {
     // Animate progress smoothly using requestAnimationFrame
