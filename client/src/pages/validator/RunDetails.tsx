@@ -27,6 +27,7 @@ import { ValidationProgress } from "@/components/ValidationProgress";
 import { ValidationPreview } from "@/components/ValidationPreview";
 import { useValidationStream } from "@/hooks/useValidationStream";
 import { useToast } from "@/hooks/use-toast";
+import { useSmartProgress } from "@/hooks/useSmartProgress";
 
 // French error messages by category
 const ERROR_MESSAGES: Record<string, string> = {
@@ -62,6 +63,12 @@ export default function RunDetailsPage() {
     runId || '',
     run?.status === 'queued' || run?.status === 'processing'
   );
+
+  // Get progress animation state
+  const { isMinimumTimeMet } = useSmartProgress({
+    realProgress: streamData?.progress || getProgressPercentage(),
+    status: run?.status || 'queued',
+  });
 
   // Refetch when SSE indicates completion
   useEffect(() => {
@@ -340,7 +347,7 @@ export default function RunDetailsPage() {
           </div>
 
           {/* Detailed Results */}
-          {run.status === "completed" && (
+          {run.status === "completed" && isMinimumTimeMet && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
@@ -420,7 +427,7 @@ export default function RunDetailsPage() {
           )}
 
           {/* PHI Redaction Info Banner */}
-          {run.status === "completed" && validationResults && validationResults.length > 0 && (
+          {run.status === "completed" && isMinimumTimeMet && validationResults && validationResults.length > 0 && (
             <Alert className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
               <Shield className="h-4 w-4 text-blue-600" />
               <AlertDescription className="text-blue-900 dark:text-blue-100">
@@ -431,7 +438,7 @@ export default function RunDetailsPage() {
           )}
 
           {/* Validation Results Details */}
-          {run.status === "completed" && validationResults && validationResults.length > 0 && (() => {
+          {run.status === "completed" && isMinimumTimeMet && validationResults && validationResults.length > 0 && (() => {
             // Separate errors, optimizations, and informational messages
             const errors = validationResults.filter((r: any) => r.severity === "error");
             const optimizations = validationResults.filter((r: any) => r.severity === "optimization");
@@ -573,7 +580,7 @@ export default function RunDetailsPage() {
           })()}
 
           {/* No Issues Found */}
-          {run.status === "completed" && (!validationResults || validationResults.length === 0) && (
+          {run.status === "completed" && isMinimumTimeMet && (!validationResults || validationResults.length === 0) && (
             <Card>
               <CardContent className="p-8 text-center">
                 <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-600" />
