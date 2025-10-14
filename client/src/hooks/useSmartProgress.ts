@@ -31,10 +31,19 @@ export function useSmartProgress({ realProgress = 0, status }: UseSmartProgressO
   const [isMinimumTimeMet, setIsMinimumTimeMet] = useState(false);
   const startTimeRef = useRef<number>(Date.now());
   const animationFrameRef = useRef<number>();
+  const hasInitializedRef = useRef(false);
 
-  // Reset start time only when job first starts (queued status)
+  // Initialize timer on first mount regardless of status
   useEffect(() => {
-    if (status === 'queued') {
+    if (!hasInitializedRef.current) {
+      startTimeRef.current = Date.now();
+      hasInitializedRef.current = true;
+    }
+  }, []);
+
+  // Reset start time only when job first starts (queued status after initialization)
+  useEffect(() => {
+    if (status === 'queued' && hasInitializedRef.current) {
       startTimeRef.current = Date.now();
       setIsMinimumTimeMet(false);
       setDisplayProgress(0);
