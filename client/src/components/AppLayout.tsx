@@ -1,5 +1,6 @@
 // No Outlet needed in wouter - children are rendered directly
 import { Sidebar } from "./Sidebar";
+import { QueueHealthBadge } from "./QueueHealthBadge";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
@@ -49,6 +50,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen bg-background">
       <Sidebar />
       <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Header with Queue Health Badge */}
+        <header className="bg-card border-b border-border px-6 py-3 flex items-center justify-end">
+          <QueueHealthBadge />
+        </header>
         {children}
       </main>
     </div>

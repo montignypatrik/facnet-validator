@@ -18,6 +18,7 @@ import Establishments from "./pages/database/Establishments";
 import Rules from "./pages/database/Rules";
 import Users from "./pages/admin/Users";
 import KnowledgeAdmin from "./pages/admin/KnowledgeAdmin";
+import QueueManagement from "./pages/admin/QueueManagement";
 import Settings from "./pages/Settings";
 import Chatbot from "./pages/Chatbot";
 import Tache from "./pages/Tache";
@@ -114,10 +115,11 @@ function Router() {
       </Route>
       <Route path="/admin/users" component={Users} />
       <Route path="/admin/knowledge" component={KnowledgeAdmin} />
+      <Route path="/admin/queue" component={QueueManagement} />
 
       {/* Settings */}
       <Route path="/settings" component={Settings} />
-      
+
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>

@@ -2,7 +2,7 @@ import { Worker, Job } from 'bullmq';
 import path from 'path';
 import fs from 'fs';
 import { getRedisClient } from './redis';
-import { ValidationJobData } from './validationQueue';
+import { ValidationJobData, moveToDeadLetter } from './validationQueue';
 import { BillingCSVProcessor } from '../modules/validateur/validation/csvProcessor';
 import { storage } from '../core/storage';
 import { logger } from '../modules/validateur/logger';
@@ -12,12 +12,101 @@ import { withSpan } from '../observability';
  * Validation Worker
  *
  * Processes CSV validation jobs from the queue.
- * Handles progress updates, error handling, and cleanup.
+ * Handles progress updates, error handling, intelligent retry logic, and cleanup.
  */
 
 let worker: Worker<ValidationJobData> | null = null;
+let heartbeatInterval: NodeJS.Timeout | null = null;
 
 const uploadDir = path.join(process.cwd(), 'uploads');
+
+const HEARTBEAT_KEY = 'worker:validation:heartbeat';
+const HEARTBEAT_INTERVAL_MS = 30000; // 30 seconds
+const HEARTBEAT_TTL_SECONDS = 120; // 2 minutes
+
+/**
+ * Start heartbeat monitoring
+ *
+ * Stores a timestamp in Redis every 30 seconds to indicate the worker is alive.
+ * The heartbeat expires after 2 minutes if not refreshed.
+ */
+function startHeartbeat(): void {
+  if (heartbeatInterval) {
+    return; // Already started
+  }
+
+  const updateHeartbeat = async () => {
+    try {
+      const redis = getRedisClient();
+      await redis.set(HEARTBEAT_KEY, Date.now().toString(), 'EX', HEARTBEAT_TTL_SECONDS);
+      console.log('[WORKER] Heartbeat updated');
+    } catch (error) {
+      console.error('[WORKER] Error updating heartbeat:', error);
+    }
+  };
+
+  // Update immediately on start
+  updateHeartbeat();
+
+  // Update every 30 seconds
+  heartbeatInterval = setInterval(updateHeartbeat, HEARTBEAT_INTERVAL_MS);
+  console.log('[WORKER] Heartbeat monitoring started');
+}
+
+/**
+ * Stop heartbeat monitoring
+ */
+function stopHeartbeat(): void {
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+    console.log('[WORKER] Heartbeat monitoring stopped');
+  }
+}
+
+/**
+ * Get worker status from heartbeat
+ *
+ * @returns Worker status information
+ */
+export async function getWorkerStatus(): Promise<{
+  status: 'running' | 'stopped' | 'unknown';
+  lastHeartbeat: number | null;
+  timeSinceHeartbeat: number | null;
+}> {
+  try {
+    const redis = getRedisClient();
+    const heartbeat = await redis.get(HEARTBEAT_KEY);
+
+    if (!heartbeat) {
+      return {
+        status: 'stopped',
+        lastHeartbeat: null,
+        timeSinceHeartbeat: null,
+      };
+    }
+
+    const lastHeartbeat = parseInt(heartbeat, 10);
+    const now = Date.now();
+    const timeSinceHeartbeat = now - lastHeartbeat;
+
+    // Consider worker stopped if heartbeat is older than 2 minutes
+    const status = timeSinceHeartbeat > HEARTBEAT_TTL_SECONDS * 1000 ? 'stopped' : 'running';
+
+    return {
+      status,
+      lastHeartbeat,
+      timeSinceHeartbeat,
+    };
+  } catch (error) {
+    console.error('[WORKER] Error getting worker status:', error);
+    return {
+      status: 'unknown',
+      lastHeartbeat: null,
+      timeSinceHeartbeat: null,
+    };
+  }
+}
 
 /**
  * Process a validation job
@@ -114,6 +203,19 @@ async function processValidationJob(job: Job<ValidationJobData>): Promise<void> 
       await storage.createValidationResults(validationResults);
     }
 
+    // Store first 10 issues in Redis for live preview
+    if (validationResults.length > 0) {
+      const preview = validationResults.slice(0, 10);
+      const redis = getRedisClient();
+      await redis.set(
+        `validation:preview:${validationRunId}`,
+        JSON.stringify(preview),
+        'EX',
+        600 // Expire after 10 minutes
+      );
+      console.log(`[WORKER] Stored preview of ${preview.length} validation issues in Redis`);
+    }
+
     // Clean up uploaded file after processing
     try {
       fs.unlinkSync(filePath);
@@ -197,8 +299,19 @@ export function startWorker(): Worker<ValidationJobData> {
     console.log(`[WORKER] Job ${job.id} completed`);
   });
 
-  worker.on('failed', (job: Job<ValidationJobData> | undefined, error: Error) => {
-    console.error(`[WORKER] Job ${job?.id} failed:`, error.message);
+  worker.on('failed', async (job: Job<ValidationJobData> | undefined, error: Error) => {
+    if (!job) return;
+
+    const attemptsMade = job.attemptsMade || 0;
+    const maxAttempts = job.opts.attempts || 3;
+
+    console.error(`[WORKER] Job ${job.id} failed (attempt ${attemptsMade}/${maxAttempts}):`, error.message);
+
+    // If all retries exhausted, move to dead letter queue
+    if (attemptsMade >= maxAttempts) {
+      console.log(`[WORKER] Moving job ${job.id} to dead letter queue after ${attemptsMade} attempts`);
+      await moveToDeadLetter(job.id!, error.message);
+    }
   });
 
   worker.on('error', (error: Error) => {
@@ -211,6 +324,9 @@ export function startWorker(): Worker<ValidationJobData> {
 
   console.log('[WORKER] Validation worker started with concurrency 2');
 
+  // Start heartbeat monitoring
+  startHeartbeat();
+
   return worker;
 }
 
@@ -220,6 +336,10 @@ export function startWorker(): Worker<ValidationJobData> {
 export async function stopWorker(): Promise<void> {
   if (worker) {
     console.log('[WORKER] Stopping validation worker...');
+
+    // Stop heartbeat
+    stopHeartbeat();
+
     await worker.close();
     worker = null;
     console.log('[WORKER] Validation worker stopped');

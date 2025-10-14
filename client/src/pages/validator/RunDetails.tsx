@@ -1,10 +1,9 @@
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   ArrowLeft,
@@ -19,14 +18,31 @@ import {
   Users,
   AlertCircle,
   Shield,
-  Info
+  Info,
+  X
 } from "lucide-react";
 import client from "@/api/client";
 import { ValidationResultCard } from "@/components/validation/ValidationResultCard";
+import { ValidationProgress } from "@/components/ValidationProgress";
+import { ValidationPreview } from "@/components/ValidationPreview";
+import { useValidationStream } from "@/hooks/useValidationStream";
+import { useToast } from "@/hooks/use-toast";
+
+// French error messages by category
+const ERROR_MESSAGES: Record<string, string> = {
+  FILE_FORMAT: "Erreur de format de fichier - Le fichier CSV ne respecte pas le format attendu",
+  PARSING: "Erreur d'analyse - Impossible de lire les données du fichier",
+  VALIDATION: "Erreur de validation - Les données ne respectent pas les règles métier RAMQ",
+  SYSTEM: "Erreur système - Une erreur technique s'est produite",
+  TIMEOUT: "Délai dépassé - Le traitement a pris trop de temps",
+  MEMORY: "Erreur de mémoire - Le fichier est trop volumineux pour être traité",
+  DEFAULT: "Une erreur s'est produite lors de la validation",
+};
 
 export default function RunDetailsPage() {
   const [, params] = useRoute("/validator/runs/:id");
   const runId = params?.id;
+  const { toast } = useToast();
 
   const { data: run, isLoading, refetch } = useQuery({
     queryKey: [`/validations/${runId}`],
@@ -41,6 +57,19 @@ export default function RunDetailsPage() {
     },
   });
 
+  // SSE for real-time updates
+  const { data: streamData, isConnected } = useValidationStream(
+    runId || '',
+    run?.status === 'queued' || run?.status === 'processing'
+  );
+
+  // Refetch when SSE indicates completion
+  useEffect(() => {
+    if (streamData?.type === 'completed') {
+      refetch();
+    }
+  }, [streamData, refetch]);
+
   const { data: validationResults } = useQuery({
     queryKey: [`/validations/${runId}/results`],
     queryFn: async () => {
@@ -48,6 +77,27 @@ export default function RunDetailsPage() {
       return response.data;
     },
     enabled: !!runId && run?.status === "completed",
+  });
+
+  // Cancel mutation
+  const cancelMutation = useMutation({
+    mutationFn: async () => {
+      await client.post(`/validations/${runId}/cancel`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Validation annulée",
+        description: "La validation a été annulée avec succès",
+      });
+      refetch();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.response?.data?.error || "Impossible d'annuler la validation",
+        variant: "destructive",
+      });
+    },
   });
 
   const getStatusIcon = (status: string) => {
@@ -68,7 +118,7 @@ export default function RunDetailsPage() {
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
       completed: "default",
-      running: "secondary", 
+      running: "secondary",
       failed: "destructive",
       queued: "outline",
     };
@@ -82,6 +132,15 @@ export default function RunDetailsPage() {
   const getProgressPercentage = () => {
     if (!run?.totalRows || run.totalRows === 0) return 0;
     return Math.round((run.processedRows / run.totalRows) * 100);
+  };
+
+  // Get user-friendly error message based on error code
+  const getErrorMessage = (errorCode?: string) => {
+    if (!errorCode) return ERROR_MESSAGES.DEFAULT;
+
+    // Extract category from error code (e.g., "FILE_FORMAT_001" -> "FILE_FORMAT")
+    const category = errorCode.split('_').slice(0, -1).join('_');
+    return ERROR_MESSAGES[category] || ERROR_MESSAGES.DEFAULT;
   };
 
   if (isLoading) {
@@ -128,9 +187,9 @@ export default function RunDetailsPage() {
           <Card>
             <CardContent className="p-12 text-center">
               <AlertCircle className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-medium text-foreground mb-2">Run not found</h3>
+              <h3 className="text-lg font-medium text-foreground mb-2">Validation introuvable</h3>
               <p className="text-muted-foreground">
-                The validation run you're looking for doesn't exist or has been removed.
+                La validation que vous recherchez n'existe pas ou a été supprimée.
               </p>
             </CardContent>
           </Card>
@@ -158,21 +217,42 @@ export default function RunDetailsPage() {
                   {run.fileName}
                 </h1>
                 <p className="text-muted-foreground">
-                  Validation run started {new Date(run.createdAt).toLocaleString()}
+                  Validation commencée {new Date(run.createdAt).toLocaleString('fr-CA')}
                 </p>
               </div>
             </div>
           </div>
           <div className="flex items-center space-x-3">
             {getStatusBadge(run.status)}
+            {/* SSE Connection Indicator */}
+            {isConnected && (
+              <Badge variant="outline" className="text-xs">
+                <div className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse" />
+                Mise à jour en temps réel
+              </Badge>
+            )}
+            {/* Cancel Button */}
+            {(run.status === "queued" || run.status === "processing") && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => cancelMutation.mutate()}
+                disabled={cancelMutation.isPending}
+                data-testid="button-cancel"
+                aria-label="Annuler la validation"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Annuler
+              </Button>
+            )}
             <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh">
               <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh
+              Actualiser
             </Button>
             {run.status === "completed" && (
               <Button data-testid="button-download">
                 <Download className="w-4 h-4 mr-2" />
-                Download Results
+                Télécharger les résultats
               </Button>
             )}
           </div>
@@ -182,39 +262,22 @@ export default function RunDetailsPage() {
       {/* Run Details Content */}
       <div className="flex-1 p-6 overflow-y-auto">
         <div className="max-w-6xl mx-auto space-y-6">
-          {/* Progress Section */}
-          {(run.status === "running" || run.status === "queued") && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Loader className="w-5 h-5 mr-2 animate-spin" />
-                  Processing Status
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {run.status === "queued" ? (
-                  <Alert>
-                    <Clock className="h-4 w-4" />
-                    <AlertDescription>
-                      Your validation run is queued and will begin processing shortly.
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Progress</span>
-                      <span className="text-sm text-muted-foreground">
-                        {run.processedRows?.toLocaleString() || 0} of {run.totalRows?.toLocaleString() || 0} rows
-                      </span>
-                    </div>
-                    <Progress value={getProgressPercentage()} className="w-full" />
-                    <p className="text-center text-sm text-muted-foreground">
-                      {getProgressPercentage()}% complete
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          {/* Progress Section - Using ValidationProgress Component */}
+          {(run.status === "running" || run.status === "queued" || run.status === "processing") && (
+            <>
+              <ValidationProgress
+                validationId={runId || ""}
+                realProgress={streamData?.progress || getProgressPercentage()}
+                status={run.status}
+              />
+              {/* Live Preview Component */}
+              {run.status === "processing" && (
+                <ValidationPreview
+                  validationId={runId || ""}
+                  enabled={run.status === "processing"}
+                />
+              )}
+            </>
           )}
 
           {/* Summary Cards */}
@@ -226,7 +289,7 @@ export default function RunDetailsPage() {
                     <p className="text-2xl font-bold text-foreground" data-testid="text-total-rows">
                       {run.totalRows?.toLocaleString() || 0}
                     </p>
-                    <p className="text-sm text-muted-foreground">Total Rows</p>
+                    <p className="text-sm text-muted-foreground">Lignes totales</p>
                   </div>
                   <FileText className="w-8 h-8 text-blue-600" />
                 </div>
@@ -240,7 +303,7 @@ export default function RunDetailsPage() {
                     <p className="text-2xl font-bold text-foreground" data-testid="text-processed-rows">
                       {run.processedRows?.toLocaleString() || 0}
                     </p>
-                    <p className="text-sm text-muted-foreground">Processed</p>
+                    <p className="text-sm text-muted-foreground">Traitées</p>
                   </div>
                   <Users className="w-8 h-8 text-green-600" />
                 </div>
@@ -254,7 +317,7 @@ export default function RunDetailsPage() {
                     <p className="text-2xl font-bold text-foreground" data-testid="text-error-count">
                       {run.errorCount?.toLocaleString() || 0}
                     </p>
-                    <p className="text-sm text-muted-foreground">Errors</p>
+                    <p className="text-sm text-muted-foreground">Erreurs</p>
                   </div>
                   <AlertTriangle className="w-8 h-8 text-red-600" />
                 </div>
@@ -266,12 +329,12 @@ export default function RunDetailsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-2xl font-bold text-foreground">
-                      {run.totalRows && run.errorCount 
+                      {run.totalRows && run.errorCount
                         ? `${(((run.totalRows - run.errorCount) / run.totalRows) * 100).toFixed(1)}%`
                         : "0%"
                       }
                     </p>
-                    <p className="text-sm text-muted-foreground">Success Rate</p>
+                    <p className="text-sm text-muted-foreground">Taux de réussite</p>
                   </div>
                   <CheckCircle className="w-8 h-8 text-green-600" />
                 </div>
@@ -284,25 +347,25 @@ export default function RunDetailsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Validation Summary</CardTitle>
+                  <CardTitle>Résumé de validation</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950 rounded-lg">
                       <div className="flex items-center">
                         <CheckCircle className="w-5 h-5 text-green-600 mr-3" />
-                        <span className="font-medium">Valid Records</span>
+                        <span className="font-medium">Enregistrements valides</span>
                       </div>
                       <span className="font-bold text-green-600">
                         {((run.totalRows || 0) - (run.errorCount || 0)).toLocaleString()}
                       </span>
                     </div>
-                    
+
                     {run.errorCount > 0 && (
                       <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-950 rounded-lg">
                         <div className="flex items-center">
                           <XCircle className="w-5 h-5 text-red-600 mr-3" />
-                          <span className="font-medium">Invalid Records</span>
+                          <span className="font-medium">Enregistrements invalides</span>
                         </div>
                         <span className="font-bold text-red-600">
                           {run.errorCount.toLocaleString()}
@@ -311,12 +374,12 @@ export default function RunDetailsPage() {
                     )}
 
                     <div className="pt-4">
-                      <h4 className="font-medium mb-2">Processing Time</h4>
+                      <h4 className="font-medium mb-2">Temps de traitement</h4>
                       <p className="text-sm text-muted-foreground">
-                        Started: {new Date(run.createdAt).toLocaleString()}
+                        Début: {new Date(run.createdAt).toLocaleString('fr-CA')}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        Completed: {new Date(run.updatedAt).toLocaleString()}
+                        Fin: {new Date(run.updatedAt).toLocaleString('fr-CA')}
                       </p>
                     </div>
                   </div>
@@ -325,31 +388,31 @@ export default function RunDetailsPage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Data Quality Metrics</CardTitle>
+                  <CardTitle>Métriques de qualité des données</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     <div className="text-center">
                       <div className="text-3xl font-bold text-primary mb-2">
-                        {run.totalRows && run.errorCount 
+                        {run.totalRows && run.errorCount
                           ? `${(((run.totalRows - run.errorCount) / run.totalRows) * 100).toFixed(1)}%`
                           : "100%"
                         }
                       </div>
-                      <p className="text-muted-foreground">Overall Data Quality Score</p>
+                      <p className="text-muted-foreground">Score global de qualité des données</p>
                     </div>
-                    
+
                     <div className="space-y-3">
                       <div className="flex justify-between">
-                        <span className="text-sm">Completeness</span>
+                        <span className="text-sm">Complétude</span>
                         <span className="text-sm font-medium">95%</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-sm">Accuracy</span>
+                        <span className="text-sm">Exactitude</span>
                         <span className="text-sm font-medium">98%</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-sm">Consistency</span>
+                        <span className="text-sm">Cohérence</span>
                         <span className="text-sm font-medium">92%</span>
                       </div>
                     </div>
@@ -364,8 +427,8 @@ export default function RunDetailsPage() {
             <Alert className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
               <Shield className="h-4 w-4 text-blue-600" />
               <AlertDescription className="text-blue-900 dark:text-blue-100">
-                <strong>Privacy Note:</strong> Patient IDs and doctor information are redacted for privacy compliance.
-                RAMQ billing IDs are visible as they're needed for corrections. Admins can adjust PHI visibility in Settings.
+                <strong>Note de confidentialité:</strong> Les identifiants des patients et les informations des médecins sont masqués pour la conformité à la vie privée.
+                Les identifiants de facturation RAMQ sont visibles car nécessaires pour les corrections. Les administrateurs peuvent ajuster la visibilité PHI dans les paramètres.
               </AlertDescription>
             </Alert>
           )}
@@ -512,14 +575,14 @@ export default function RunDetailsPage() {
             )
           })()}
 
-          {/* No Issues Found - trigger recompile */}
+          {/* No Issues Found */}
           {run.status === "completed" && (!validationResults || validationResults.length === 0) && (
             <Card>
               <CardContent className="p-8 text-center">
                 <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-600" />
-                <h3 className="text-lg font-medium text-foreground mb-2">No Validation Issues Found</h3>
+                <h3 className="text-lg font-medium text-foreground mb-2">Aucun problème de validation trouvé</h3>
                 <p className="text-muted-foreground">
-                  All billing records passed validation successfully. Your data meets all required business rules and formatting standards.
+                  Tous les enregistrements de facturation ont été validés avec succès. Vos données répondent à toutes les règles métier et normes de formatage requises.
                 </p>
               </CardContent>
             </Card>
@@ -529,23 +592,23 @@ export default function RunDetailsPage() {
           {run.status === "failed" && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-red-600">Validation Failed</CardTitle>
+                <CardTitle className="text-red-600">Échec de la validation</CardTitle>
               </CardHeader>
               <CardContent>
                 <Alert variant="destructive">
                   <XCircle className="h-4 w-4" />
                   <AlertDescription>
-                    The validation process encountered an error and could not be completed.
+                    {getErrorMessage(run.errorCode)}
                     {run.errorMessage && (
                       <>
                         <br /><br />
-                        <strong>Error details:</strong> {run.errorMessage}
+                        <strong>Détails de l'erreur:</strong> {run.errorMessage}
                       </>
                     )}
                     {!run.errorMessage && (
                       <>
                         <br />
-                        Please check your file format and try again.
+                        Veuillez vérifier le format de votre fichier et réessayer.
                       </>
                     )}
                   </AlertDescription>

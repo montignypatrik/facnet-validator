@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Users,
   Shield,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -221,6 +222,14 @@ export function Sidebar() {
                   }`} data-testid="link-admin-knowledge">
                     <Database className="w-4 h-4" />
                     <span>Base de Connaissances</span>
+                  </Link>
+                  <Link href="/admin/queue" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                    isActive("/admin/queue")
+                      ? "text-primary bg-primary/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`} data-testid="link-admin-queue">
+                    <Activity className="w-4 h-4" />
+                    <span>File d'attente</span>
                   </Link>
                 </CollapsibleContent>
               </Collapsible>
