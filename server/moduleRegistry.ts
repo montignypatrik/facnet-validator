@@ -28,6 +28,7 @@ export async function registerModules(app: Express): Promise<void> {
   const authRoutes = (await import("./core/authRoutes")).default;
   const observabilityRoutes = (await import("./observability/routes")).default;
   const validateurRoutes = (await import("./modules/validateur/routes")).default;
+  const namExtractionRoutes = (await import("./modules/nam-extraction/routes")).default;
   const databaseRoutes = (await import("./modules/database/routes")).default;
   const administrationRoutes = (await import("./modules/administration/routes")).default;
   const chatbotRoutes = (await import("./modules/chatbot/routes")).default;
@@ -57,6 +58,13 @@ export async function registerModules(app: Express): Promise<void> {
       version: "1.0.0",
       description: "Quebec healthcare billing validation (RAMQ)",
       router: validateurRoutes,
+      enabled: true,
+    },
+    {
+      name: "nam-extraction",
+      version: "1.0.0",
+      description: "NAM extraction from PDF documents using AWS Textract and OpenAI",
+      router: namExtractionRoutes,
       enabled: true,
     },
     {
@@ -142,6 +150,12 @@ export async function getModuleList(): Promise<Array<{ name: string; version: st
       name: "validateur",
       version: "1.0.0",
       description: "Quebec healthcare billing validation (RAMQ)",
+      enabled: true,
+    },
+    {
+      name: "nam-extraction",
+      version: "1.0.0",
+      description: "NAM extraction from PDF documents",
       enabled: true,
     },
     {

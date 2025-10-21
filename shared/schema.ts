@@ -421,6 +421,61 @@ export const taskAttachmentsRelations = relations(taskAttachments, ({ one }) => 
   }),
 }));
 
+// ==================== NAM EXTRACTION MODULE ====================
+
+/**
+ * NAM (Quebec Health Insurance Number) Extraction Module
+ *
+ * Purpose: Extract Quebec health insurance numbers (NAM) from medical billing PDF documents
+ * Features: AWS Textract OCR, OpenAI GPT-4 extraction, format validation, SSV file generation
+ * Pattern: Follows same structure as validation_runs/validation_results
+ */
+
+// NAM extraction runs table - tracks PDF upload and extraction jobs
+export const namExtractionRuns = pgTable("nam_extraction_runs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  fileId: uuid("file_id").notNull(),
+  fileName: text("file_name").notNull(),
+  status: text("status").notNull().default("queued"), // queued, running, completed, failed
+  stage: text("stage"), // ocr, ai_extraction, validation (for progress tracking)
+  pageCount: integer("page_count"),
+  namsFound: integer("nams_found"), // Total NAMs extracted
+  namsValid: integer("nams_valid"), // NAMs that passed format validation
+  errorMessage: text("error_message"), // Error details when status is "failed"
+  errorCode: text("error_code"), // OCR_FAILED, AI_EXTRACTION_FAILED, etc.
+  progress: numeric("progress").default("0").notNull(), // Progress percentage (0-100)
+  processingTimeMs: integer("processing_time_ms"), // Total processing time
+  jobId: text("job_id"), // BullMQ job ID for tracking background jobs
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdBy: text("created_by").notNull(), // Auth0 user ID
+});
+
+// NAM extraction results table - stores individual extracted NAMs
+export const namExtractionResults = pgTable("nam_extraction_results", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  runId: uuid("run_id").notNull().references(() => namExtractionRuns.id, { onDelete: "cascade" }),
+  nam: text("nam").notNull(), // The extracted NAM (normalized to uppercase)
+  page: integer("page").notNull(), // Page number where NAM was found
+  valid: boolean("valid").notNull(), // Whether NAM passes format validation (4 letters + 8 digits)
+  validationError: text("validation_error"), // Reason why NAM is invalid (if valid=false)
+  removedByUser: boolean("removed_by_user").default(false).notNull(), // User curation flag
+  includedInSsv: boolean("included_in_ssv").default(false).notNull(), // Whether NAM was included in generated SSV file
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Relations
+export const namExtractionRunsRelations = relations(namExtractionRuns, ({ many }) => ({
+  results: many(namExtractionResults),
+}));
+
+export const namExtractionResultsRelations = relations(namExtractionResults, ({ one }) => ({
+  run: one(namExtractionRuns, {
+    fields: [namExtractionResults.runId],
+    references: [namExtractionRuns.id],
+  }),
+}));
+
 // ==================== RAG DOCUMENT PROCESSING MODULE ====================
 
 // Document status enum
@@ -505,6 +560,8 @@ export const insertTaskLabelSchema = createInsertSchema(taskLabels).omit({ id: t
 export const insertTaskLabelAssignmentSchema = createInsertSchema(taskLabelAssignments);
 export const insertTaskCommentSchema = createInsertSchema(taskComments).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertTaskAttachmentSchema = createInsertSchema(taskAttachments).omit({ id: true, createdAt: true });
+export const insertNamExtractionRunSchema = createInsertSchema(namExtractionRuns).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertNamExtractionResultSchema = createInsertSchema(namExtractionResults).omit({ id: true, createdAt: true });
 
 // Select schemas
 export const selectUserSchema = createSelectSchema(users);
@@ -529,6 +586,8 @@ export const selectTaskLabelSchema = createSelectSchema(taskLabels);
 export const selectTaskLabelAssignmentSchema = createSelectSchema(taskLabelAssignments);
 export const selectTaskCommentSchema = createSelectSchema(taskComments);
 export const selectTaskAttachmentSchema = createSelectSchema(taskAttachments);
+export const selectNamExtractionRunSchema = createSelectSchema(namExtractionRuns);
+export const selectNamExtractionResultSchema = createSelectSchema(namExtractionResults);
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -575,3 +634,7 @@ export type InsertTaskComment = z.infer<typeof insertTaskCommentSchema>;
 export type TaskComment = typeof taskComments.$inferSelect;
 export type InsertTaskAttachment = z.infer<typeof insertTaskAttachmentSchema>;
 export type TaskAttachment = typeof taskAttachments.$inferSelect;
+export type InsertNamExtractionRun = z.infer<typeof insertNamExtractionRunSchema>;
+export type NamExtractionRun = typeof namExtractionRuns.$inferSelect;
+export type InsertNamExtractionResult = z.infer<typeof insertNamExtractionResultSchema>;
+export type NamExtractionResult = typeof namExtractionResults.$inferSelect;

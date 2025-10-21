@@ -24,6 +24,9 @@ import Chatbot from "./pages/Chatbot";
 import Tache from "./pages/Tache";
 import Formation from "./pages/Formation";
 import HorsRamq from "./pages/HorsRamq";
+import NamUpload from "./pages/nam/NamUpload";
+import NamResults from "./pages/nam/NamResults";
+import NamHistory from "./pages/nam/NamHistory";
 import NotFound from "@/pages/not-found";
 import { useAuth0 } from "@auth0/auth0-react";
 
@@ -93,6 +96,14 @@ function Router() {
       <Route path="/validator/runs/:id" component={RunDetails} />
       <Route path="/validator/analytics" component={Analytics} />
       <Route path="/validator/preview" component={ValidationResultPreview} />
+
+      {/* NAM Extraction routes */}
+      <Route path="/nam">
+        <Redirect to="/nam/upload" />
+      </Route>
+      <Route path="/nam/upload" component={NamUpload} />
+      <Route path="/nam/results/:id" component={NamResults} />
+      <Route path="/nam/history" component={NamHistory} />
 
       {/* Module routes */}
       <Route path="/chatbot" component={Chatbot} />

@@ -16,6 +16,8 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startWorker, stopWorker } from "./queue/validationWorker";
 import { closeQueue } from "./queue/validationQueue";
+import { startNAMWorker, stopNAMWorker } from "./queue/namExtractionWorker";
+import { closeNAMQueue } from "./queue/namExtractionQueue";
 import { closeRedisConnection } from "./queue/redis";
 import { warmupCache } from "./cache/index.js";
 import { startDocumentWorker, stopDocumentWorker } from "./modules/chatbot/queue/documentWorker";
@@ -124,6 +126,10 @@ app.use((req, res, next) => {
   startWorker();
   console.log('[STARTUP] Validation worker initialized');
 
+  console.log('[STARTUP] Starting NAM extraction worker...');
+  startNAMWorker();
+  console.log('[STARTUP] NAM extraction worker initialized');
+
   console.log('[STARTUP] Starting document processing worker...');
   startDocumentWorker();
   console.log('[STARTUP] Document processing worker initialized');
@@ -155,8 +161,10 @@ app.use((req, res, next) => {
       // Stop workers and close queues
       try {
         await stopWorker();
+        await stopNAMWorker();
         await stopDocumentWorker();
         await closeQueue();
+        await closeNAMQueue();
         await closeDocumentQueue();
         await closeRedisConnection();
         console.log('[SHUTDOWN] Background jobs and Redis connection closed');

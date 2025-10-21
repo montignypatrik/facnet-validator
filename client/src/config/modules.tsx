@@ -39,6 +39,13 @@ export const MODULE_CONFIGS: Record<string, ModuleConfig> = {
     route: "/validator",
     description: "Système de validation des codes de facturation RAMQ",
   },
+  "nam-extraction": {
+    name: "nam-extraction",
+    displayName: "Extraction NAM",
+    icon: FileText,
+    route: "/nam",
+    description: "Extraction de NAM à partir de documents PDF",
+  },
   chatbot: {
     name: "chatbot",
     displayName: "Chatbot",
