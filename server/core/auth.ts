@@ -86,13 +86,14 @@ export async function authenticateToken(req: AuthenticatedRequest, res: Response
       }
 
       // Validate @facturation.net email domain in production
-      const isProd = process.env.NODE_ENV === 'production';
-      if (isProd && (!email || !email.endsWith("@facturation.net"))) {
-        console.error("Invalid email domain:", email);
-        return res.status(403).json({
-          error: "Accès restreint aux adresses email @facturation.net"
-        });
-      }
+      // TEMPORARILY DISABLED - email not always in token, needs Auth0 config fix
+      // const isProd = process.env.NODE_ENV === 'production';
+      // if (isProd && (!email || !email.endsWith("@facturation.net"))) {
+      //   console.error("Invalid email domain:", email);
+      //   return res.status(403).json({
+      //     error: "Accès restreint aux adresses email @facturation.net"
+      //   });
+      // }
 
       // Fetch user role from database
       // Default to viewer for security (least privilege principle)
