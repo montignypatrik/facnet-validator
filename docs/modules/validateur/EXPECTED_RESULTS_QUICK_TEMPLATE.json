@@ -1,0 +1,35 @@
+{
+  "_comment": "COPY THIS TEMPLATE - Delete this _comment line when done",
+  "_instructions": "1. Replace [SCENARIO_ID] with P1, E1, O1, etc. 2. Copy scenario details from MD file 3. Fill ruleData with CSV values 4. Delete _comment and _instructions lines",
+
+  "scenarioId": "[SCENARIO_ID - e.g., P1, E1, O1]",
+  "scenarioName": "[Copy from MD file scenario title]",
+  "description": "[Copy 'Condition' from MD file]",
+  "expectedResults": [
+    {
+      "_comment": "Main result - delete this line when done",
+      "severity": "[info OR error OR optimization]",
+      "category": "[Copy from MD file - e.g., annual_limit]",
+      "message": "[Copy 'Message (French)' from MD file, replace {variables} with CSV values]",
+      "solution": "[Copy 'Solution (French)' from MD file OR null for PASS]",
+      "ruleData": {
+        "monetaryImpact": 0,
+        "[Copy all fields from MD scenario 'Example ruleData']": "[Fill with actual CSV values]"
+      },
+      "affectedRecordCount": 1
+    },
+    {
+      "_comment": "Summary result (P-SUMMARY) - delete this line when done",
+      "severity": "info",
+      "category": "[Same as above]",
+      "message": "Validation complétée pour [X] enregistrement(s). [Y] erreur(s)/optimisation(s) détectée(s).",
+      "solution": null,
+      "ruleData": {
+        "monetaryImpact": 0,
+        "totalRecords": 0,
+        "errorCount": 0,
+        "optimizationCount": 0
+      }
+    }
+  ]
+}

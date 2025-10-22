@@ -12,7 +12,7 @@ Règle d'optimisation pour détecter les visites régulières qui pourraient êt
 
 **Rule Type**: `revenue_optimization` (custom type)
 
-**Severity**: `optimization`
+**Severity**: Mixed (info, optimization depending on scenario)
 
 **Category**: `revenue_optimization`
 
@@ -38,24 +38,8 @@ Tarification intervention clinique :
 ```
 
 ### When Should This Trigger?
-```
-Trigger quand :
-1. Visite a une heure de début ET heure de fin renseignées
-2. Durée calculée ≥ 30 minutes (seuil pour code 8857)
-3. Code facturé a top_level = "B - CONSULTATION, EXAMEN ET VISITE" dans la base de données
-4. Montant intervention clinique > montant visite actuelle
-5. Code actuel n'est PAS déjà 8857 ou 8859
-```
 
-### When Should This NOT Trigger?
-```
-Ne doit PAS trigger quand :
-1. Heure de début ou fin manquante (NULL ou vide)
-2. Durée < 30 minutes (insuffisante pour intervention clinique)
-3. Code déjà 8857 ou 8859 (déjà intervention clinique)
-4. Montant intervention clinique ≤ montant visite actuelle (pas d'avantage)
-5. Code n'est pas dans top_level "B - CONSULTATION, EXAMEN ET VISITE" (ex: procédures chirurgicales, examens radiologiques)
-```
+See **Validation Scenarios & Expected Results** section below for detailed scenario conditions.
 
 ---
 
@@ -142,104 +126,327 @@ function calculateInterventionAmount(durationMinutes) {
 
 ---
 
-## Error Messages (French)
+## Validation Scenarios & Expected Results
 
-### Primary Optimization Message:
+> **Purpose:** This section defines ALL possible outcomes of the visit duration optimization rule.
+> Each scenario specifies the exact message users will see and how results should be displayed.
+>
+> **Naming Convention:**
+> - P1, P2, P3... = PASS scenarios (severity: info)
+> - E1, E2, E3... = ERROR scenarios (severity: error)
+> - O1, O2, O3... = OPTIMIZATION scenarios (severity: optimization)
+
+### ✅ PASS Scenarios (Severity: info)
+
+These scenarios represent successful validation. Results should be **collapsed by default**
+but expandable to show validation details.
+
+---
+
+#### Scenario P1: No Optimization Needed (Short Visit)
+
+**Condition:** Visite avec durée <30 minutes (insuffisante pour intervention clinique)
+
+**Message (French):**
 ```
-"Selon notre analyse, l'intervention clinique est plus avantageuse que la visite {code} facturée."
+"Validation réussie: Visite {code} de {duration} minutes analysée (durée insuffisante pour intervention clinique)"
 ```
 
-### Solution Message:
-```
-"Veuillez valider que l'intervention clinique est plus avantageuse et facturer si le seuil de 180 minutes quotidien n'est pas atteint. N'oubliez pas d'ajouter les contextes ICEP, ICSM et ICTOX au besoin."
-```
+**Solution (French):** `null`
 
-### Informational Summary:
-```
-"Validation optimisation intervention clinique complétée: {totalAnalyzed} visite(s) analysée(s), {totalOptimizations} opportunité(s) d'optimisation détectée(s). Revenu potentiel: {totalPotentialRevenue}$."
+**Monetary Impact:** `0`
+
+**Display Configuration:**
+- **Collapsed by default:** Yes
+- **Show when expanded:**
+  - [X] Temporal information box
+  - [ ] Billing details box
+  - [ ] Visit statistics grid
+  - [ ] Comparison box
+- **Custom data fields to display:** `code, duration, currentAmount`
+
+**Test Case Reference:** `test-P1`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "code": "00103",
+  "duration": 20,
+  "currentAmount": 35.00
+}
 ```
 
 ---
 
-## Test Scenarios
+#### Scenario P2: Already Intervention Clinique
 
-### Pass Scenario 1: No Optimization Needed (Short Visit)
+**Condition:** Code déjà 8857 ou 8859 (déjà intervention clinique)
+
+**Message (French):**
 ```
-Description: Visite de 20 minutes (trop courte pour intervention)
-Test Data:
-- Code: 00103 (top_level = "B - CONSULTATION, EXAMEN ET VISITE")
-- Début: 10:00
-- Fin: 10:20
-- Durée: 20 minutes
-- Montant Preliminaire: 35,00$
-Expected: No optimization suggestion (< 30 min)
+"Validation réussie: Code {code} déjà facturé comme intervention clinique"
 ```
 
-### Pass Scenario 2: Already Intervention Clinique
-```
-Description: Code déjà 8857 (pas besoin d'optimiser)
-Test Data:
-- Code: 8857
-- Début: 10:00
-- Fin: 10:35
-- Durée: 35 minutes
-Expected: No optimization (déjà intervention clinique)
+**Solution (French):** `null`
+
+**Monetary Impact:** `0`
+
+**Display Configuration:**
+- **Collapsed by default:** Yes
+- **Show when expanded:**
+  - [ ] Temporal information box
+  - [ ] Billing details box
+  - [ ] Visit statistics grid
+  - [ ] Comparison box
+- **Custom data fields to display:** `code`
+
+**Test Case Reference:** `test-P2`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "code": "8857"
+}
 ```
 
-### Pass Scenario 3: No Time Data
+---
+
+#### Scenario P3: No Time Data
+
+**Condition:** Visite sans heure de début ou fin (durée non calculable)
+
+**Message (French):**
 ```
-Description: Visite sans heure de début/fin
-Test Data:
-- Code: 00103 (top_level = "B - CONSULTATION, EXAMEN ET VISITE")
-- Début: NULL
-- Fin: NULL
-- Montant Preliminaire: 35,00$
-Expected: No optimization (durée non calculable)
+"Validation réussie: Visite {code} analysée (données de durée manquantes)"
 ```
 
-### Optimization Scenario 1: Simple 30-minute Visit
-```
-Description: Visite de 30 minutes, intervention plus avantageuse
-Test Data:
-- Code: 00103 (top_level = "B - CONSULTATION, EXAMEN ET VISITE")
-- Début: 10:00
-- Fin: 10:30
-- Durée: 30 minutes
-- Montant Preliminaire: 42,50$
-- Intervention: 8857 = 59,70$
-- Gain: 17,20$
-Expected: Optimization suggestion
-Message: "Selon notre analyse, l'intervention clinique est plus avantageuse que la visite 00103 facturée."
-Solution: "Veuillez valider que l'intervention clinique est plus avantageuse et facturer si le seuil de 180 minutes quotidien n'est pas atteint. N'oubliez pas d'ajouter les contextes ICEP, ICSM et ICTOX au besoin."
+**Solution (French):** `null`
+
+**Monetary Impact:** `0`
+
+**Display Configuration:**
+- **Collapsed by default:** Yes
+- **Show when expanded:**
+  - [ ] Temporal information box
+  - [ ] Billing details box
+  - [ ] Visit statistics grid
+  - [ ] Comparison box
+- **Custom data fields to display:** `code, currentAmount`
+
+**Test Case Reference:** `test-P3`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "code": "00103",
+  "currentAmount": 35.00,
+  "missingData": "debut_fin"
+}
 ```
 
-### Optimization Scenario 2: 45-minute Visit with Additional Period
+---
+
+#### Scenario P4: No Financial Gain
+
+**Condition:** Durée ≥30 min mais montant intervention ≤ montant visite actuelle
+
+**Message (French):**
 ```
-Description: Visite de 45 minutes nécessitant période supplémentaire
-Test Data:
-- Code: 00113 (top_level = "B - CONSULTATION, EXAMEN ET VISITE")
-- Début: 14:00
-- Fin: 14:45
-- Durée: 45 minutes
-- Montant Preliminaire: 52,00$
-- Intervention: 8857 + 8859 (15 min) = 89,55$
-- Gain: 37,55$
-Expected: Optimization suggestion
+"Validation réussie: Visite {code} de {duration} minutes déjà facturée au montant optimal"
 ```
 
-### Optimization Scenario 3: 60-minute Visit
+**Solution (French):** `null`
+
+**Monetary Impact:** `0`
+
+**Display Configuration:**
+- **Collapsed by default:** Yes
+- **Show when expanded:**
+  - [X] Temporal information box
+  - [ ] Billing details box
+  - [ ] Visit statistics grid
+  - [ ] Comparison box
+- **Custom data fields to display:** `code, duration, currentAmount, interventionAmount`
+
+**Test Case Reference:** `test-P4`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "code": "00150",
+  "duration": 35,
+  "currentAmount": 75.00,
+  "interventionAmount": 59.70
+}
 ```
-Description: Visite d'une heure complète
-Test Data:
-- Code: 00105 (top_level = "B - CONSULTATION, EXAMEN ET VISITE")
-- Début: 09:00
-- Fin: 10:00
-- Durée: 60 minutes
-- Montant Preliminaire: 65,00$
-- Intervention: 8857 + 8859 (30 min) = 119,40$
-- Gain: 54,40$
-Expected: Optimization suggestion
+
+---
+
+### 💡 FAIL Scenarios - Optimizations (Severity: optimization)
+
+These scenarios represent **missed revenue opportunities**.
+Results should be **always visible, highlighted with gain amount**.
+
+---
+
+#### Scenario O1: Simple 30-minute Visit
+
+**Condition:** Visite 30-44 minutes, intervention clinique (8857 seul) plus avantageuse
+
+**Message (French):**
 ```
+"Selon notre analyse, l'intervention clinique est plus avantageuse que la visite {currentCode} facturée"
+```
+
+**Solution (French):**
+```
+"Veuillez valider que l'intervention clinique est plus avantageuse et facturer si le seuil de 180 minutes quotidien n'est pas atteint. N'oubliez pas d'ajouter les contextes ICEP, ICSM et ICTOX au besoin"
+```
+
+**Monetary Impact:** `{gain}` (positive number - difference between intervention and current)
+
+**Display Configuration:**
+- **Collapsed by default:** No (always expanded)
+- **Always show:**
+  - [X] Optimization message
+  - [X] Solution box (highlighted in amber)
+  - [X] Monetary gain badge (prominent)
+- **Show in details:**
+  - [X] Comparison box (current vs intervention)
+  - [X] Temporal information box
+  - [ ] Billing details box
+  - [ ] Visit statistics grid
+- **Custom data fields to display:** `currentCode, duration, currentAmount, interventionAmount, gain, suggestedCodes`
+
+**Test Case Reference:** `test-O1`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 17.20,
+  "currentCode": "00103",
+  "duration": 30,
+  "currentAmount": 42.50,
+  "interventionAmount": 59.70,
+  "gain": 17.20,
+  "suggestedCodes": ["8857"]
+}
+```
+
+---
+
+#### Scenario O2: 45-minute Visit with Additional Period
+
+**Condition:** Visite 45-59 minutes, intervention clinique (8857 + 8859 15min) plus avantageuse
+
+**Message (French):**
+```
+"Selon notre analyse, l'intervention clinique est plus avantageuse que la visite {currentCode} facturée"
+```
+
+**Solution (French):**
+```
+"Veuillez valider que l'intervention clinique est plus avantageuse et facturer si le seuil de 180 minutes quotidien n'est pas atteint. N'oubliez pas d'ajouter les contextes ICEP, ICSM et ICTOX au besoin"
+```
+
+**Monetary Impact:** `{gain}` (positive number)
+
+**Display Configuration:**
+- **Collapsed by default:** No (always expanded)
+- **Always show:**
+  - [X] Optimization message
+  - [X] Solution box (highlighted in amber)
+  - [X] Monetary gain badge (prominent)
+- **Show in details:**
+  - [X] Comparison box (current vs intervention)
+  - [X] Temporal information box
+- **Custom data fields to display:** `currentCode, duration, currentAmount, interventionAmount, gain, suggestedCodes`
+
+**Test Case Reference:** `test-O2`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 37.55,
+  "currentCode": "00113",
+  "duration": 45,
+  "currentAmount": 52.00,
+  "interventionAmount": 89.55,
+  "gain": 37.55,
+  "suggestedCodes": ["8857", "8859"]
+}
+```
+
+---
+
+#### Scenario O3: 60-minute Visit
+
+**Condition:** Visite 60-74 minutes, intervention clinique (8857 + 8859 30min) plus avantageuse
+
+**Message (French):**
+```
+"Selon notre analyse, l'intervention clinique est plus avantageuse que la visite {currentCode} facturée"
+```
+
+**Solution (French):**
+```
+"Veuillez valider que l'intervention clinique est plus avantageuse et facturer si le seuil de 180 minutes quotidien n'est pas atteint. N'oubliez pas d'ajouter les contextes ICEP, ICSM et ICTOX au besoin"
+```
+
+**Monetary Impact:** `{gain}` (positive number)
+
+**Display Configuration:**
+- **Collapsed by default:** No (always expanded)
+- **Always show:**
+  - [X] Optimization message
+  - [X] Solution box (highlighted in amber)
+  - [X] Monetary gain badge (prominent)
+- **Show in details:**
+  - [X] Comparison box (current vs intervention)
+  - [X] Temporal information box
+- **Custom data fields to display:** `currentCode, duration, currentAmount, interventionAmount, gain, suggestedCodes`
+
+**Test Case Reference:** `test-O3`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 54.40,
+  "currentCode": "00105",
+  "duration": 60,
+  "currentAmount": 65.00,
+  "interventionAmount": 119.40,
+  "gain": 54.40,
+  "suggestedCodes": ["8857", "8859"]
+}
+```
+
+---
+
+### 🧪 Edge Cases
+
+**Edge Case 1: Début/Fin traversent minuit**
+- Expected: Calcul correct (ex: 23:30 à 00:15 = 45 min)
+
+**Edge Case 2: Durée exactement 30 minutes**
+- Expected: Optimization si gain > 0 (8857 seul)
+
+**Edge Case 3: Arrondissement périodes supplémentaires**
+- Expected: Arrondi AU SUPÉRIEUR par tranches de 15 min (46 min = 8857 + 8859 15min)
+
+**Edge Case 4: Code non-visite (top_level différent)**
+- Expected: Pas d'optimization (exclu de l'analyse)
+
+**Edge Case 5: Montant Preliminaire NULL ou 0**
+- Expected: Traité comme 0, optimization toujours suggérée si durée ≥30 min
+
+---
+
+## Old Test Scenarios (Reference Only - To Be Updated)
 
 ---
 

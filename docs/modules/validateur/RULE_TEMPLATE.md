@@ -24,9 +24,8 @@ Use this template to create new validation rules for the Quebec healthcare billi
 - `[NEW_TYPE]` - If none of the above fit, describe new type
 
 **Severity**: `[Select one]`
+- `info` - Validation passed successfully (collapsible)
 - `error` - Critical violations that must be fixed
-- `warning` - Issues that should be reviewed
-- `info` - Informational alerts
 - `optimization` - Revenue opportunity suggestions
 
 **Category**: `[billing_codes | office_fees | context_missing | annual_limit | etc.]`
@@ -136,80 +135,227 @@ periodEnd: [if custom period, e.g., "December 31"]
 
 ---
 
-## Error Messages (French)
+## Validation Scenarios & Expected Results
 
-### Primary Error Message:
+> **Purpose:** This section defines ALL possible outcomes of the validation rule,
+> including both passing and failing scenarios. Each scenario specifies the exact
+> message users will see and how results should be displayed.
+>
+> **Naming Convention:**
+> - P1, P2, P3... = PASS scenarios (severity: info)
+> - E1, E2, E3... = ERROR scenarios (severity: error)
+> - O1, O2, O3... = OPTIMIZATION scenarios (severity: optimization)
+
+### ✅ PASS Scenarios (Severity: info)
+
+These scenarios represent successful validation. Results should be **collapsed by default**
+but expandable to show validation details.
+
+#### Scenario P1: [Descriptive Name]
+
+**Condition:** `[When does this pass? Be specific about data conditions]`
+
+**Message (French):**
 ```
-[French message shown when rule is violated]
+"Validation réussie: [what was validated successfully with key metrics]"
 
 Example:
-"Code annuel {code} facturé {totalCount} fois et payé {paidCount} fois
-pour le même patient en {year}. Maximum: 1 par an."
+"Validation réussie: Code 19928 facturé correctement avec 8 patients inscrits (minimum: 6). Montant: 51,84$"
 ```
 
-### Solution Message:
-```
-[French message suggesting how to fix the error]
+**Solution (French):** `null` *(always null for PASS scenarios)*
 
-Example:
-"Veuillez supprimer {unpaidCount} facture(s) non payée(s).
-Ce code ne peut être facturé qu'une fois par année civile."
-```
+**Monetary Impact:** `0` or total amount processed
 
-### Different Scenarios (if multiple solutions):
-```
-Scenario 1: [Condition]
-Message: [French message]
-Solution: [French solution]
+**Display Configuration:**
+- **Collapsed by default:** Yes
+- **Show when expanded:**
+  - [ ] Billing details box
+  - [ ] Visit statistics grid
+  - [ ] Temporal information box
+  - [ ] Comparison box
+- **Custom data fields to display:** `field1, field2, field3`
 
-Scenario 2: [Condition]
-Message: [French message]
-Solution: [French solution]
+**Test Case Reference:** `test-P1` *(maps to test file scenario)*
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "code": "19928",
+  "patientCount": 8,
+  "required": 6,
+  "totalAmount": 51.84
+}
 ```
 
 ---
 
-## Test Scenarios
+#### Scenario P2: [Next pass scenario...]
+*(Copy structure from P1)*
 
-### Pass Scenario 1:
-```
-Description: [What should pass]
-Test Data:
-- Patient: PATIENT-001
-- Code: 15815
-- Date: 2025-03-15
-- Amount Paid: 49.15
-Expected: No error
-```
+---
 
-### Pass Scenario 2:
-```
-[Add more passing scenarios]
-```
+### ❌ FAIL Scenarios - Errors (Severity: error)
 
-### Fail Scenario 1:
+These scenarios represent regulation violations that **must be fixed**.
+Results should be **always visible, expanded by default**.
+
+#### Scenario E1: [Descriptive Name]
+
+**Condition:** `[When does this fail as an error? Be specific]`
+
+**Message (French):**
 ```
-Description: [What should fail]
-Test Data:
-- Patient: PATIENT-001
-- Code: 15815
-- Date 1: 2025-01-10, Amount: 49.15 (paid)
-- Date 2: 2025-06-15, Amount: 49.15 (paid)
-Expected: Error with message about multiple paid billings
+"[What is wrong with specific details and dynamic values]"
+
+Example:
+"Code 19928 exige minimum 6 patients inscrits mais seulement {actualCount} trouvé(s) pour {doctor} le {date}"
 ```
 
-### Fail Scenario 2:
+**Solution (French):**
 ```
-[Add more failing scenarios]
+"[Exactly what to do to fix this - be specific and actionable]"
+
+Example:
+"Changez pour code 19929 ou corrigez les {unpaidCount} visite(s) non payée(s)"
 ```
 
-### Edge Case Scenarios:
-```
-1. [Edge case description]
-   Expected: [behavior]
+**Monetary Impact:**
+- `0` if billing not yet paid (no revenue at risk)
+- `-amount` if billing already paid (revenue at risk of rejection)
 
-2. [Edge case description]
-   Expected: [behavior]
+**Display Configuration:**
+- **Collapsed by default:** No (always expanded)
+- **Always show:**
+  - [X] Error message
+  - [X] Solution box (highlighted)
+- **Show in details:**
+  - [ ] Billing details box
+  - [ ] Visit statistics grid
+  - [ ] Temporal information box
+  - [ ] Comparison box
+- **Custom data fields to display:** `field1, field2, field3`
+
+**Test Case Reference:** `test-E1` *(maps to test file scenario)*
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "code": "19928",
+  "required": 6,
+  "actual": 3,
+  "registeredPaid": 3,
+  "registeredUnpaid": 2,
+  "doctor": "Dr. M***",
+  "date": "2025-01-06"
+}
+```
+
+---
+
+#### Scenario E2: [Next error scenario...]
+*(Copy structure from E1)*
+
+---
+
+### 💡 FAIL Scenarios - Optimizations (Severity: optimization)
+
+These scenarios represent **missed revenue opportunities**.
+Results should be **always visible, highlighted with gain amount**.
+
+#### Scenario O1: [Descriptive Name]
+
+**Condition:** `[When is there a revenue opportunity? Be specific]`
+
+**Message (French):**
+```
+"Optimisation de revenus: [what opportunity exists with current vs potential]"
+
+Example:
+"Optimisation de revenus: {doctor} a vu {actualCount} patients inscrits le {date} et a facturé 19928 ({currentAmount}$), mais pourrait facturer 19929 ({betterAmount}$)"
+```
+
+**Solution (French):**
+```
+"[How to capture this revenue - specific action with exact gain]"
+
+Example:
+"Facturer 19929 au lieu de 19928 pour un gain de {gain}$"
+```
+
+**Monetary Impact:** `positive number` *(REQUIRED - must be > 0)*
+
+**Display Configuration:**
+- **Collapsed by default:** No (always expanded)
+- **Always show:**
+  - [X] Optimization message
+  - [X] Solution box (highlighted in green/amber)
+  - [X] Monetary gain badge (prominent)
+- **Show in details:**
+  - [ ] Billing details box
+  - [ ] Visit statistics grid
+  - [ ] Temporal information box
+  - [X] Comparison box (current vs suggested)
+- **Custom data fields to display:** `field1, field2, field3`
+
+**Test Case Reference:** `test-O1` *(maps to test file scenario)*
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 32.10,
+  "currentCode": "19928",
+  "suggestedCode": "19929",
+  "currentAmount": 32.10,
+  "expectedAmount": 64.20,
+  "actualCount": 15,
+  "doctor": "Dr. M***",
+  "date": "2025-01-06"
+}
+```
+
+---
+
+#### Scenario O2: [Next optimization scenario...]
+*(Copy structure from O1)*
+
+---
+
+### 📊 Summary Scenario (Always Include)
+
+Every rule should include a summary info scenario at the end of validation.
+
+#### Scenario P-SUMMARY: Validation Complete
+
+**Condition:** `End of validation run`
+
+**Message (French):**
+```
+"Validation [rule name] complétée: {totalRecords} enregistrement(s) traité(s), {errorCount} erreur(s), {optimizationCount} opportunité(s)"
+```
+
+**Solution (French):** `null`
+
+**Monetary Impact:** `0` or total amount processed
+
+**Display Configuration:**
+- **Collapsed by default:** Yes
+- **Show when expanded:**
+  - [X] Summary statistics
+
+**Test Case Reference:** `test-summary`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "totalRecords": 150,
+  "errorCount": 3,
+  "optimizationCount": 2,
+  "infoCount": 1
+}
 ```
 
 ---

@@ -12,7 +12,7 @@ Règle de validation pour le forfait de prise en charge et de suivi GMF selon l'
 
 **Rule Type**: `gmf_annual_forfait` (custom type)
 
-**Severity**: `error` (pour duplicata), `optimization` (pour opportunité manquée)
+**Severity**: Mixed (info, error, optimization depending on scenario)
 
 **Category**: `gmf_forfait`
 
@@ -41,41 +41,7 @@ pour le calcul des opportunités.
 
 ### When Should This Trigger?
 
-**Scenario 1 - Duplicate (Error) :**
-```
-Trigger quand :
-1. Code 8875 facturé pour même patient
-2. Plus d'une fois dans la même année civile (Jan 1 - Dec 31)
-3. Au moins une des facturations est payée (montantPaye > 0)
-```
-
-**Scenario 2 - Opportunité manquée (Optimization) :**
-```
-Trigger quand :
-1. Patient a au moins une visite dans établissement GMF
-2. Aucun code 8875 facturé pour ce patient dans l'année
-3. Visite n'a PAS de contexte MTA13, GMFU, GAP, G160 ou AR
-4. Année civile en cours ou passée (pas de suggestion pour année future)
-```
-
-### When Should This NOT Trigger?
-
-**Scenario 1 - Duplicate :**
-```
-Ne doit PAS trigger quand :
-1. Une seule facturation du 8875 par patient par année
-2. Facturations 8875 dans des années différentes (2024 vs 2025)
-3. Aucune des facturations n'est payée (toutes montantPaye = 0 ou NULL)
-```
-
-**Scenario 2 - Opportunité manquée :**
-```
-Ne doit PAS trigger quand :
-1. Code 8875 déjà facturé pour le patient dans l'année
-2. Visites dans établissements NON-GMF (ep_33 = false)
-3. Toutes les visites ont contexte MTA13, GMFU, GAP, G160 ou AR (exceptions)
-4. Patient sans aucune visite dans l'année
-```
+See **Validation Scenarios & Expected Results** section below for detailed scenario conditions.
 
 ---
 
@@ -208,208 +174,307 @@ forfaitAmount: 9.35  // Dollars (tarif au 1er octobre 2019)
 
 ---
 
-## Error Messages (French)
+## Validation Scenarios & Expected Results
 
-### Scenario 1 - Duplicate Annual Forfait
+> **Purpose:** This section defines ALL possible outcomes of the GMF forfait 8875 validation rule.
+> Each scenario specifies the exact message users will see and how results should be displayed.
+>
+> **Naming Convention:**
+> - P1, P2, P3... = PASS scenarios (severity: info)
+> - E1, E2, E3... = ERROR scenarios (severity: error)
+> - O1, O2, O3... = OPTIMIZATION scenarios (severity: optimization)
 
-**Primary Error Message:**
+### ✅ PASS Scenarios (Severity: info)
+
+These scenarios represent successful validation. Results should be **collapsed by default**
+but expandable to show validation details.
+
+---
+
+#### Scenario P1: Single 8875 Per Year
+
+**Condition:** Patient avec un seul code 8875 facturé dans l'année civile
+
+**Message (French):**
 ```
-"Le code 8875 (forfait GMF) ne peut être facturé qu'une seule fois par année civile par patient. Déjà facturé {totalCount} fois et payé {paidCount} fois en {year}."
+"Validation réussie: Forfait GMF (8875) facturé correctement pour patient {patient} en {year}"
 ```
 
-**Solution Message:**
-```
-"Veuillez annuler cette facturation. Le forfait 8875 a déjà été payé pour ce patient le {firstPaidDate}."
-```
+**Solution (French):** `null`
 
-### Scenario 2 - Opportunité Manquée
+**Monetary Impact:** `0`
 
-**Primary Optimization Message:**
-```
-"Patient inscrit GMF avec {visitCount} visite(s) en {year} mais sans forfait 8875 facturé. Perte de revenu : 9,35$."
-```
+**Display Configuration:**
+- **Collapsed by default:** Yes
+- **Show when expanded:**
+  - [ ] Billing details box
+  - [ ] Visit statistics grid
+  - [ ] Temporal information box
+  - [ ] Comparison box
+- **Custom data fields to display:** `patient, year, code`
 
-**Solution Message:**
-```
-"Veuillez facturer le code 8875 (9,35$) lors de la première visite de l'année. Date de première visite GMF : {firstVisitDate}."
-```
+**Test Case Reference:** `test-P1`
 
-### Message Variables:
-```javascript
-// Scenario 1 - Duplicate
-{totalCount}     // Nombre total de facturations 8875
-{paidCount}      // Nombre de facturations payées
-{year}           // Année civile (ex: 2025)
-{firstPaidDate}  // Date de la première facturation payée
-
-// Scenario 2 - Opportunité
-{visitCount}     // Nombre de visites GMF dans l'année
-{year}           // Année civile
-{firstVisitDate} // Date de la première visite GMF de l'année
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "patient": "ABCD12345678",
+  "year": 2025,
+  "code": "8875",
+  "totalCount": 1,
+  "paidCount": 1
+}
 ```
 
 ---
 
-## Test Scenarios
+#### Scenario P2: Different Years
 
-**⚠️ IMPORTANT - Test Data Validation:**
+**Condition:** Patient avec code 8875 facturé dans deux années civiles différentes
 
-Before implementing tests, verify all billing codes used in test scenarios exist in the
-`codes` table with the expected `level1_group` values. The example codes (00103, 00113,
-00105, etc.) are placeholders and should be replaced with actual RAMQ codes from your
-database that match the qualification criteria:
+**Message (French):**
+```
+"Validation réussie: Forfait GMF (8875) facturé dans des années différentes ({years}). Limite annuelle respectée"
+```
 
-- Specific visit codes: 8857, 8859
-- level1_group: "Visites sur rendez-vous (patient de 80 ans ou plus)"
-- level1_group: "Visites sur rendez-vous (patient de moins de 80 ans)"
+**Solution (French):** `null`
 
-Query to find qualifying codes:
-```sql
-SELECT code, level1_group FROM codes
-WHERE level1_group IN (
-  'Visites sur rendez-vous (patient de 80 ans ou plus)',
-  'Visites sur rendez-vous (patient de moins de 80 ans)'
-)
-OR code IN ('8857', '8859')
-ORDER BY code;
+**Monetary Impact:** `0`
+
+**Display Configuration:**
+- **Collapsed by default:** Yes
+- **Show when expanded:**
+  - [ ] Temporal information box
+- **Custom data fields to display:** `patient, years`
+
+**Test Case Reference:** `test-P2`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "patient": "ABCD12345678",
+  "years": "2024, 2025",
+  "code": "8875"
+}
 ```
 
 ---
 
-### Pass Scenario 1: Single 8875 Per Year
+#### Scenario P3: Patient with 8875 and Visits
+
+**Condition:** Patient inscrit GMF avec visites ET forfait 8875 déjà facturé
+
+**Message (French):**
 ```
-Description: Patient avec un seul 8875 dans l'année
-Test Data:
-- Patient: PATIENT-001
-- Date: 2025-03-15
-- Code: 8875
-- Montant payé: 9,35$
-Expected: No error
+"Validation réussie: Patient avec {visitCount} visite(s) GMF et forfait 8875 facturé en {year}"
 ```
 
-### Pass Scenario 2: Different Years
-```
-Description: Patient avec 8875 dans deux années différentes
-Test Data:
-- Patient: PATIENT-001
-- Date 1: 2024-05-10, Code: 8875, Payé: 9,35$
-- Date 2: 2025-01-20, Code: 8875, Payé: 9,35$
-Expected: No error (années différentes)
-```
+**Solution (French):** `null`
 
-### Pass Scenario 3: Patient avec 8875 et visites
-```
-Description: Patient inscrit avec visite et 8875 facturé
-Test Data:
-- Patient: PATIENT-001, Année: 2025
-- Visite 1: 2025-01-15, Code 00103, Établissement GMF (ep_33=true)
-- Forfait: 2025-01-15, Code 8875, Payé: 9,35$
-Expected: No error et no optimization (8875 déjà facturé)
-```
+**Monetary Impact:** `0`
 
-### Fail Scenario 1: Duplicate in Same Year (Both Paid)
-```
-Description: Code 8875 facturé 2 fois dans même année, tous deux payés
-Test Data:
-- Patient: PATIENT-001
-- Facture 1: 2025-01-15, Code 8875, Payé: 9,35$
-- Facture 2: 2025-06-20, Code 8875, Payé: 9,35$
-Expected: Error
-Message: "Le code 8875 ne peut être facturé qu'une seule fois par année civile. Déjà facturé 2 fois et payé 2 fois en 2025."
-Solution: "Veuillez annuler cette facturation. Le forfait 8875 a déjà été payé pour ce patient le 2025-01-15."
-Severity: error
+**Display Configuration:**
+- **Collapsed by default:** Yes
+- **Show when expanded:**
+  - [X] Visit statistics grid
+- **Custom data fields to display:** `patient, year, visitCount`
+
+**Test Case Reference:** `test-P3`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "patient": "ABCD12345678",
+  "year": 2025,
+  "visitCount": 3,
+  "hasForfait": true
+}
 ```
 
-### Fail Scenario 2: Duplicate - One Paid, One Unpaid
+---
+
+### ❌ FAIL Scenarios - Errors (Severity: error)
+
+These scenarios represent regulation violations that **must be fixed**.
+Results should be **always visible, expanded by default**.
+
+---
+
+#### Scenario E1: Duplicate in Same Year (Both Paid)
+
+**Condition:** Code 8875 facturé plus d'une fois dans même année civile, avec au moins une facturation payée
+
+**Message (French):**
 ```
-Description: Code 8875 facturé 2 fois, une payée et une non payée
-Test Data:
-- Patient: PATIENT-002
-- Facture 1: 2025-02-10, Code 8875, Payé: 9,35$
-- Facture 2: 2025-08-05, Code 8875, Payé: 0 (ou NULL)
-Expected: Error
-Message: "Le code 8875 ne peut être facturé qu'une seule fois par année civile. Déjà facturé 2 fois et payé 1 fois en 2025."
-Solution: "Veuillez annuler cette facturation. Le forfait 8875 a déjà été payé pour ce patient le 2025-02-10."
-Severity: error
-```
-
-### Optimization Scenario 1: Patient sans 8875
-```
-Description: Patient inscrit GMF avec visites mais sans 8875
-Test Data:
-- Patient: PATIENT-003, Année: 2025
-- Visite 1: 2025-01-15, Code 00103, Établissement GMF (ep_33=true)
-- Visite 2: 2025-02-20, Code 00113, Établissement GMF (ep_33=true)
-- Visite 3: 2025-05-10, Code 00105, Établissement GMF (ep_33=true)
-- Aucun code 8875
-
-⚠️ TEST DATA NOTE:
-Before implementing tests, verify that codes 00103, 00113, 00105 exist in the codes
-table and have level1_group values that qualify them as visits:
-- "Visites sur rendez-vous (patient de 80 ans ou plus)", OR
-- "Visites sur rendez-vous (patient de moins de 80 ans)"
-
-If these codes don't exist or have different level1_group values, query the codes
-table to find actual qualifying visit codes and substitute them in the test.
-
-Expected: Optimization
-Message: "Patient inscrit GMF avec 3 visite(s) en 2025 mais sans forfait 8875 facturé. Perte de revenu : 9,35$."
-Solution: "Veuillez facturer le code 8875 (9,35$) lors de la première visite de l'année. Date de première visite GMF : 2025-01-15."
-Severity: optimization
+"Le code 8875 (forfait GMF) ne peut être facturé qu'une seule fois par année civile par patient. Déjà facturé {totalCount} fois et payé {paidCount} fois en {year}"
 ```
 
-### Optimization Scenario 2: Patient avec visites et contextes exclus
+**Solution (French):**
 ```
-Description: Patient avec visites GMF mais toutes avec contextes exclus
-Test Data:
-- Patient: PATIENT-004, Année: 2025
-- Visite 1: 2025-03-15, Code 00103, Établissement GMF (ep_33=true), Contexte: MTA13
-- Visite 2: 2025-04-20, Code 00113, Établissement GMF (ep_33=true), Contexte: GMFU
-- Aucun code 8875
-Expected: No optimization (visites avec contextes exclus)
+"Veuillez annuler cette facturation. Le forfait 8875 a déjà été payé pour ce patient le {firstPaidDate}"
 ```
 
-### Edge Case Scenarios:
+**Monetary Impact:**
+- `0` if duplicate billing unpaid
+- `-9.35` if duplicate billing already paid (revenue at risk)
+
+**Display Configuration:**
+- **Collapsed by default:** No (always expanded)
+- **Always show:**
+  - [X] Error message
+  - [X] Solution box (highlighted)
+- **Show in details:**
+  - [X] Billing details box
+  - [X] Temporal information box
+  - [ ] Visit statistics grid
+  - [ ] Comparison box
+- **Custom data fields to display:** `patient, year, totalCount, paidCount, firstPaidDate, affectedInvoices`
+
+**Test Case Reference:** `test-E1`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "patient": "ABCD12345678",
+  "year": 2025,
+  "totalCount": 2,
+  "paidCount": 2,
+  "firstPaidDate": "2025-01-15",
+  "affectedInvoices": ["F001", "F002"]
+}
 ```
-1. Patient avec 3 facturations 8875 même année (toutes payées)
-   Expected: Error avec totalCount=3, paidCount=3
 
-2. Patient avec visites GMF et NON-GMF, pas de 8875
-   Expected: Optimization (au moins une visite GMF)
+---
 
-3. Patient avec visite GMF avec contexte "MTA13,85" (mixte)
-   Expected: Pas d'optimization (contient MTA13)
+#### Scenario E2: Duplicate - One Paid, One Unpaid
 
-3b. Patient avec visite GMF avec contexte "G160" ou "AR"
-   Expected: Pas d'optimization (contextes exclus)
+**Condition:** Code 8875 facturé 2+ fois, avec une facturation payée et d'autres non payées
 
-3c. Patient avec visite GMF avec contexte "85,AR,MTA13" (multiple exclusions)
-   Expected: Pas d'optimization (contient AR et MTA13)
-
-4. Montant payé = NULL ou 0
-   Expected: Traité comme non payé
-
-5. Patient avec visite 31 décembre 2025 et 8875 le 1er janvier 2026
-   Expected: Optimization pour 2025 (8875 dans année différente)
-
-6. Patient sans aucune visite mais avec 8875
-   Expected: No optimization (pas de visite pour déclencher suggestion)
-
-7. Établissement avec ep_33 = NULL dans DB
-   Expected: Traiter comme NON-GMF (ep_33 = false)
-
-8. Patient avec code 8857 dans établissement GMF, pas de 8875
-   Expected: Optimization (8857 est un code de visite qualifiant)
-
-9. Patient avec code 8859 dans établissement GMF, pas de 8875
-   Expected: Optimization (8859 est un code de visite qualifiant)
-
-10. Patient avec code dans level1_group "Visites sur rendez-vous (patient de 80 ans ou plus)"
-    Expected: Optimization (level1_group qualifie la visite)
-
-11. Patient avec billing code non-visite dans établissement GMF
-    Expected: No optimization (code ne qualifie pas comme visite)
+**Message (French):**
 ```
+"Le code 8875 (forfait GMF) ne peut être facturé qu'une seule fois par année civile par patient. Déjà facturé {totalCount} fois et payé {paidCount} fois en {year}"
+```
+
+**Solution (French):**
+```
+"Veuillez annuler cette facturation. Le forfait 8875 a déjà été payé pour ce patient le {firstPaidDate}"
+```
+
+**Monetary Impact:** `0` (unpaid duplicate)
+
+**Display Configuration:**
+- **Collapsed by default:** No (always expanded)
+- **Always show:**
+  - [X] Error message
+  - [X] Solution box (highlighted)
+- **Show in details:**
+  - [X] Billing details box
+  - [X] Temporal information box
+- **Custom data fields to display:** `patient, year, totalCount, paidCount, unpaidCount, firstPaidDate`
+
+**Test Case Reference:** `test-E2`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "patient": "EFGH98765432",
+  "year": 2025,
+  "totalCount": 2,
+  "paidCount": 1,
+  "unpaidCount": 1,
+  "firstPaidDate": "2025-02-10"
+}
+```
+
+---
+
+### 💡 FAIL Scenarios - Optimizations (Severity: optimization)
+
+These scenarios represent **missed revenue opportunities**.
+Results should be **always visible, highlighted with gain amount**.
+
+---
+
+#### Scenario O1: Patient Without 8875
+
+**Condition:** Patient inscrit GMF avec visites qualifiantes mais sans forfait 8875 facturé dans l'année
+
+**Message (French):**
+```
+"Patient inscrit GMF avec {visitCount} visite(s) en {year} mais sans forfait 8875 facturé. Perte de revenu: 9,35$"
+```
+
+**Solution (French):**
+```
+"Veuillez facturer le code 8875 (9,35$) lors de la première visite de l'année. Date de première visite GMF: {firstVisitDate}"
+```
+
+**Monetary Impact:** `9.35` (REQUIRED - must be positive)
+
+**Display Configuration:**
+- **Collapsed by default:** No (always expanded)
+- **Always show:**
+  - [X] Optimization message
+  - [X] Solution box (highlighted in amber)
+  - [X] Monetary gain badge (prominent)
+- **Show in details:**
+  - [X] Visit statistics grid
+  - [X] Temporal information box
+  - [ ] Billing details box
+  - [ ] Comparison box
+- **Custom data fields to display:** `patient, year, visitCount, firstVisitDate, potentialRevenue, gmfEstablishments`
+
+**Test Case Reference:** `test-O1`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 9.35,
+  "patient": "IJKL11223344",
+  "year": 2025,
+  "visitCount": 3,
+  "firstVisitDate": "2025-01-15",
+  "potentialRevenue": 9.35,
+  "gmfEstablishments": ["55369"]
+}
+```
+
+---
+
+### 🧪 Edge Cases
+
+**Edge Case 1: Patient avec 3 facturations 8875 même année (toutes payées)**
+- Expected: Multiple errors (each duplicate flagged)
+
+**Edge Case 2: Patient avec visites GMF et NON-GMF, pas de 8875**
+- Expected: Optimization (au moins une visite GMF)
+
+**Edge Case 3: Patient avec visite GMF avec contexte "MTA13,85" (mixte)**
+- Expected: Pas d'optimization (contient MTA13)
+
+**Edge Case 4: Patient avec visite GMF avec contexte "G160" ou "AR"**
+- Expected: Pas d'optimization (contextes exclus)
+
+**Edge Case 5: Montant payé = NULL ou 0**
+- Expected: Traité comme non payé
+
+**Edge Case 6: Patient avec visite 31 décembre 2025 et 8875 le 1er janvier 2026**
+- Expected: Optimization pour 2025 (8875 dans année différente)
+
+**Edge Case 7: Établissement avec ep_33 = NULL dans DB**
+- Expected: Traiter comme NON-GMF (ep_33 = false)
+
+**Edge Case 8: Patient avec code 8857 dans établissement GMF, pas de 8875**
+- Expected: Optimization (8857 est un code de visite qualifiant)
+
+**Edge Case 9: Patient avec code 8859 dans établissement GMF, pas de 8875**
+- Expected: Optimization (8859 est un code de visite qualifiant)
+
 
 ---
 
@@ -673,8 +738,8 @@ Pas d'optimisation spéciale requise.
 ### Example CSV Input (Scenario 1 - Duplicate):
 ```csv
 #,Facture,Date de Service,Code,Patient,Montant payé,Doctor Info
-1,F001,2025-01-15,8875,PATIENT-001,9.35,DR-001
-2,F002,2025-06-20,8875,PATIENT-001,9.35,DR-001
+1,F001,2025-01-15,8875,ABCD12345678,9.35,DR-001
+2,F002,2025-06-20,8875,ABCD12345678,9.35,DR-001
 ```
 
 ### Expected Validation Output:
@@ -685,7 +750,7 @@ Pas d'optimisation spéciale requise.
   "message": "Le code 8875 (forfait GMF) ne peut être facturé qu'une seule fois par année civile par patient. Déjà facturé 2 fois et payé 2 fois en 2025.",
   "solution": "Veuillez annuler cette facturation. Le forfait 8875 a déjà été payé pour ce patient le 2025-01-15.",
   "ruleData": {
-    "patient": "PATIENT-001",
+    "patient": "ABCD12345678",
     "year": 2025,
     "totalCount": 2,
     "paidCount": 2,
@@ -698,9 +763,9 @@ Pas d'optimisation spéciale requise.
 ### Example CSV Input (Scenario 2 - Opportunité):
 ```csv
 #,Facture,Date de Service,Code,Lieu de pratique,Patient,Montant payé,Doctor Info
-1,F001,2025-01-15,00103,55369,PATIENT-002,42.50,DR-001
-2,F002,2025-02-20,00113,55369,PATIENT-002,38.00,DR-001
-3,F003,2025-05-10,00105,55369,PATIENT-002,52.00,DR-001
+1,F001,2025-01-15,00103,55369,EFGH98765432,42.50,DR-001
+2,F002,2025-02-20,00113,55369,EFGH98765432,38.00,DR-001
+3,F003,2025-05-10,00105,55369,EFGH98765432,52.00,DR-001
 ```
 
 Note: Établissement 55369 a ep_33 = true dans la base de données (GMF)
@@ -713,7 +778,7 @@ Note: Établissement 55369 a ep_33 = true dans la base de données (GMF)
   "message": "Patient inscrit GMF avec 3 visite(s) en 2025 mais sans forfait 8875 facturé. Perte de revenu : 9,35$.",
   "solution": "Veuillez facturer le code 8875 (9,35$) lors de la première visite de l'année. Date de première visite GMF : 2025-01-15.",
   "ruleData": {
-    "patient": "PATIENT-002",
+    "patient": "EFGH98765432",
     "year": 2025,
     "visitCount": 3,
     "firstVisitDate": "2025-01-15",

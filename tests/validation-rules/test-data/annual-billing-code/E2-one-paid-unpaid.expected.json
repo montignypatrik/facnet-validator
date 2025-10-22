@@ -1,0 +1,47 @@
+{
+  "scenarioId": "E2",
+  "scenarioName": "One Paid + Unpaid Billings",
+  "description": "Code annuel facturé plusieurs fois: une facture payée + autres non payées",
+  "expectedResults": [
+    {
+      "severity": "error",
+      "category": "annual_limit",
+      "message": "Code annuel 15815 facturé 3 fois en 2025. La facture 15600245854 est payée, mais les factures 15600245855, 15600245856 restent non payées.",
+      "solution": "Veuillez remplacer les factures suivantes 15600245855, 15600245856 pour qu'elles soient conformes. Ce code ne peut être facturé qu'une fois par année civile.",
+      "ruleData": {
+        "monetaryImpact": 0,
+        "code": "15815",
+        "patient": "ABCD12345678",
+        "year": 2025,
+        "totalCount": 3,
+        "paidCount": 1,
+        "unpaidCount": 2,
+        "paidIdRamq": "15600245854",
+        "paidDate": "2025-01-10",
+        "paidAmount": 49.15,
+        "unpaidIdRamqs": ["15600245855", "15600245856"],
+        "unpaidDates": ["2025-03-15", "2025-06-20"],
+        "unpaidAmounts": [0, 0]
+      },
+      "affectedRecordCount": 3
+    },
+    {
+      "severity": "info",
+      "category": "annual_limit",
+      "message": "Validation complétée pour 3 enregistrement(s) de codes annuels. 1 erreur(s) détectée(s).",
+      "solution": null,
+      "ruleData": {
+        "monetaryImpact": 0,
+        "totalRecords": 3,
+        "errorCount": 1,
+        "totalAtRisk": 0,
+        "codesChecked": ["15815"],
+        "breakdown": {
+          "E1": 0,
+          "E2": 1,
+          "E3": 0
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "scenarioId": "E3",
+  "scenarioName": "All Unpaid Billings",
+  "description": "Code annuel facturé plusieurs fois, toutes les factures sont non payées",
+  "expectedResults": [
+    {
+      "severity": "error",
+      "category": "annual_limit",
+      "message": "Le code annuel 15815 a été facturé 3 fois en 2025, toutes les factures sont impayées.",
+      "solution": "Veuillez valider la raison du refus et corriger les demandes restantes pour que le tout soit conforme.",
+      "ruleData": {
+        "monetaryImpact": 49.15,
+        "code": "15815",
+        "patient": "ABCD12345678",
+        "year": 2025,
+        "totalCount": 3,
+        "paidCount": 0,
+        "unpaidCount": 3,
+        "dates": ["2025-01-10", "2025-03-15", "2025-06-20"],
+        "amounts": [0, 0, 0],
+        "totalUnpaidAmount": 147.45,
+        "tariffValue": 49.15
+      },
+      "affectedRecordCount": 3
+    },
+    {
+      "severity": "info",
+      "category": "annual_limit",
+      "message": "Validation complétée pour 3 enregistrement(s) de codes annuels. 1 erreur(s) détectée(s).",
+      "solution": null,
+      "ruleData": {
+        "monetaryImpact": 49.15,
+        "totalRecords": 3,
+        "errorCount": 1,
+        "totalPotentialGain": 49.15,
+        "codesChecked": ["15815"],
+        "breakdown": {
+          "E1": 0,
+          "E2": 0,
+          "E3": 1
+        }
+      }
+    }
+  ]
+}

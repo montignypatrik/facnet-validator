@@ -1,0 +1,43 @@
+{
+  "scenarioId": "P1",
+  "scenarioName": "Single Billing Per Year",
+  "description": "Code annuel facturé une seule fois pour un patient dans l'année civile",
+  "expectedResults": [
+    {
+      "severity": "info",
+      "category": "annual_limit",
+      "message": "Validation réussie: Code annuel 15815 facturé correctement (1 fois) pour le patient en 2025",
+      "solution": null,
+      "ruleData": {
+        "monetaryImpact": 0,
+        "code": "15815",
+        "patient": "ABCD12345678",
+        "year": 2025,
+        "totalCount": 1,
+        "paidCount": 1,
+        "unpaidCount": 0,
+        "date": "2025-03-15",
+        "amount": 49.15
+      },
+      "affectedRecordCount": 1
+    },
+    {
+      "severity": "info",
+      "category": "annual_limit",
+      "message": "Validation complétée pour 1 enregistrement(s) de codes annuels. 0 erreur(s) détectée(s).",
+      "solution": null,
+      "ruleData": {
+        "monetaryImpact": 0,
+        "totalRecords": 1,
+        "errorCount": 0,
+        "totalAtRisk": 0,
+        "codesChecked": ["15815"],
+        "breakdown": {
+          "E1": 0,
+          "E2": 0,
+          "E3": 0
+        }
+      }
+    }
+  ]
+}

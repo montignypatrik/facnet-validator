@@ -1,0 +1,44 @@
+{
+  "scenarioId": "E1",
+  "scenarioName": "Multiple Paid Billings (CRITICAL)",
+  "description": "Code annuel facturé et payé plusieurs fois pour le même patient la même année",
+  "expectedResults": [
+    {
+      "severity": "error",
+      "category": "annual_limit",
+      "message": "Code annuel 15815 facturé 2 fois et payé 2 fois pour le même patient en 2025. Maximum: 1 par an.",
+      "solution": "Veuillez vérifier si les deux visites ont bien été payées. Si oui, remplacez l'une d'entre elles par une visite conforme au besoin.",
+      "ruleData": {
+        "monetaryImpact": 0,
+        "code": "15815",
+        "patient": "TEST12345678",
+        "year": 2025,
+        "totalCount": 2,
+        "paidCount": 2,
+        "unpaidCount": 0,
+        "dates": ["2025-01-10", "2025-06-15"],
+        "amounts": [49.15, 49.15],
+        "totalPaidAmount": 98.30
+      },
+      "affectedRecordCount": 2
+    },
+    {
+      "severity": "info",
+      "category": "annual_limit",
+      "message": "Validation complétée pour 2 enregistrement(s) de codes annuels. 1 erreur(s) détectée(s).",
+      "solution": null,
+      "ruleData": {
+        "monetaryImpact": 0,
+        "totalRecords": 2,
+        "errorCount": 1,
+        "totalAtRisk": 0,
+        "codesChecked": ["15815"],
+        "breakdown": {
+          "E1": 1,
+          "E2": 0,
+          "E3": 0
+        }
+      }
+    }
+  ]
+}

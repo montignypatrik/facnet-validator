@@ -12,7 +12,7 @@ Règle de validation pour les interventions cliniques individuelles selon l'arti
 
 **Rule Type**: `daily_time_limit` (custom type)
 
-**Severity**: `error`
+**Severity**: Mixed (info, error depending on scenario)
 
 **Category**: `intervention_clinique`
 
@@ -36,22 +36,8 @@ La règle calcule le total des minutes par médecin par jour en utilisant :
 ```
 
 ### When Should This Trigger?
-```
-Trigger quand :
-1. Total quotidien > 180 minutes pour un médecin donné
-2. Seules les interventions SANS contexte ICEP/ICSM/ICTOX sont comptées
-3. Codes 8857 et 8859 uniquement (interventions cliniques individuelles)
-4. Calcul par médecin + date de service
-```
 
-### When Should This NOT Trigger?
-```
-Ne doit PAS trigger quand :
-1. Total quotidien ≤ 180 minutes
-2. Interventions avec contexte ICEP, ICSM ou ICTOX (exclues du calcul)
-3. Codes autres que 8857/8859 (autres types d'actes)
-4. Différents jours (limite est quotidienne, pas hebdomadaire)
-```
+See **Validation Scenarios & Expected Results** section below for detailed scenario conditions.
 
 ---
 
@@ -103,112 +89,257 @@ groupBy: ["Doctor Info", "Date de Service"]
 
 ---
 
-## Error Messages (French)
+## Validation Scenarios & Expected Results
 
-### Primary Error Message:
+> **Purpose:** This section defines ALL possible outcomes of the intervention clinique validation rule.
+> Each scenario specifies the exact message users will see and how results should be displayed.
+>
+> **Naming Convention:**
+> - P1, P2, P3... = PASS scenarios (severity: info)
+> - E1, E2, E3... = ERROR scenarios (severity: error)
+> - O1, O2, O3... = OPTIMIZATION scenarios (severity: optimization)
+
+### ✅ PASS Scenarios (Severity: info)
+
+These scenarios represent successful validation. Results should be **collapsed by default**
+but expandable to show validation details.
+
+---
+
+#### Scenario P1: Within Daily Limit
+
+**Condition:** Médecin facture ≤180 minutes d'interventions cliniques dans une journée (sans contextes ICEP/ICSM/ICTOX)
+
+**Message (French):**
 ```
-"Limite quotidienne d'interventions cliniques dépassée : {totalMinutes} minutes facturées le {date} (maximum : 180 minutes par jour)."
+"Validation réussie: {totalMinutes} minutes d'interventions cliniques facturées pour {doctor} le {date} (limite: 180 minutes/jour)"
 ```
 
-### Solution Message:
-```
-"Veuillez vérifier si les éléments de contexte ICEP, ICSM ou ICTOX sont manquants. Autrement, réduire le nombre d'interventions cliniques ou annuler {excessMinutes} minutes d'interventions pour respecter la limite de 180 minutes par jour."
+**Solution (French):** `null`
+
+**Monetary Impact:** `0`
+
+**Display Configuration:**
+- **Collapsed by default:** Yes
+- **Show when expanded:**
+  - [X] Temporal information box
+  - [ ] Billing details box
+  - [ ] Visit statistics grid
+  - [ ] Comparison box
+- **Custom data fields to display:** `totalMinutes, daily_limit, code8857Minutes, code8859Minutes, recordCount, doctor, date`
+
+**Test Case Reference:** `test-P1`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "totalMinutes": 150,
+  "daily_limit": 180,
+  "code8857Minutes": 150,
+  "code8859Minutes": 0,
+  "recordCount": 5,
+  "doctor": "Dr. K***",
+  "date": "2025-01-07"
+}
 ```
 
 ---
 
-## Test Scenarios
+#### Scenario P2: Excluded Contexts Don't Count
 
-### Pass Scenario 1: Within Daily Limit
+**Condition:** Total minutes >180 mais contextes ICEP/ICSM/ICTOX exclus du calcul ramènent le total ≤180
+
+**Message (French):**
 ```
-Description: Médecin avec 150 minutes d'interventions régulières
-Test Data:
-- Doctor: "1068303-00000 | Krait, Aurélie"
-- Date: 2025-01-07
-- Intervention 1: Code 8857 (30 min) - sans contexte spécial
-- Intervention 2: Code 8857 (30 min) - sans contexte spécial
-- Intervention 3: Code 8857 (30 min) - sans contexte spécial
-- Intervention 4: Code 8857 (30 min) - sans contexte spécial
-- Intervention 5: Code 8857 (30 min) - sans contexte spécial
-Total: 150 minutes
-Expected: No error
+"Validation réussie: {totalMinutes} minutes comptées pour {doctor} le {date} ({excludedMinutes} minutes avec contexte spécial exclues). Limite: 180 minutes/jour"
 ```
 
-### Pass Scenario 2: Excluded Contexts Don't Count
-```
-Description: Médecin avec 200 minutes mais contextes ICEP exclus
-Test Data:
-- Doctor: "1068303-00000 | Krait, Aurélie"
-- Date: 2025-01-07
-- Intervention 1: Code 8857 (30 min) + Code 8859 (30 min) - contexte ICEP = 60 min (EXCLU)
-- Intervention 2: Code 8857 (30 min) - sans contexte = 30 min (COMPTÉ)
-- Intervention 3: Code 8857 (30 min) + Code 8859 (60 min) - sans contexte = 90 min (COMPTÉ)
-Total compté: 120 minutes (60 min ICEP exclus)
-Expected: No error
+**Solution (French):** `null`
+
+**Monetary Impact:** `0`
+
+**Display Configuration:**
+- **Collapsed by default:** Yes
+- **Show when expanded:**
+  - [X] Temporal information box
+  - [ ] Billing details box
+  - [ ] Visit statistics grid
+  - [ ] Comparison box
+- **Custom data fields to display:** `totalMinutes, excludedMinutes, daily_limit, doctor, date`
+
+**Test Case Reference:** `test-P2`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "totalMinutes": 120,
+  "excludedMinutes": 60,
+  "daily_limit": 180,
+  "excludedContexts": "ICEP",
+  "doctor": "Dr. K***",
+  "date": "2025-01-07"
+}
 ```
 
-### Pass Scenario 3: At Exactly 180 Minutes
-```
-Description: Médecin exactement à la limite
-Test Data:
-- Doctor: "1068303-00000 | Krait, Aurélie"
-- Date: 2025-01-07
-- 6 interventions de 30 minutes chacune = 180 min
-Expected: No error
-```
+---
 
-### Fail Scenario 1: Exceeds Daily Limit
+#### Scenario P3: Exactly at 180 Minutes
+
+**Condition:** Médecin facture exactement 180 minutes (limite inclusive)
+
+**Message (French):**
 ```
-Description: Médecin dépasse 180 minutes avec interventions régulières
-Test Data:
-- Doctor: "1068303-00000 | Krait, Aurélie"
-- Date: 2025-01-07
-- Intervention 1: Code 8857 (30 min) - patient 1
-- Intervention 2: Code 8857 (30 min) - patient 2
-- Intervention 3: Code 8857 (30 min) - patient 3
-- Intervention 4: Code 8857 (30 min) - patient 4
-- Intervention 5: Code 8857 (30 min) - patient 5
-- Intervention 6: Code 8857 (30 min) - patient 6
-- Intervention 7: Code 8857 (30 min) - patient 7
-Total: 210 minutes
-Expected: Error - "Limite quotidienne dépassée : 210 minutes (maximum : 180)"
-Solution: "Veuillez annuler 30 minutes d'interventions"
+"Validation réussie: Exactement 180 minutes facturées pour {doctor} le {date} (maximum permis atteint)"
 ```
 
-### Fail Scenario 2: Multiple Periods Exceed Limit
+**Solution (French):** `null`
+
+**Monetary Impact:** `0`
+
+**Display Configuration:**
+- **Collapsed by default:** Yes
+- **Show when expanded:**
+  - [X] Temporal information box
+- **Custom data fields to display:** `totalMinutes, daily_limit, doctor, date`
+
+**Test Case Reference:** `test-P3`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "totalMinutes": 180,
+  "daily_limit": 180,
+  "recordCount": 6,
+  "doctor": "Dr. K***",
+  "date": "2025-01-07"
+}
 ```
-Description: Interventions avec périodes supplémentaires dépassent limite
-Test Data:
-- Doctor: "1068303-00000 | Krait, Aurélie"
-- Date: 2025-02-06
-- Intervention 1: Code 8857 (30 min) + Code 8859 (60 unités) = 90 min
-- Intervention 2: Code 8857 (30 min) + Code 8859 (30 unités) = 60 min
-- Intervention 3: Code 8857 (30 min) + Code 8859 (15 unités) = 45 min
-Total: 195 minutes
-Expected: Error - "Limite quotidienne dépassée : 195 minutes"
-Solution: "Veuillez annuler 15 minutes d'interventions"
+
+---
+
+### ❌ FAIL Scenarios - Errors (Severity: error)
+
+These scenarios represent regulation violations that **must be fixed**.
+Results should be **always visible, expanded by default**.
+
+---
+
+#### Scenario E1: Exceeds Daily Limit (Basic)
+
+**Condition:** Total minutes >180 avec interventions régulières (codes 8857/8859 sans contextes spéciaux)
+
+**Message (French):**
+```
+"Limite quotidienne d'interventions cliniques dépassée: {totalMinutes} minutes facturées pour {doctor} le {date} (maximum: 180 minutes/jour)"
 ```
 
-### Edge Case Scenarios:
+**Solution (French):**
 ```
-1. Contexte mixte "CLSC,ICEP"
-   Expected: Intervention EXCLUE du calcul (contient ICEP)
-
-2. Contexte vide ou NULL
-   Expected: Intervention COMPTÉE dans le total
-
-3. Multiple médecins même jour
-   Expected: Calcul séparé par médecin
-
-4. Code 8859 avec Unités = 0 ou NULL
-   Expected: Traiter comme 0 minutes
-
-5. Interventions sur 2 jours consécutifs
-   Expected: Calcul séparé par jour (pas de cumul)
-
-6. Exactement 180 minutes
-   Expected: No error (limite inclusive)
+"Veuillez vérifier si les éléments de contexte ICEP, ICSM ou ICTOX sont manquants. Autrement, réduire le nombre d'interventions cliniques ou annuler {excessMinutes} minutes d'interventions pour respecter la limite de 180 minutes par jour"
 ```
+
+**Monetary Impact:**
+- `0` if all billings unpaid
+- `-{unpaidAmount}` if some billings already paid (revenue at risk)
+
+**Display Configuration:**
+- **Collapsed by default:** No (always expanded)
+- **Always show:**
+  - [X] Error message
+  - [X] Solution box (highlighted)
+- **Show in details:**
+  - [X] Temporal information box
+  - [X] Billing details box
+  - [ ] Visit statistics grid
+  - [ ] Comparison box
+- **Custom data fields to display:** `totalMinutes, daily_limit, excessMinutes, code8857Minutes, code8859Minutes, recordCount, doctor, date`
+
+**Test Case Reference:** `test-E1`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "totalMinutes": 210,
+  "daily_limit": 180,
+  "excessMinutes": 30,
+  "code8857Minutes": 210,
+  "code8859Minutes": 0,
+  "recordCount": 7,
+  "doctor": "Dr. K***",
+  "date": "2025-01-07"
+}
+```
+
+---
+
+#### Scenario E2: Multiple Periods Exceed Limit
+
+**Condition:** Total minutes >180 avec combinaison de codes 8857 et 8859 (périodes supplémentaires)
+
+**Message (French):**
+```
+"Limite quotidienne d'interventions cliniques dépassée: {totalMinutes} minutes facturées pour {doctor} le {date} (8857: {code8857Minutes} min, 8859: {code8859Minutes} min). Maximum: 180 minutes/jour"
+```
+
+**Solution (French):**
+```
+"Veuillez vérifier si les éléments de contexte ICEP, ICSM ou ICTOX sont manquants. Autrement, réduire le nombre d'interventions cliniques ou annuler {excessMinutes} minutes d'interventions pour respecter la limite de 180 minutes par jour"
+```
+
+**Monetary Impact:** `0` or `-{unpaidAmount}`
+
+**Display Configuration:**
+- **Collapsed by default:** No (always expanded)
+- **Always show:**
+  - [X] Error message
+  - [X] Solution box (highlighted)
+- **Show in details:**
+  - [X] Temporal information box
+  - [X] Billing details box
+- **Custom data fields to display:** `totalMinutes, daily_limit, excessMinutes, code8857Minutes, code8859Minutes, recordCount, doctor, date`
+
+**Test Case Reference:** `test-E2`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "totalMinutes": 195,
+  "daily_limit": 180,
+  "excessMinutes": 15,
+  "code8857Minutes": 90,
+  "code8859Minutes": 105,
+  "recordCount": 6,
+  "doctor": "Dr. K***",
+  "date": "2025-02-06"
+}
+```
+
+---
+
+### 🧪 Edge Cases
+
+**Edge Case 1: Contexte mixte "CLSC,ICEP"**
+- Expected: Intervention EXCLUE du calcul (contient ICEP)
+
+**Edge Case 2: Contexte vide ou NULL**
+- Expected: Intervention COMPTÉE dans le total
+
+**Edge Case 3: Multiple médecins même jour**
+- Expected: Calcul séparé par médecin
+
+**Edge Case 4: Code 8859 avec Unités = 0 ou NULL**
+- Expected: Traiter comme 0 minutes
+
+**Edge Case 5: Interventions sur 2 jours consécutifs**
+- Expected: Calcul séparé par jour (pas de cumul)
+
+**Edge Case 6: Exactement 180 minutes**
+- Expected: No error (limite inclusive - scenario P3)
 
 ---
 

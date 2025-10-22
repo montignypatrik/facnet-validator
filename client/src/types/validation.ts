@@ -76,6 +76,14 @@ export interface OfficeFeeRuleData extends BaseRuleData {
   currentAmount?: number;
   expectedAmount?: number;
   potentialRevenue?: number;
+  // E5 daily maximum error fields
+  affectedRamqIds?: string[];
+  feeBreakdownWithPatients?: any;
+  totalAmount?: string;
+  maximum?: string;
+  overage?: string;
+  patientCount?: number;
+  likelyDataError?: boolean;
 }
 
 // Intervention clinique rule data
@@ -110,7 +118,23 @@ export interface AnnualLimitRuleData extends BaseRuleData {
   year: number;
   code: string;
   totalCount: number;
+  paidCount?: number;
+  unpaidCount?: number;
   billingDates?: string[];
+  dates?: string[];
+  amounts?: number[];
+  // E1 scenario fields
+  totalPaidAmount?: number;
+  // E2 scenario fields - one paid + unpaid billings
+  paidIdRamq?: string;
+  paidDate?: string;
+  paidAmount?: number;
+  unpaidIdRamqs?: string[];
+  unpaidDates?: string[];
+  unpaidAmounts?: number[];
+  // E3 scenario fields - all unpaid billings
+  totalUnpaidAmount?: number;
+  tariffValue?: number;
 }
 
 // Union type for all rule data

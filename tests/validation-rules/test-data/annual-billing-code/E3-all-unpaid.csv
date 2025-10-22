@@ -1,0 +1,4 @@
+#;Facture;ID RAMQ;Date de Service;Début;Fin;Periode;Lieu de pratique;Secteur d'activité;Diagnostic;Code;Unités;Rôle;Élément de contexte;Montant Preliminaire;Montant payé;Doctor Info;DEV NOTE - À TRADUIRE: Report_DailyClaimInfo_TotalPrelAmount;DEV NOTE - À TRADUIRE: Report_DailyClaimInfo_TotalFinalAmount;DEV NOTE - À TRADUIRE: Report_DailyClaimInfo_TotalCount;Agence;Patient;Grand Total
+1;128357280;15600245860;2025-01-10;08:00;;202520;55489;Aucun Secteur;;15815;0;1;;49,15;0,00;1069491-00000 | Dupont, Marie - Omnipraticien  ;147,45;0,00;3;;ABCD12345678 - Tremblay, Jean;
+2;128357281;15600245861;2025-03-15;09:00;;202520;55489;Aucun Secteur;;15815;0;1;;49,15;0,00;1069491-00000 | Dupont, Marie - Omnipraticien  ;147,45;0,00;3;;ABCD12345678 - Tremblay, Jean;
+3;128357282;15600245862;2025-06-20;10:00;;202520;55489;Aucun Secteur;;15815;0;1;;49,15;0,00;1069491-00000 | Dupont, Marie - Omnipraticien  ;147,45;0,00;3;;ABCD12345678 - Tremblay, Jean;
