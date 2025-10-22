@@ -16,6 +16,8 @@ import { apiLimiter } from "./middleware/rateLimiter";
 const corsOptions = {
   origin: [
     "http://localhost:5173",
+    "http://localhost:5178",  // Development client port
+    "http://localhost:5179",  // Alternate development port
     "http://localhost:5000",
     "https://148.113.196.245",        // Production
     "https://148.113.196.245:3001",   // Staging
@@ -78,3 +80,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   return httpServer;
 }
+

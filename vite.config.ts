@@ -33,6 +33,7 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    port: 5178, // Fixed port for Auth0 callback consistency
     fs: {
       strict: true,
       deny: ["**/.*"],

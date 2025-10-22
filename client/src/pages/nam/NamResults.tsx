@@ -17,6 +17,9 @@ import {
   Eye,
   EyeOff,
   ArrowLeft,
+  Edit,
+  Calendar,
+  Clock,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import client from "@/api/client";
@@ -29,6 +32,16 @@ interface NAMResult {
   validationError?: string;
   removedByUser: boolean;
   includedInSsv: boolean;
+
+  // Visit date and time fields
+  visitDate: string | null;
+  visitTime: string | null;
+  dateValid: boolean;
+  timeValid: boolean;
+  dateValidationError?: string;
+  timeValidationError?: string;
+  dateManuallyEdited: boolean;
+  timeManuallyEdited: boolean;
 }
 
 interface NAMRun {
@@ -57,6 +70,11 @@ export default function NamResultsPage() {
   const [sseStatus, setSSEStatus] = useState<string>("connecting");
   const [liveProgress, setLiveProgress] = useState<number>(0);
   const [liveStage, setLiveStage] = useState<string | null>(null);
+
+  // Edit state for date/time
+  const [editingResultId, setEditingResultId] = useState<string | null>(null);
+  const [editDate, setEditDate] = useState<string>("");
+  const [editTime, setEditTime] = useState<string>("");
 
   const translations = {
     pageTitle: "Résultats d'Extraction NAM",
@@ -88,7 +106,7 @@ export default function NamResultsPage() {
     toggleInclude: "Basculer l'inclusion",
     removed: "Retiré",
     included: "Inclus",
-    downloadSSV: "Télécharger SSV",
+    downloadSSV: "Télécharger",
     includeInvalidNAMs: "Inclure les NAMs invalides",
     noNAMsFound: "Aucun NAM trouvé",
     extractionInProgress: "Extraction en cours...",
@@ -97,6 +115,17 @@ export default function NamResultsPage() {
     downloadSuccess: "Téléchargement réussi",
     ssvGenerated: "Fichier SSV généré avec succès",
     downloadFailed: "Échec du téléchargement",
+    visitDate: "Date de Visite",
+    visitTime: "Heure de Visite",
+    editDateTime: "Modifier Date/Heure",
+    saveChanges: "Enregistrer",
+    cancel: "Annuler",
+    missingDate: "Date manquante",
+    invalidDate: "Date invalide",
+    invalidTime: "Heure invalide",
+    editSuccess: "Date/Heure mise à jour avec succès",
+    editFailed: "Échec de la mise à jour",
+    invalidDatesWarning: "Certaines dates sont invalides ou manquantes",
   };
 
   // Fetch NAM run details
@@ -208,6 +237,50 @@ export default function NamResultsPage() {
     },
   });
 
+  // Edit date/time mutation
+  const editDateTimeMutation = useMutation({
+    mutationFn: async ({ resultId, visitDate, visitTime }: { resultId: string; visitDate?: string; visitTime?: string }) => {
+      await client.patch(`/nam/runs/${runId}/results/${resultId}/edit-datetime`, {
+        visitDate,
+        visitTime,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["nam-results", runId] });
+      setEditingResultId(null);
+      toast({
+        title: translations.editSuccess,
+      });
+    },
+    onError: () => {
+      toast({
+        title: translations.editFailed,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Helper functions for editing
+  const handleStartEdit = (result: NAMResult) => {
+    setEditingResultId(result.id);
+    setEditDate(result.visitDate || "");
+    setEditTime(result.visitTime || "08:00");
+  };
+
+  const handleSaveEdit = (resultId: string) => {
+    editDateTimeMutation.mutate({
+      resultId,
+      visitDate: editDate,
+      visitTime: editTime,
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingResultId(null);
+    setEditDate("");
+    setEditTime("");
+  };
+
   // Download SSV mutation
   const downloadMutation = useMutation({
     mutationFn: async (includeInvalid: boolean) => {
@@ -221,7 +294,7 @@ export default function NamResultsPage() {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `nam-extraction-${new Date().toISOString().slice(0, 10)}.ssv`);
+      link.setAttribute("download", `nam-extraction-${new Date().toISOString().slice(0, 10)}.csv`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -312,6 +385,8 @@ export default function NamResultsPage() {
 
   const validResults = resultsData?.results?.filter(r => r.valid && !r.removedByUser) || [];
   const invalidResults = resultsData?.results?.filter(r => !r.valid) || [];
+  const invalidDatesResults = resultsData?.results?.filter(r => !r.dateValid || !r.visitDate) || [];
+  const hasInvalidDates = invalidDatesResults.some(r => !r.removedByUser);
   const removedResults = resultsData?.results?.filter(r => r.removedByUser) || [];
 
   return (
@@ -406,7 +481,7 @@ export default function NamResultsPage() {
           {run.status === "completed" && resultsData && (
             <>
               {/* Summary */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card>
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
@@ -431,6 +506,20 @@ export default function NamResultsPage() {
                   </CardContent>
                 </Card>
 
+                <Card className={hasInvalidDates ? "border-orange-400" : ""}>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Dates Invalides</p>
+                        <p className={`text-3xl font-bold ${hasInvalidDates ? "text-orange-600" : "text-gray-600"}`}>
+                          {invalidDatesResults.filter(r => !r.removedByUser).length}
+                        </p>
+                      </div>
+                      <Calendar className={`w-8 h-8 ${hasInvalidDates ? "text-orange-600" : "text-gray-600"}`} />
+                    </div>
+                  </CardContent>
+                </Card>
+
                 <Card>
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
@@ -444,25 +533,44 @@ export default function NamResultsPage() {
                 </Card>
               </div>
 
+              {/* Warning for invalid dates */}
+              {hasInvalidDates && (
+                <Alert className="bg-orange-50 border-orange-200">
+                  <AlertCircle className="h-4 w-4 text-orange-600" />
+                  <AlertDescription className="text-orange-800">
+                    {translations.invalidDatesWarning}. Veuillez corriger les dates avant de télécharger le fichier SSV.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {/* Download Button */}
               {validResults.length > 0 && (
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => handleDownloadSSV(false)}
-                    disabled={downloadMutation.isPending}
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    {translations.downloadSSV}
-                  </Button>
-                  {invalidResults.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
                     <Button
-                      variant="outline"
-                      onClick={() => handleDownloadSSV(true)}
-                      disabled={downloadMutation.isPending}
+                      onClick={() => handleDownloadSSV(false)}
+                      disabled={downloadMutation.isPending || hasInvalidDates}
+                      title={hasInvalidDates ? "Veuillez corriger les dates invalides avant de télécharger" : ""}
                     >
                       <Download className="w-4 h-4 mr-2" />
-                      {translations.includeInvalidNAMs}
+                      {translations.downloadSSV}
                     </Button>
+                    {invalidResults.length > 0 && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleDownloadSSV(true)}
+                        disabled={downloadMutation.isPending || hasInvalidDates}
+                        title={hasInvalidDates ? "Veuillez corriger les dates invalides avant de télécharger" : ""}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        {translations.includeInvalidNAMs}
+                      </Button>
+                    )}
+                  </div>
+                  {hasInvalidDates && (
+                    <p className="text-sm text-orange-600">
+                      ⚠️ Export désactivé : Toutes les dates doivent être valides
+                    </p>
                   )}
                 </div>
               )}
@@ -485,6 +593,8 @@ export default function NamResultsPage() {
                           <tr className="border-b">
                             <th className="text-left py-3 px-4">{translations.page}</th>
                             <th className="text-left py-3 px-4">{translations.namNumber}</th>
+                            <th className="text-left py-3 px-4">{translations.visitDate}</th>
+                            <th className="text-left py-3 px-4">{translations.visitTime}</th>
                             <th className="text-left py-3 px-4">{translations.validationStatus}</th>
                             <th className="text-left py-3 px-4">{translations.actions}</th>
                           </tr>
@@ -494,38 +604,137 @@ export default function NamResultsPage() {
                             <tr key={result.id} className="border-b hover:bg-muted/50">
                               <td className="py-3 px-4">{result.page}</td>
                               <td className="py-3 px-4 font-mono">{result.nam}</td>
+
+                              {/* Visit Date Cell */}
                               <td className="py-3 px-4">
-                                {result.valid ? (
-                                  <Badge variant="default" className="bg-green-600">
-                                    <CheckCircle className="w-3 h-3 mr-1" />
-                                    {translations.valid}
-                                  </Badge>
+                                {editingResultId === result.id ? (
+                                  <input
+                                    type="date"
+                                    value={editDate}
+                                    onChange={(e) => setEditDate(e.target.value)}
+                                    className="border rounded px-2 py-1 w-full"
+                                  />
                                 ) : (
-                                  <Badge variant="destructive">
-                                    <XCircle className="w-3 h-3 mr-1" />
-                                    {result.validationError || translations.invalid}
-                                  </Badge>
+                                  <div className="flex items-center gap-2">
+                                    {result.visitDate ? (
+                                      <span className={!result.dateValid ? "text-red-500" : ""}>
+                                        {result.visitDate}
+                                      </span>
+                                    ) : (
+                                      <Badge variant="destructive" className="text-xs">
+                                        <Calendar className="w-3 h-3 mr-1" />
+                                        {translations.missingDate}
+                                      </Badge>
+                                    )}
+                                    {!result.dateValid && result.dateValidationError && (
+                                      <span className="text-xs text-red-500">({result.dateValidationError})</span>
+                                    )}
+                                  </div>
                                 )}
                               </td>
+
+                              {/* Visit Time Cell */}
                               <td className="py-3 px-4">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleToggleInclude(result.id)}
-                                  disabled={toggleMutation.isPending}
-                                >
-                                  {result.removedByUser ? (
+                                {editingResultId === result.id ? (
+                                  <input
+                                    type="time"
+                                    value={editTime}
+                                    onChange={(e) => setEditTime(e.target.value)}
+                                    className="border rounded px-2 py-1 w-full"
+                                  />
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    {result.visitTime ? (
+                                      <span className={!result.timeValid ? "text-red-500" : ""}>
+                                        {result.visitTime}
+                                      </span>
+                                    ) : (
+                                      <span className="text-gray-400">--:--</span>
+                                    )}
+                                    {!result.timeValid && result.timeValidationError && (
+                                      <span className="text-xs text-red-500">({result.timeValidationError})</span>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Validation Status Cell */}
+                              <td className="py-3 px-4">
+                                <div className="flex flex-col gap-1">
+                                  {result.valid ? (
+                                    <Badge variant="default" className="bg-green-600 w-fit">
+                                      <CheckCircle className="w-3 h-3 mr-1" />
+                                      {translations.valid}
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="destructive" className="w-fit">
+                                      <XCircle className="w-3 h-3 mr-1" />
+                                      {result.validationError || translations.invalid}
+                                    </Badge>
+                                  )}
+                                  {!result.dateValid && (
+                                    <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 w-fit text-xs">
+                                      <AlertCircle className="w-3 h-3 mr-1" />
+                                      {translations.invalidDate}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Actions Cell */}
+                              <td className="py-3 px-4">
+                                <div className="flex gap-2">
+                                  {editingResultId === result.id ? (
                                     <>
-                                      <Eye className="w-4 h-4 mr-2" />
-                                      {translations.included}
+                                      <Button
+                                        variant="default"
+                                        size="sm"
+                                        onClick={() => handleSaveEdit(result.id)}
+                                        disabled={editDateTimeMutation.isPending}
+                                      >
+                                        <CheckCircle className="w-4 h-4 mr-1" />
+                                        {translations.saveChanges}
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleCancelEdit}
+                                        disabled={editDateTimeMutation.isPending}
+                                      >
+                                        {translations.cancel}
+                                      </Button>
                                     </>
                                   ) : (
                                     <>
-                                      <EyeOff className="w-4 h-4 mr-2" />
-                                      {translations.removed}
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleStartEdit(result)}
+                                      >
+                                        <Edit className="w-4 h-4 mr-1" />
+                                        {translations.editDateTime}
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleToggleInclude(result.id)}
+                                        disabled={toggleMutation.isPending}
+                                      >
+                                        {result.removedByUser ? (
+                                          <>
+                                            <Eye className="w-4 h-4 mr-1" />
+                                            {translations.included}
+                                          </>
+                                        ) : (
+                                          <>
+                                            <EyeOff className="w-4 h-4 mr-1" />
+                                            {translations.removed}
+                                          </>
+                                        )}
+                                      </Button>
                                     </>
                                   )}
-                                </Button>
+                                </div>
                               </td>
                             </tr>
                           ))}

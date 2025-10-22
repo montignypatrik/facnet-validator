@@ -17,6 +17,8 @@ import { namExtractionRuns, namExtractionResults } from "@shared/schema";
 import { extractTextFromPDF, getPageCount } from "./textractService";
 import { extractNAMsWithGPT4 } from "./openaiService";
 import { validateNAMFormat, normalizeNAM } from "./namValidator";
+import { validateDateFormat, normalizeDate } from "./dateValidator";
+import { validateTimeFormat, normalizeTime, getTimeOrDefault } from "./timeValidator";
 import { retryWithBackoff } from "./retryUtil";
 import { ExtractionResult, NAMResult, NAMExtractionErrorCode } from "../types";
 import { eq } from "drizzle-orm";
@@ -250,8 +252,16 @@ export async function processDocument(
       // Normalize NAM to uppercase
       const normalizedNAM = normalizeNAM(namString);
 
-      // Validate format
+      // Validate NAM format
       const [isValid, validationError] = validateNAMFormat(normalizedNAM);
+
+      // Normalize and validate date
+      const normalizedDate = normalizeDate(rawNAM.visitDate);
+      const [dateValid, dateValidationError] = validateDateFormat(normalizedDate);
+
+      // Normalize and validate time (use default if not provided)
+      const normalizedTime = getTimeOrDefault(rawNAM.visitTime);
+      const [timeValid, timeValidationError] = validateTimeFormat(normalizedTime);
 
       // Create NAM result
       const namResult: NAMResult = {
@@ -259,12 +269,24 @@ export async function processDocument(
         page,
         valid: isValid,
         validationError: isValid ? undefined : validationError,
+        visitDate: normalizedDate || null,
+        visitTime: normalizedTime,
+        dateValid,
+        timeValid,
+        dateValidationError: dateValid ? undefined : dateValidationError,
+        timeValidationError: timeValid ? undefined : timeValidationError,
       };
 
       extractedNAMs.push(namResult);
 
       if (!isValid) {
         console.warn(`[NAM PIPELINE] Invalid NAM format: ${normalizedNAM} - ${validationError}`);
+      }
+      if (!dateValid) {
+        console.warn(`[NAM PIPELINE] Invalid/missing date for NAM ${normalizedNAM}: ${dateValidationError}`);
+      }
+      if (!timeValid) {
+        console.warn(`[NAM PIPELINE] Invalid time for NAM ${normalizedNAM}: ${timeValidationError}`);
       }
     }
 
@@ -298,6 +320,12 @@ export async function processDocument(
         page: namResult.page,
         valid: namResult.valid,
         validationError: namResult.validationError || null,
+        visitDate: namResult.visitDate,
+        visitTime: namResult.visitTime,
+        dateValid: namResult.dateValid,
+        timeValid: namResult.timeValid,
+        dateValidationError: namResult.dateValidationError || null,
+        timeValidationError: namResult.timeValidationError || null,
       });
     }
 

@@ -9,11 +9,11 @@ import OpenAI from "openai";
 import { TextByPage } from "../types";
 
 /**
- * System prompt with NAM format instructions
+ * System prompt with NAM, date, and time format instructions
  */
 const SYSTEM_PROMPT = `You are a medical billing data extraction assistant specializing in Quebec healthcare documents.
 
-Your task: Extract all Quebec health insurance numbers (NAM/Numéro d'assurance maladie) from the provided text.
+Your task: Extract all Quebec health insurance numbers (NAM/Numéro d'assurance maladie), visit dates, and visit times from the provided text.
 
 NAM Format Rules:
 - Exactly 12 characters
@@ -21,28 +21,46 @@ NAM Format Rules:
 - Last 8 characters: Digits only (0-9)
 - Example: ABCD12345678
 
+Visit Date Rules:
+- The visit date typically appears once at the top of each page
+- Extract in YYYY-MM-DD format (e.g., 2025-01-21)
+- If you find dates in other formats (DD/MM/YYYY, DD-MM-YYYY, etc.), convert them to YYYY-MM-DD
+- Each NAM should be associated with the date from its page
+- If no date is found, set to null
+
+Visit Time Rules:
+- The visit time typically appears near the NAM on the same page
+- Extract in HH:MM 24-hour format (e.g., 08:00, 14:30)
+- If you find times in 12-hour format (e.g., 2:30 PM), convert to 24-hour (14:30)
+- If you find times in other formats (14h30, 1430), convert to HH:MM
+- If no time is found for a NAM, set to null (default of 08:00 will be used)
+
 Instructions:
 1. Scan the entire text for strings matching the NAM format
-2. Extract ALL valid NAMs (there may be multiple)
-3. Track which page each NAM was found on
-4. Ignore strings that don't match the exact format
-5. Return results as JSON object with "nams" array only, no other text
+2. Extract ALL valid NAMs (there may be multiple per page)
+3. For each NAM, extract the associated visit date and time
+4. Track which page each NAM was found on
+5. Dates typically appear once per page (at the top), times appear near each NAM
+6. Return results as JSON object with "nams" array only, no other text
 
 Output Format:
 {
   "nams": [
-    {"nam": "ABCD12345678", "page": 1},
-    {"nam": "WXYZ98765432", "page": 2}
+    {"nam": "ABCD12345678", "visitDate": "2025-01-21", "visitTime": "08:00", "page": 1},
+    {"nam": "WXYZ98765432", "visitDate": "2025-01-22", "visitTime": "14:30", "page": 2},
+    {"nam": "EFGH11223344", "visitDate": "2025-01-21", "visitTime": null, "page": 1}
   ]
 }
 
 If no valid NAMs found, return: {"nams": []}`;
 
 /**
- * Raw NAM from OpenAI response
+ * Raw NAM extraction from OpenAI response
  */
 interface RawNAM {
   nam: string;
+  visitDate: string | null;
+  visitTime: string | null;
   page: number;
 }
 
@@ -54,12 +72,12 @@ interface OpenAIResponse {
 }
 
 /**
- * Extract NAMs from text using OpenAI GPT-4.
+ * Extract NAMs, visit dates, and visit times from text using OpenAI GPT-4.
  *
  * @param textByPage - Dictionary mapping page number to list of text lines
  *                     Example: {1: ['Line 1', 'Line 2'], 2: ['Line 3']}
- * @returns List of extracted NAMs with page numbers
- *          Example: [{"nam": "ABCD12345678", "page": 1}, ...]
+ * @returns List of extracted NAMs with dates, times, and page numbers
+ *          Example: [{"nam": "ABCD12345678", "visitDate": "2025-01-21", "visitTime": "08:00", "page": 1}, ...]
  *          Returns empty array if no NAMs found
  * @throws Error for OpenAI API errors (AuthenticationError, RateLimitError, etc.)
  *
@@ -67,7 +85,7 @@ interface OpenAIResponse {
  * - Combines text from all pages with page markers
  * - Sends to GPT-4o with structured JSON response format
  * - Uses temperature=0 for deterministic extraction
- * - Parses JSON response to extract NAM list
+ * - Parses JSON response to extract NAM list with dates and times
  */
 export async function extractNAMsWithGPT4(
   textByPage: TextByPage
@@ -80,7 +98,7 @@ export async function extractNAMsWithGPT4(
   });
 
   // Combine text from all pages with page markers
-  let userPrompt = "Extract NAMs from this document:\n\n";
+  let userPrompt = "Extract NAMs, visit dates, and visit times from this document:\n\n";
 
   // Sort pages by page number
   const sortedPages = Object.keys(textByPage)
@@ -106,7 +124,7 @@ export async function extractNAMsWithGPT4(
       ],
       response_format: { type: "json_object" },
       temperature: 0, // Deterministic extraction
-      max_tokens: 4000, // Increased from 1000 to handle larger responses
+      max_tokens: 10000, // Increased to handle large documents with date/time fields
     });
 
     // Parse JSON response
@@ -163,6 +181,10 @@ export function formatNAMsForLogging(nams: RawNAM[]): string {
     return "No NAMs found";
   }
 
-  const namStrings = nams.map((n) => `${n.nam} (page ${n.page})`);
+  const namStrings = nams.map((n) => {
+    const dateStr = n.visitDate || "no date";
+    const timeStr = n.visitTime || "no time";
+    return `${n.nam} (${dateStr} ${timeStr}, page ${n.page})`;
+  });
   return `${nams.length} NAMs: ${namStrings.join(", ")}`;
 }
