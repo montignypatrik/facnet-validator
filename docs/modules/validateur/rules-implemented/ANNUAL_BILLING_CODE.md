@@ -12,7 +12,7 @@ Documentation complète de la règle de validation des codes annuels RAMQ.
 
 **Rule Type**: `annual_billing_code`
 
-**Severity**: `error` (pour paiements multiples) / `warning` (pour factures non payées)
+**Severity**: `Mixed (info, error depending on scenario)`
 
 **Category**: `annual_limit`
 
@@ -36,30 +36,8 @@ La règle utilise une approche avancée:
 ```
 
 ### When Should This Trigger?
-```
-La règle se déclenche lorsque:
-1. Un patient a plusieurs facturations du même code annuel dans la même année
-2. Les deux facturations sont dans la même année civile (Jan 1 - Dec 31)
-3. Le code est identifié par son champ "leaf" correspondant aux patterns cibles
 
-Sévérité "error" (critique):
-- Plusieurs factures PAYÉES pour le même code annuel
-- Nécessite contact avec la RAMQ pour corriger
-
-Sévérité "warning" (avertissement):
-- Une facture payée + autres non payées
-- Ou toutes les factures non payées
-- Peut être corrigé en supprimant les factures non payées
-```
-
-### When Should This NOT Trigger?
-```
-La règle ne se déclenche PAS lorsque:
-1. Même code facturé dans différentes années civiles (2024 vs 2025)
-2. Différents patients ont le même code la même année
-3. Le code n'est pas dans les patterns "leaf" cibles
-4. Un seul enregistrement de facturation par patient par année
-```
+See **Validation Scenarios & Expected Results** section below for detailed scenario conditions.
 
 ---
 
@@ -79,8 +57,6 @@ ayant ces valeurs dans le champ "leaf".
 
 Exemples de codes identifiés (à partir de la base de données):
 - 15815: Visite de prise en charge
-- 19928: (selon le leaf défini)
-- 19929: (selon le leaf défini)
 - Autres codes avec les mêmes patterns leaf
 ```
 
@@ -92,6 +68,228 @@ Aucun contexte spécifique requis pour cette règle.
 ### Establishment Restrictions:
 ```
 Aucune restriction d'établissement pour cette règle.
+```
+
+---
+
+## Validation Scenarios & Expected Results
+
+**This section defines ALL possible validation outcomes for this rule.**
+
+Each scenario specifies:
+- **Condition**: When does this scenario occur?
+- **Message (French)**: Exact text shown to user
+- **Solution (French)**: Exact action to take (or `null` for PASS)
+- **Monetary Impact**: Revenue impact (0, positive gain, or negative at-risk)
+- **Display Configuration**: Which UI components to show
+- **Test Case Reference**: Maps to test file scenario ID
+- **Example ruleData**: Complete JSON structure with all fields
+
+---
+
+### ✅ PASS Scenarios (severity: info)
+
+#### Scenario P1: Single Billing Per Year
+
+**Condition:** `Code annuel facturé une seule fois pour un patient dans l'année civile`
+
+**Message (French):**
+```
+"Validation réussie: Code annuel {code} facturé correctement (1 fois) pour le patient en {year}"
+```
+
+**Solution (French):**
+```
+null
+```
+
+**Monetary Impact:**
+```
+0
+```
+
+**Display Configuration:**
+- **Collapsed by default:** Yes
+- **Always show:**
+  - [X] Success message
+- **Show when expanded:**
+  - [X] Billing details box
+  - [ ] Visit statistics grid
+  - [X] Temporal information box
+  - [ ] Comparison box
+- **Custom data fields to display:** `code, year, totalCount, date, amount`
+
+**Test Case Reference:** `test-P1`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "code": "15815",
+  "year": 2025,
+  "totalCount": 1,
+  "paidCount": 1,
+  "unpaidCount": 0,
+  "date": "2025-03-15",
+  "amount": 49.15
+}
+```
+
+---
+
+### ❌ ERROR Scenarios (severity: error)
+
+#### Scenario E1: Multiple Paid Billings (CRITICAL)
+
+**Condition:** `Code annuel facturé et payé plusieurs fois pour le même patient la même année`
+
+**Message (French):**
+```
+"Code annuel {code} facturé {totalCount} fois et payé {paidCount} fois pour le même patient en {year}. Maximum: 1 par an."
+```
+
+**Solution (French):**
+```
+"Veuillez vérifier si les deux visites ont bien été payées. Si oui, remplacez l'une d'entre elles par une visite conforme au besoin."
+```
+
+**Monetary Impact:**
+```
+0 (impossible to calculate - we don't know what visit code will replace the second billing)
+```
+
+**Display Configuration:**
+- **Collapsed by default:** No (always expanded)
+- **Always show:**
+  - [X] Error message
+  - [X] Solution box (highlighted)
+- **Show in details:**
+  - [X] Billing details box
+  - [ ] Visit statistics grid
+  - [X] Temporal information box
+  - [ ] Comparison box
+- **Custom data fields to display:** `code, year, totalCount, paidCount, unpaidCount, dates, amounts, totalPaidAmount`
+
+**Test Case Reference:** `test-E1`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "code": "15815",
+  "year": 2025,
+  "totalCount": 2,
+  "paidCount": 2,
+  "unpaidCount": 0,
+  "dates": ["2025-01-10", "2025-06-15"],
+  "amounts": [49.15, 49.15],
+  "totalPaidAmount": 98.30
+}
+```
+
+---
+
+#### Scenario E2: One Paid + Unpaid Billings
+
+**Condition:** `Code annuel facturé plusieurs fois: une facture payée + autres non payées`
+
+**Message (French):**
+```
+"Code annuel {code} facturé {totalCount} fois en {year}. La facture {paidIdRamq} est payée, mais les factures {unpaidIdRamqs} restent non payées."
+```
+
+**Solution (French):**
+```
+"Veuillez remplacer les factures suivantes {unpaidIdRamqs} pour qu'elles soient conformes. Ce code ne peut être facturé qu'une fois par année civile."
+```
+
+**Monetary Impact:**
+```
+0 (unpaid billings can be removed before submission)
+```
+
+**Display Configuration:**
+- **Collapsed by default:** No (always expanded)
+- **Always show:**
+  - [X] Error message
+  - [X] Solution box (highlighted)
+- **Show in details:**
+  - [X] Billing details box
+  - [ ] Visit statistics grid
+  - [X] Temporal information box
+  - [ ] Comparison box
+- **Custom data fields to display:** `code, year, totalCount, paidCount, unpaidCount, paidIdRamq, paidDate, paidAmount, unpaidIdRamqs, unpaidDates, unpaidAmounts`
+
+**Test Case Reference:** `test-E2`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "code": "15815",
+  "year": 2025,
+  "totalCount": 3,
+  "paidCount": 1,
+  "unpaidCount": 2,
+  "paidIdRamq": "15600245854",
+  "paidDate": "2025-01-10",
+  "paidAmount": 49.15,
+  "unpaidIdRamqs": ["15600245855", "15600245856"],
+  "unpaidDates": ["2025-03-15", "2025-06-20"],
+  "unpaidAmounts": [0, 0]
+}
+```
+
+---
+
+#### Scenario E3: All Unpaid Billings
+
+**Condition:** `Code annuel facturé plusieurs fois, toutes les factures sont non payées`
+
+**Message (French):**
+```
+"Le code annuel {code} a été facturé {totalCount} fois en {year}, toutes les factures sont impayées."
+```
+
+**Solution (French):**
+```
+"Veuillez valider la raison du refus et corriger les demandes restantes pour que le tout soit conforme."
+```
+
+**Monetary Impact:**
+```
++{tariffValue} (minimum revenue gain - at least one billing will be corrected and paid)
+Note: Implementation should query tariff_value from codes table dynamically, not hardcode
+```
+
+**Display Configuration:**
+- **Collapsed by default:** No (always expanded)
+- **Always show:**
+  - [X] Error message
+  - [X] Solution box (highlighted)
+- **Show in details:**
+  - [X] Billing details box
+  - [ ] Visit statistics grid
+  - [X] Temporal information box
+  - [ ] Comparison box
+- **Custom data fields to display:** `code, year, totalCount, paidCount, unpaidCount, dates, totalUnpaidAmount, tariffValue`
+
+**Test Case Reference:** `test-E3`
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 49.15,
+  "code": "15815",
+  "year": 2025,
+  "totalCount": 3,
+  "paidCount": 0,
+  "unpaidCount": 3,
+  "dates": ["2025-01-10", "2025-03-15", "2025-06-20"],
+  "amounts": [0, 0, 0],
+  "totalUnpaidAmount": 147.45,
+  "tariffValue": 49.15
+}
 ```
 
 ---
@@ -126,8 +324,8 @@ periodEnd: "December 31"
 Message: "Code annuel {code} facturé {totalCount} fois et payé {paidCount} fois
          pour le même patient en {year}. Maximum: 1 par an."
 
-Solution: "Contactez la RAMQ pour corriger les paiements multiples.
-          Ce code ne peut être payé qu'une fois par année civile."
+Solution: "Veuillez vérifier si les deux visites ont bien été payées.
+          Si oui, remplacez l'une d'entre elles par une visite conforme au besoin."
 
 Severity: error
 
@@ -138,28 +336,30 @@ Example:
 ### Scenario 2: One Paid + Unpaid Billings (WARNING)
 ```
 Message: "Code annuel {code} facturé {totalCount} fois en {year}.
-         Un est payé, {unpaidCount} reste(nt) non payé(s)."
+         La facture {paidIdRamq} est payée, mais les factures {unpaidIdRamqs} restent non payées."
 
-Solution: "Veuillez supprimer la facture non payée / les {unpaidCount} factures non payées.
+Solution: "Veuillez remplacer les factures suivantes {unpaidIdRamqs} pour qu'elles soient conformes.
           Ce code ne peut être facturé qu'une fois par année civile."
 
 Severity: warning
 
 Example:
-"Code annuel 15815 facturé 3 fois en 2025. Un est payé, 2 restent non payés."
+"Code annuel 15815 facturé 3 fois en 2025. La facture 15600245854 est payée, mais les factures 15600245855, 15600245856 restent non payées."
 ```
 
 ### Scenario 3: All Unpaid Billings (WARNING)
 ```
-Message: "Code annuel {code} facturé {totalCount} fois en {year}, tous non payés."
+Message: "Le code annuel {code} a été facturé {totalCount} fois en {year}, toutes les factures sont impayées."
 
-Solution: "Veuillez supprimer {totalCount - 1} des factures et n'en garder qu'une seule.
-          Ce code ne peut être facturé qu'une fois par année civile."
+Solution: "Veuillez valider la raison du refus et corriger les demandes restantes pour que le tout soit conforme."
 
 Severity: warning
 
 Example:
-"Code annuel 15815 facturé 3 fois en 2025, tous non payés."
+"Le code annuel 15815 a été facturé 3 fois en 2025, toutes les factures sont impayées."
+
+Monetary Impact: Positive gain - calculated dynamically from code tariff_value (e.g., +49.15)
+Rationale: Currently $0 revenue (all unpaid). After fixing, at least 1 billing will be paid = minimum gain of 1 × tariff_value
 ```
 
 ---
@@ -170,72 +370,54 @@ Example:
 ```
 Description: Code 15815 facturé une seule fois pour un patient en 2025
 Test Data:
-- Patient: PATIENT-001
+- Patient: ABCD12345678
 - Code: 15815
 - Date: 2025-03-15
 - Montant Payé: 49.15
 Expected: No error (règle ne se déclenche pas)
 ```
 
-### Pass Scenario 2: Different Years
-```
-Description: Même code facturé dans différentes années civiles
-Test Data:
-- Patient: PATIENT-001
-- Code: 15815
-- Date 1: 2024-12-15, Montant: 49.15 (payé)
-- Date 2: 2025-01-10, Montant: 49.15 (payé)
-Expected: No error (années différentes)
-```
-
-### Pass Scenario 3: Different Patients
-```
-Description: Même code facturé pour différents patients la même année
-Test Data:
-- Patient 1: PATIENT-001, Code: 15815, Date: 2025-03-15, Montant: 49.15
-- Patient 2: PATIENT-002, Code: 15815, Date: 2025-03-20, Montant: 49.15
-Expected: No error (patients différents)
-```
-
 ### Fail Scenario 1: Multiple Paid Billings
 ```
 Description: Code annuel payé 2 fois pour le même patient la même année
 Test Data:
-- Patient: PATIENT-001
+- Patient: ABCD12345678
 - Code: 15815
 - Date 1: 2025-01-10, Montant Payé: 49.15
 - Date 2: 2025-06-15, Montant Payé: 49.15
 Expected: ERROR
 Message: "Code annuel 15815 facturé 2 fois et payé 2 fois pour le même patient en 2025. Maximum: 1 par an."
-Solution: "Contactez la RAMQ pour corriger les paiements multiples."
+Solution: "Veuillez vérifier si les deux visites ont bien été payées. Si oui, remplacez l'une d'entre elles par une visite conforme au besoin."
 ```
 
 ### Fail Scenario 2: One Paid + Unpaid
 ```
 Description: Une facture payée + 2 factures non payées
 Test Data:
-- Patient: PATIENT-001
+- Patient: ABCD12345678
 - Code: 15815
-- Date 1: 2025-01-10, Montant Payé: 49.15 (payé)
-- Date 2: 2025-03-15, Montant Payé: 0 (non payé)
-- Date 3: 2025-06-20, Montant Payé: 0 (non payé)
+- Date 1: 2025-01-10, ID RAMQ: 15600245854, Montant Payé: 49.15 (payé)
+- Date 2: 2025-03-15, ID RAMQ: 15600245855, Montant Payé: 0 (non payé)
+- Date 3: 2025-06-20, ID RAMQ: 15600245856, Montant Payé: 0 (non payé)
 Expected: WARNING
-Message: "Code annuel 15815 facturé 3 fois en 2025. Un est payé, 2 restent non payés."
-Solution: "Veuillez supprimer les 2 factures non payées."
+Message: "Code annuel 15815 facturé 3 fois en 2025. La facture 15600245854 est payée, mais les factures 15600245855, 15600245856 restent non payées."
+Solution: "Veuillez remplacer les factures suivantes 15600245855, 15600245856 pour qu'elles soient conformes."
 ```
 
 ### Fail Scenario 3: All Unpaid
 ```
 Description: Toutes les factures sont non payées
 Test Data:
-- Patient: PATIENT-001
-- Code: 15815
+- Patient: ABCD12345678
+- Code: 15815 (tariff_value: 49.15)
 - Date 1: 2025-01-10, Montant Payé: 0
 - Date 2: 2025-03-15, Montant Payé: 0
 - Date 3: 2025-06-20, Montant Payé: 0
 Expected: WARNING
-Message: "Code annuel 15815 facturé 3 fois en 2025, tous non payés."
-Solution: "Veuillez supprimer 2 des factures et n'en garder qu'une seule."
+Message: "Le code annuel 15815 a été facturé 3 fois en 2025, toutes les factures sont impayées."
+Solution: "Veuillez valider la raison du refus et corriger les demandes restantes pour que le tout soit conforme."
+Monetary Impact: +49.15 (minimum revenue gain - 1 billing will be corrected and paid)
+Rationale: Current revenue = $0, After fix = $49.15, Gain = +$49.15
 ```
 
 ### Edge Case Scenarios:
@@ -302,8 +484,8 @@ Scaling:
 ### Example CSV Input:
 ```csv
 Facture,ID RAMQ,Date de Service,Code,Patient,Montant payé
-INV-001,RAMQ-001,2025-01-10,15815,PATIENT-001,49.15
-INV-002,RAMQ-002,2025-06-15,15815,PATIENT-001,49.15
+INV-001,RAMQ-001,2025-01-10,15815,ABCD12345678,49.15
+INV-002,RAMQ-002,2025-06-15,15815,ABCD12345678,49.15
 ```
 
 ### Expected Validation Output:
@@ -314,11 +496,11 @@ INV-002,RAMQ-002,2025-06-15,15815,PATIENT-001,49.15
   "severity": "error",
   "category": "annual_limit",
   "message": "Code annuel 15815 facturé 2 fois et payé 2 fois pour le même patient en 2025. Maximum: 1 par an.",
-  "solution": "Contactez la RAMQ pour corriger les paiements multiples. Ce code ne peut être payé qu'une fois par année civile.",
+  "solution": "Veuillez vérifier si les deux visites ont bien été payées. Si oui, remplacez l'une d'entre elles par une visite conforme au besoin.",
   "affectedRecords": ["<record-id-1>", "<record-id-2>"],
   "ruleData": {
     "code": "15815",
-    "patient": "PATIENT-001",
+    "patient": "ABCD12345678",
     "year": 2025,
     "totalCount": 2,
     "paidCount": 2,
@@ -383,8 +565,8 @@ causing delays in payment and administrative overhead.
 ```bash
 npm test tests/validation-rules/annual-billing-code.test.ts
 
-✅ PASS (14/14 tests)
-- Pass scenarios: 3/3
+✅ PASS (12/12 tests)
+- Pass scenarios: 1/1
 - Fail scenarios: 3/3
 - Edge cases: 4/4
 - Performance: 4/4
@@ -463,3 +645,12 @@ Traitement des montantPaye NULL:
 |------|--------|--------|-------|
 | 2025-01-06 | Implémentation initiale | Claude | 14 tests, tous passent |
 | 2025-10-10 | Documentation complète | Claude | Ajout de cette documentation |
+| 2025-10-21 | Correction des scénarios | Claude | Suppression de P2 (différentes années) et P3 (différents patients) - non pertinents pour cette règle |
+| 2025-10-21 | Correction format NAM | Claude | Mise à jour des exemples de données: PATIENT-001 → ABCD12345678 (format NAM réel) |
+| 2025-10-21 | Amélioration message E1 | User/Claude | Mise à jour solution E1 pour refléter la réalité: RAMQ valide déjà ce cas, donc vérifier données et remplacer visite si nécessaire |
+| 2025-10-21 | Correction impact monétaire E1 | User/Claude | monetaryImpact = 0 car impossible de calculer (on ne sait pas quelle visite remplacera la deuxième facturation) |
+| 2025-10-21 | Amélioration message E2 | User/Claude | Ajout des ID RAMQ spécifiques dans le message et la solution (paidIdRamq, unpaidIdRamqs), changement de "supprimer" à "remplacer" pour les factures non payées |
+| 2025-10-21 | Mise à jour structure CSV test | User/Claude | Correction de tous les fichiers CSV de test pour correspondre au format réel avec toutes les colonnes (DEV NOTE, Agence, Grand Total, etc.) |
+| 2025-10-21 | Amélioration message E3 | User/Claude | Nouveau message: "Le code annuel {code} a été facturé {totalCount} fois en {year}, toutes les factures sont impayées." Nouvelle solution: "Veuillez valider la raison du refus et corriger les demandes restantes pour que le tout soit conforme." monetaryImpact = +tariffValue (gain positif car actuellement $0 revenu, après correction au moins 1 facturation sera payée) calculé dynamiquement depuis codes.tariff_value |
+| 2025-10-21 | Suppression P-SUMMARY | User/Claude | Suppression du scénario P-SUMMARY de tous les fichiers de règles (ANNUAL_BILLING_CODE, gmf_8875_validation, intervention_clinique_rule, VISIT_DURATION_OPTIMIZATION) - les résumés ne sont plus nécessaires |
+| 2025-10-21 | Suppression identifiant patient | User/Claude | Retrait de l'affichage du patient ID (format [PATIENT-XXXXXXXX]) des résultats de validation pour éviter la confusion. Le champ patient a été retiré de l'interface utilisateur et de la documentation (Custom data fields to display). Rationale: L'identifiant hashé créait plus de questions que de réponses pour les utilisateurs. |

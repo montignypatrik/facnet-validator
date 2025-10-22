@@ -15,8 +15,9 @@ import {
   ValidationResultCardProps,
   OfficeFeeRuleData,
   GmfForfaitRuleData,
+  AnnualLimitRuleData,
 } from "@/types/validation";
-import { getSeverityStyle, getCategoryDisplayName, getRuleDisplayName } from "./severityStyles";
+import { getSeverityStyle, getCategoryDisplayName, getRuleDisplayName, formatCurrency } from "./severityStyles";
 import { MonetaryImpactBadge } from "./MonetaryImpactBadge";
 import { BillingDetailsBox } from "./BillingDetailsBox";
 import { VisitStatisticsGrid } from "./VisitStatisticsGrid";
@@ -28,9 +29,16 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
   const style = getSeverityStyle(result.severity);
   const Icon = style.icon;
 
-  // Type guards for rule-specific data
-  const isOfficeFeeRule = (data: any): data is OfficeFeeRuleData => {
-    return 'code' in data;
+  // Type guards for rule-specific data - Order matters! Check most specific first
+
+  // Annual Limit Rule - Check first since it has specific fields
+  const isAnnualLimitRule = (data: any): data is AnnualLimitRuleData => {
+    return 'year' in data && 'totalCount' in data && 'code' in data && 'patientYear' in data;
+  };
+
+  // GMF Forfait Rule
+  const isGmfForfaitRule = (data: any): data is GmfForfaitRuleData => {
+    return 'year' in data && 'visitCount' in data && 'patient' in data && !('totalCount' in data);
   };
 
   // E5 daily maximum error has multi-patient data
@@ -38,8 +46,9 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
     return 'affectedRamqIds' in data && 'feeBreakdownWithPatients' in data;
   };
 
-  const isGmfForfaitRule = (data: any): data is GmfForfaitRuleData => {
-    return 'year' in data && 'visitCount' in data;
+  // Office Fee Rule - Check last since it's broader
+  const isOfficeFeeRule = (data: any): data is OfficeFeeRuleData => {
+    return 'code' in data && 'billedCode' in data && !('patientYear' in data);
   };
 
   const hasVisitStatistics = (data: any): boolean => {
@@ -58,7 +67,7 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
               {/* Multi-RAMQ badges for doctor-level errors (E5) */}
               {isOfficeFeeE5Error(result.ruleData) && result.ruleData.affectedRamqIds && result.ruleData.affectedRamqIds.length > 0 ? (
                 <div className="flex flex-wrap gap-1">
-                  {result.ruleData.affectedRamqIds.slice(0, 3).map((ramqId) => (
+                  {result.ruleData.affectedRamqIds.slice(0, 3).map((ramqId: string) => (
                     <Badge key={ramqId} variant="outline" className="font-mono text-xs">
                       {ramqId}
                     </Badge>
@@ -118,6 +127,140 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
             <SolutionBox solution={result.solution} severity={result.severity} />
           )}
 
+          {/* Annual Limit Rule - Display scenario-specific information (check first!) */}
+          {isAnnualLimitRule(result.ruleData) && (() => {
+            const annualData = result.ruleData as AnnualLimitRuleData;
+            return (
+              <Card className="bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700">
+                <CardContent className="pt-4">
+                  <div className="space-y-3">
+                    {/* Base information */}
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Code:</span>
+                        <span className="font-mono font-semibold">{annualData.code}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Année:</span>
+                        <span className="font-semibold">{annualData.year}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Nombre total:</span>
+                        <span className="font-semibold">{annualData.totalCount}</span>
+                      </div>
+                      {annualData.paidCount !== undefined && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-400">Factures payées:</span>
+                          <span className="font-semibold">{annualData.paidCount}</span>
+                        </div>
+                      )}
+                      {annualData.unpaidCount !== undefined && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-400">Factures non payées:</span>
+                          <span className="font-semibold">{annualData.unpaidCount}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* E2 Scenario - Show paid and unpaid invoice details */}
+                    {annualData.paidIdRamq && annualData.unpaidIdRamqs && annualData.unpaidIdRamqs.length > 0 && (
+                      <div className="pt-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                        {/* Paid invoice */}
+                        <div>
+                          <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            Facture payée:
+                          </div>
+                          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600 dark:text-gray-400">ID RAMQ:</span>
+                              <span className="font-mono font-semibold text-green-700 dark:text-green-400">
+                                {annualData.paidIdRamq}
+                              </span>
+                            </div>
+                            {annualData.paidDate && (
+                              <div className="flex justify-between text-sm mt-1">
+                                <span className="text-gray-600 dark:text-gray-400">Date:</span>
+                                <span className="font-semibold">{annualData.paidDate}</span>
+                              </div>
+                            )}
+                            {annualData.paidAmount !== undefined && (
+                              <div className="flex justify-between text-sm mt-1">
+                                <span className="text-gray-600 dark:text-gray-400">Montant:</span>
+                                <span className="font-semibold">{formatCurrency(annualData.paidAmount)}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Unpaid invoices */}
+                        <div>
+                          <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            Factures non payées ({annualData.unpaidIdRamqs.length}):
+                          </div>
+                          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2 space-y-2">
+                            {annualData.unpaidIdRamqs.map((idRamq, index) => (
+                              <div key={idRamq} className="flex justify-between text-sm">
+                                <span className="text-gray-600 dark:text-gray-400">ID RAMQ:</span>
+                                <span className="font-mono font-semibold text-red-700 dark:text-red-400">
+                                  {idRamq}
+                                  {annualData.unpaidDates && annualData.unpaidDates[index] && (
+                                    <span className="ml-2 text-gray-600 dark:text-gray-400 font-normal">
+                                      ({annualData.unpaidDates[index]})
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* E3 Scenario - Show tariff value and total unpaid amount */}
+                    {annualData.tariffValue !== undefined && annualData.totalUnpaidAmount !== undefined && (
+                      <div className="pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Valeur tarifaire:</span>
+                          <span className="font-semibold">{formatCurrency(annualData.tariffValue)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Montant total non payé:</span>
+                          <span className="font-semibold">{formatCurrency(annualData.totalUnpaidAmount)}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* E1 Scenario - Show total paid amount */}
+                    {annualData.totalPaidAmount !== undefined && !annualData.paidIdRamq && (
+                      <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Montant total payé:</span>
+                          <span className="font-semibold">{formatCurrency(annualData.totalPaidAmount)}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Show billing dates if available */}
+                    {annualData.dates && annualData.dates.length > 0 && (
+                      <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                        <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          Dates de facturation:
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {annualData.dates.map((date, index) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {date}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           {/* Office Fee E5 Error - Daily Maximum with Multi-Patient Breakdown */}
           {isOfficeFeeE5Error(result.ruleData) && result.ruleData.feeBreakdownWithPatients && (
             <>
@@ -143,35 +286,34 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
           )}
 
           {/* Office Fee Rule - Billing Details & Visit Statistics (E1-E4) */}
-          {isOfficeFeeRule(result.ruleData) && !isOfficeFeeE5Error(result.ruleData) && (
-            <>
-              <BillingDetailsBox
-                code={result.ruleData.code || "N/A"}
-                amount={result.ruleData.billedAmount || "N/A"}
-                type={result.ruleData.billedCode || "N/A"}
-                hasContext={result.ruleData.hasContext}
-              />
-
-              {hasVisitStatistics(result.ruleData) && (
-                <VisitStatisticsGrid
-                  registeredPaid={result.ruleData.registeredPaidCount || 0}
-                  registeredUnpaid={result.ruleData.registeredUnpaidCount || 0}
-                  walkinPaid={result.ruleData.walkInPaidCount || 0}
-                  walkinUnpaid={result.ruleData.walkInUnpaidCount || 0}
+          {isOfficeFeeRule(result.ruleData) && !isOfficeFeeE5Error(result.ruleData) && (() => {
+            const officeData = result.ruleData as OfficeFeeRuleData;
+            return (
+              <>
+                <BillingDetailsBox
+                  code={officeData.code || "N/A"}
+                  amount={officeData.billedAmount || "N/A"}
+                  type={officeData.billedCode || "N/A"}
+                  hasContext={officeData.hasContext}
                 />
-              )}
-            </>
-          )}
+
+                {hasVisitStatistics(officeData) && (
+                  <VisitStatisticsGrid
+                    registeredPaid={officeData.registeredPaidCount || 0}
+                    registeredUnpaid={officeData.registeredUnpaidCount || 0}
+                    walkinPaid={officeData.walkInPaidCount || 0}
+                    walkinUnpaid={officeData.walkInUnpaidCount || 0}
+                  />
+                )}
+              </>
+            );
+          })()}
 
           {/* GMF Forfait Rule - Patient and Visit Information */}
           {isGmfForfaitRule(result.ruleData) && (
             <Card className="bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700">
               <CardContent className="pt-4">
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Patient:</span>
-                    <span className="font-mono font-semibold">{result.ruleData.patient}</span>
-                  </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Année:</span>
                     <span className="font-semibold">{result.ruleData.year}</span>
@@ -194,7 +336,7 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
           )}
 
           {/* Generic Rule Data - For rules without specific components */}
-          {!isOfficeFeeRule(result.ruleData) && !isGmfForfaitRule(result.ruleData) && (
+          {!isOfficeFeeRule(result.ruleData) && !isGmfForfaitRule(result.ruleData) && !isAnnualLimitRule(result.ruleData) && (
             <Card className="bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700">
               <CardContent className="pt-4">
                 <div className="space-y-2 text-sm">
@@ -208,12 +350,6 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
                     <div className="flex justify-between">
                       <span className="text-gray-600 dark:text-gray-400">Médecin:</span>
                       <span className="font-mono font-semibold">{result.ruleData.doctor}</span>
-                    </div>
-                  )}
-                  {result.ruleData.patient && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Patient:</span>
-                      <span className="font-mono font-semibold">{result.ruleData.patient}</span>
                     </div>
                   )}
                 </div>
