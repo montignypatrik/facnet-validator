@@ -40,11 +40,14 @@ import { TextByPage } from "../types";
 export async function extractTextFromPDF(pdfPath: string): Promise<TextByPage> {
   const startTime = Date.now();
 
+  // Normalize path to handle both forward and backward slashes
+  const normalizedPath = path.normalize(pdfPath);
+
   // Verify file exists
   try {
-    await fs.access(pdfPath);
+    await fs.access(normalizedPath);
   } catch {
-    throw new Error(`PDF file not found: ${pdfPath}`);
+    throw new Error(`PDF file not found: ${normalizedPath}`);
   }
 
   // Initialize Textract client
@@ -57,9 +60,9 @@ export async function extractTextFromPDF(pdfPath: string): Promise<TextByPage> {
   });
 
   // Read PDF file as bytes
-  const pdfBytes = await fs.readFile(pdfPath);
+  const pdfBytes = await fs.readFile(normalizedPath);
 
-  console.log(`[TEXTRACT] Sending PDF to AWS Textract: ${pdfPath.split("/").pop()}`);
+  console.log(`[TEXTRACT] Sending PDF to AWS Textract: ${path.basename(normalizedPath)}`);
 
   try {
     // Call Textract AnalyzeDocument API
@@ -111,7 +114,7 @@ export async function extractTextFromPDF(pdfPath: string): Promise<TextByPage> {
     if (errorCode === "UnsupportedDocumentException") {
       console.log("[TEXTRACT] Falling back to PDF-to-image conversion...");
       try {
-        return await extractTextFromPDFAsImages(pdfPath, textractClient);
+        return await extractTextFromPDFAsImages(normalizedPath, textractClient);
       } catch (fallbackError: any) {
         console.error("[TEXTRACT] Image fallback also failed:", fallbackError.message);
         throw error; // Re-throw original error
@@ -142,8 +145,15 @@ async function extractTextFromPDFAsImages(
   console.log(`[TEXTRACT] Converting PDF to images: ${path.basename(pdfPath)}`);
 
   // Convert PDF to PNG images
+  // IMPORTANT: Use relative path for pdf-to-png-converter
+  // The library has issues with absolute paths on Windows - it joins them with cwd causing duplication
+  // Since our CWD is the project root, we use a relative path to the uploads folder
+  const outputFolder = "./uploads/nam";
+  console.log(`[TEXTRACT DEBUG] pdfPath: ${pdfPath}`);
+  console.log(`[TEXTRACT DEBUG] outputFolder: ${outputFolder}`);
+
   const pngPages = await pdfToPng(pdfPath, {
-    outputFolder: path.dirname(pdfPath),
+    outputFolder,
     outputFileMask: `temp_page`,
     viewportScale: 2.0, // Higher quality - processes all pages by default
   });
@@ -252,3 +262,4 @@ export function getPageCount(textByPage: TextByPage): number {
 export function getTotalLines(textByPage: TextByPage): number {
   return Object.values(textByPage).reduce((sum, lines) => sum + lines.length, 0);
 }
+

@@ -5,6 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileDropzone } from "@/components/FileDropzone";
 import { Upload, CheckCircle, AlertCircle, Eye, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +19,13 @@ export default function NamUploadPage() {
     pageTitle: "Extraction de NAM",
     pageDescription: "Téléchargez vos documents PDF pour extraire les numéros d'assurance maladie (NAM)",
     fileUpload: "Téléchargement de PDF",
+    billingInfo: "Informations de Facturation",
+    doctorLicence: "Numéro de permis du médecin",
+    doctorLicencePlaceholder: "1234567",
+    doctorGroup: "Numéro de groupe (optionnel)",
+    doctorGroupPlaceholder: "12345",
+    sector: "Secteur",
+    sectorPlaceholder: "Sélectionner un secteur",
     uploadAndExtract: "Télécharger et Extraire",
     uploading: "Téléchargement en cours...",
     pleaseWait: "Veuillez patienter pendant le traitement de votre document",
@@ -46,6 +56,7 @@ export default function NamUploadPage() {
     uploadStarted: "PDF téléchargé et extraction commencée",
     uploadFailed: "Échec du téléchargement",
     errorOccurred: "Une erreur s'est produite",
+    fillAllRequired: "Veuillez remplir tous les champs requis",
   };
 
   const [, setLocation] = useLocation();
@@ -54,6 +65,11 @@ export default function NamUploadPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [runId, setRunId] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // Billing information fields
+  const [doctorLicenceID, setDoctorLicenceID] = useState("");
+  const [doctorGroupNumber, setDoctorGroupNumber] = useState("");
+  const [sector, setSector] = useState("");
 
   // Get auto-redirect preference from localStorage (default: true)
   const getAutoRedirectPreference = () => {
@@ -64,8 +80,24 @@ export default function NamUploadPage() {
   // PDF upload mutation
   const uploadMutation = useMutation({
     mutationFn: async (fileToUpload: File) => {
+      // Validate billing information before upload
+      if (!doctorLicenceID || !/^\d{7}$/.test(doctorLicenceID)) {
+        throw new Error("Le numéro de permis du médecin doit contenir exactement 7 chiffres");
+      }
+
+      if (doctorGroupNumber && !/^\d{5}$/.test(doctorGroupNumber)) {
+        throw new Error("Le numéro de groupe doit contenir exactement 5 chiffres ou être vide");
+      }
+
+      if (!sector) {
+        throw new Error("Veuillez sélectionner un secteur");
+      }
+
       const formData = new FormData();
       formData.append("file", fileToUpload);
+      formData.append("doctorLicenceID", doctorLicenceID);
+      formData.append("doctorGroupNumber", doctorGroupNumber);
+      formData.append("sector", sector);
 
       // Upload PDF and create NAM extraction run
       const response = await client.post("/nam/upload", formData, {
@@ -115,6 +147,7 @@ export default function NamUploadPage() {
       setUploadProgress(0);
       setRunId(null);
       setShowSuccess(false);
+      // Don't reset billing info - keep it for re-uploads
     }
   };
 
@@ -180,7 +213,61 @@ export default function NamUploadPage() {
                     </div>
                   </div>
 
-                  <Button onClick={handleUpload} className="w-full">
+                  {/* Billing Information Form */}
+                  <div className="p-4 bg-muted rounded-lg space-y-4">
+                    <h3 className="font-medium">{translations.billingInfo}</h3>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="doctorLicence">{translations.doctorLicence} *</Label>
+                      <Input
+                        id="doctorLicence"
+                        type="text"
+                        maxLength={7}
+                        placeholder={translations.doctorLicencePlaceholder}
+                        value={doctorLicenceID}
+                        onChange={(e) => setDoctorLicenceID(e.target.value.replace(/\D/g, ""))}
+                        className="font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="doctorGroup">{translations.doctorGroup}</Label>
+                      <Input
+                        id="doctorGroup"
+                        type="text"
+                        maxLength={5}
+                        placeholder={translations.doctorGroupPlaceholder}
+                        value={doctorGroupNumber}
+                        onChange={(e) => setDoctorGroupNumber(e.target.value.replace(/\D/g, ""))}
+                        className="font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="sector">{translations.sector} *</Label>
+                      <Select value={sector} onValueChange={setSector}>
+                        <SelectTrigger id="sector">
+                          <SelectValue placeholder={translations.sectorPlaceholder} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">0</SelectItem>
+                          <SelectItem value="1">1</SelectItem>
+                          <SelectItem value="2">2</SelectItem>
+                          <SelectItem value="3">3</SelectItem>
+                          <SelectItem value="4">4</SelectItem>
+                          <SelectItem value="5">5</SelectItem>
+                          <SelectItem value="6">6</SelectItem>
+                          <SelectItem value="7">7</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={handleUpload}
+                    className="w-full"
+                    disabled={!doctorLicenceID || !/^\d{7}$/.test(doctorLicenceID) || !sector}
+                  >
                     <Upload className="w-4 h-4 mr-2" />
                     {translations.uploadAndExtract}
                   </Button>

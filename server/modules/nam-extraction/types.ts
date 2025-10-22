@@ -13,6 +13,14 @@ export interface NAMResult {
   page: number; // Page number where NAM was found (1-indexed)
   valid: boolean; // Whether NAM passes format validation
   validationError?: string; // Reason why NAM is invalid (if valid=false)
+
+  // Visit date and time fields
+  visitDate: string | null; // Visit date in YYYY-MM-DD format (extracted or manually entered)
+  visitTime: string; // Visit time in HH:MM 24h format (extracted, manually entered, or default "08:00")
+  dateValid: boolean; // Whether visit date is valid
+  timeValid: boolean; // Whether visit time is valid
+  dateValidationError?: string; // Reason why date is invalid (if dateValid=false)
+  timeValidationError?: string; // Reason why time is invalid (if timeValid=false)
 }
 
 /**

@@ -73,10 +73,27 @@ router.post("/api/nam/upload", authenticateToken, upload.single("file"), async (
     }
 
     const fileName = req.file.originalname;
-    const filePath = req.file.path;
+    const filePath = path.resolve(req.file.path); // Convert to absolute path
     const fileId = req.file.filename; // Use multer's generated filename as fileId
 
+    // Extract CSV fields from request body
+    const { doctorLicenceID, doctorGroupNumber, sector } = req.body;
+
+    // Validate doctor license ID (7 digits required)
+    if (!doctorLicenceID || !/^\d{7}$/.test(doctorLicenceID)) {
+      return res.status(400).json({ error: "Le numéro de permis du médecin doit contenir exactement 7 chiffres" });
+    }
+
+    // Validate doctor group number (5 digits optional, default to "0")
+    const groupNumber = doctorGroupNumber && /^\d{5}$/.test(doctorGroupNumber) ? doctorGroupNumber : "0";
+
+    // Validate sector (0-7 required)
+    if (!sector || !/^[0-7]$/.test(sector)) {
+      return res.status(400).json({ error: "Le secteur doit être un chiffre entre 0 et 7" });
+    }
+
     console.log(`[NAM] PDF uploaded for NAM extraction: ${fileName} (${req.file.size} bytes)`);
+    console.log(`[NAM] CSV fields: License=${doctorLicenceID}, Group=${groupNumber}, Sector=${sector}`);
 
     // Create NAM extraction run in database
     const [run] = await db.insert(namExtractionRuns).values({
@@ -84,6 +101,9 @@ router.post("/api/nam/upload", authenticateToken, upload.single("file"), async (
       fileName,
       status: "queued",
       progress: "0",
+      doctorLicenceID,
+      doctorGroupNumber: groupNumber,
+      sector,
       createdBy: req.user!.uid,
     }).returning();
 
@@ -235,7 +255,7 @@ router.get("/api/nam/runs/:id/results", authenticateToken, async (req, res) => {
   try {
     const results = await db.query.namExtractionResults.findMany({
       where: eq(namExtractionResults.runId, req.params.id),
-      orderBy: [desc(namExtractionResults.page)],
+      orderBy: [namExtractionResults.page], // Ascending order - first page first
     });
 
     res.json({ results, count: results.length });
@@ -275,6 +295,71 @@ router.post("/api/nam/runs/:id/results/:resultId/toggle", authenticateToken, asy
   }
 });
 
+/**
+ * PATCH /api/nam/runs/:id/results/:resultId/edit-datetime
+ *
+ * Manually edit the visit date and/or time for a NAM result
+ */
+router.patch("/api/nam/runs/:id/results/:resultId/edit-datetime", authenticateToken, async (req, res) => {
+  try {
+    const { resultId } = req.params;
+    const { visitDate, visitTime } = req.body;
+
+    // Import validators
+    const { validateDateFormat, normalizeDate } = await import("./services/dateValidator");
+    const { validateTimeFormat, normalizeTime } = await import("./services/timeValidator");
+
+    // Get current result
+    const result = await db.query.namExtractionResults.findFirst({
+      where: eq(namExtractionResults.id, resultId),
+    });
+
+    if (!result) {
+      return res.status(404).json({ error: "Résultat non trouvé" });
+    }
+
+    // Prepare update data
+    const updateData: any = {};
+
+    // Validate and update date if provided
+    if (visitDate !== undefined) {
+      const normalizedDate = normalizeDate(visitDate);
+      const [dateValid, dateValidationError] = validateDateFormat(normalizedDate);
+
+      updateData.visitDate = normalizedDate || null;
+      updateData.dateValid = dateValid;
+      updateData.dateValidationError = dateValid ? null : dateValidationError;
+      updateData.dateManuallyEdited = true;
+    }
+
+    // Validate and update time if provided
+    if (visitTime !== undefined) {
+      const normalizedTime = normalizeTime(visitTime);
+      const [timeValid, timeValidationError] = validateTimeFormat(normalizedTime);
+
+      updateData.visitTime = normalizedTime;
+      updateData.timeValid = timeValid;
+      updateData.timeValidationError = timeValid ? null : timeValidationError;
+      updateData.timeManuallyEdited = true;
+    }
+
+    // Update the result
+    await db.update(namExtractionResults)
+      .set(updateData)
+      .where(eq(namExtractionResults.id, resultId));
+
+    // Fetch updated result
+    const updatedResult = await db.query.namExtractionResults.findFirst({
+      where: eq(namExtractionResults.id, resultId),
+    });
+
+    res.json({ success: true, result: updatedResult });
+  } catch (error: any) {
+    console.error("[NAM] Edit date/time error:", error);
+    res.status(500).json({ error: "Échec de la mise à jour de la date/heure" });
+  }
+});
+
 // ==================== SSV GENERATION ROUTE ====================
 
 /**
@@ -308,25 +393,46 @@ router.post("/api/nam/generate-ssv", authenticateToken, async (req, res) => {
       where: eq(namExtractionResults.runId, runId),
     });
 
-    // Filter NAMs: exclude removed by user, optionally exclude invalid
+    // Filter NAMs: exclude removed by user, optionally exclude invalid NAMs
+    // ALWAYS exclude NAMs with invalid/missing dates (required field)
     const filteredResults = results.filter((result) => {
       if (result.removedByUser) return false;
       if (!includeInvalid && !result.valid) return false;
+      // Block export if date is invalid or missing (date is required)
+      if (!result.dateValid || !result.visitDate) return false;
       return true;
     });
 
     if (filteredResults.length === 0) {
+      // Check if there are results with missing/invalid dates
+      const hasInvalidDates = results.some((r) => !r.removedByUser && (!r.dateValid || !r.visitDate));
+      if (hasInvalidDates) {
+        return res.status(400).json({
+          error: "Toutes les dates de visite doivent être valides avant l'exportation. Veuillez corriger les dates manquantes ou invalides."
+        });
+      }
       return res.status(400).json({ error: "Aucun NAM valide à exporter" });
     }
 
-    // Extract NAM strings
-    const nams = filteredResults.map((result) => result.nam);
+    // Prepare NAM data with dates and times
+    const namData = filteredResults.map((result) => ({
+      nam: result.nam,
+      visitDate: result.visitDate!,
+      visitTime: result.visitTime!,
+    }));
 
-    // Generate SSV content
-    const ssvContent = generateSSVContent(nams);
+    // Prepare doctor info from the run
+    const doctorInfo = {
+      doctorLicenceID: run.doctorLicenceID || "",
+      doctorGroupNumber: run.doctorGroupNumber || "0",
+      sector: run.sector || "0",
+    };
+
+    // Generate SSV content with dates, times, and doctor info
+    const ssvContent = generateSSVContent(namData, doctorInfo);
     const ssvFilename = generateSSVFilename();
 
-    console.log(`[NAM] Generated SSV file with ${nams.length} NAMs for run ${runId}`);
+    console.log(`[NAM] Generated SSV file with ${namData.length} NAMs for run ${runId}`);
 
     // Mark NAMs as included in SSV
     for (const result of filteredResults) {

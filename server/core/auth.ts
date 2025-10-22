@@ -31,6 +31,18 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export async function authenticateToken(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  // DEVELOPMENT MODE BYPASS - Skip authentication if DISABLE_AUTH is set
+  if (process.env.DISABLE_AUTH === 'true' && process.env.NODE_ENV !== 'production') {
+    console.log('[DEV] Authentication bypassed - DISABLE_AUTH=true');
+    req.user = {
+      uid: 'dev-user-123',
+      email: 'dev@test.com',
+      role: 'admin',
+      claims: {}
+    };
+    return next();
+  }
+
   // Support both Authorization header and query parameter (for SSE/EventSource)
   const authHeader = req.headers.authorization;
   let token = authHeader && authHeader.split(' ')[1];

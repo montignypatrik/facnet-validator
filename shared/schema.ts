@@ -446,6 +446,12 @@ export const namExtractionRuns = pgTable("nam_extraction_runs", {
   progress: numeric("progress").default("0").notNull(), // Progress percentage (0-100)
   processingTimeMs: integer("processing_time_ms"), // Total processing time
   jobId: text("job_id"), // BullMQ job ID for tracking background jobs
+
+  // CSV export fields (populated by user before upload)
+  doctorLicenceID: text("doctor_licence_id"), // 7-digit doctor license number
+  doctorGroupNumber: text("doctor_group_number"), // 5-digit group number (optional, defaults to "0")
+  sector: text("sector"), // Sector value 0-7
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   createdBy: text("created_by").notNull(), // Auth0 user ID
@@ -461,6 +467,17 @@ export const namExtractionResults = pgTable("nam_extraction_results", {
   validationError: text("validation_error"), // Reason why NAM is invalid (if valid=false)
   removedByUser: boolean("removed_by_user").default(false).notNull(), // User curation flag
   includedInSsv: boolean("included_in_ssv").default(false).notNull(), // Whether NAM was included in generated SSV file
+
+  // Visit date and time fields
+  visitDate: text("visit_date"), // Visit date in YYYY-MM-DD format (extracted or manually entered)
+  visitTime: text("visit_time"), // Visit time in HH:MM 24h format (extracted or manually entered, default "08:00")
+  dateValid: boolean("date_valid").default(false).notNull(), // Whether visit date is valid
+  timeValid: boolean("time_valid").default(true).notNull(), // Whether visit time is valid
+  dateValidationError: text("date_validation_error"), // Reason why date is invalid
+  timeValidationError: text("time_validation_error"), // Reason why time is invalid
+  dateManuallyEdited: boolean("date_manually_edited").default(false).notNull(), // User manually edited date
+  timeManuallyEdited: boolean("time_manually_edited").default(false).notNull(), // User manually edited time
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

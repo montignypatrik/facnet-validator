@@ -18,37 +18,56 @@ import { SSV_HEADER_FIELDS } from "../types";
 const SSV_HEADER = SSV_HEADER_FIELDS.join(";");
 
 /**
+ * NAM data for SSV generation with visit date and time
+ */
+export interface NAMDataForSSV {
+  nam: string;
+  visitDate: string; // YYYY-MM-DD format
+  visitTime: string; // HH:MM 24h format
+}
+
+/**
+ * Doctor information for CSV export (columns 1, 2, 11)
+ */
+export interface DoctorInfoForCSV {
+  doctorLicenceID: string; // Column 1: 7-digit doctor license number
+  doctorGroupNumber: string; // Column 2: 5-digit group number or "0"
+  sector: string; // Column 11: Sector value 0-7
+}
+
+/**
  * Generate SSV file content with header and data rows.
  *
- * @param nams - List of NAM strings to include in the SSV file
+ * @param namData - List of NAM data objects (nam, visitDate, visitTime) to include in the SSV file
  * @returns Complete SSV file content as string with CRLF line endings
  *
  * SSV Structure:
  * - Row 1: Header row with 26 field names
- * - Row 2+: Data rows with NAM in column 5 (HIN field)
+ * - Row 2+: Data rows with date, time, and NAM in columns 3, 4, 5
  *
- * Data Row Format (26 fields, NAM in position 5):
- *   ;;;;{NAM};;;;;;;;;;;;;;;;;;;;;
+ * Data Row Format (26 fields):
+ *   {doctorLicenceID};{doctorGroupNumber};{ClaimDate};{ProcedureTime};{NAM};;;;;{Sector};;;;;;;;;;;;;;;
  *
  * Example Output:
- *   doctorLicenceID;doctorGroupNumber;ClaimDate;ProcedureTime;HIN;PatientGender;...
- *   ;;;;ABCD12345678;;;;;;;;;;;;;;;;;;;;;
- *   ;;;;WXYZ98765432;;;;;;;;;;;;;;;;;;;;;
+ *   doctorLicenceID;doctorGroupNumber;ClaimDate;ProcedureTime;HIN;PatientGender;...;Sector;...
+ *   1234567;12345;2025-01-21;08:00;ABCD12345678;;;;;3;;;;;;;;;;;;;;;
+ *   1234567;12345;2025-01-22;14:30;WXYZ98765432;;;;;3;;;;;;;;;;;;;;;
  */
-export function generateSSVContent(nams: string[]): string {
-  if (!nams || nams.length === 0) {
+export function generateSSVContent(namData: NAMDataForSSV[], doctorInfo: DoctorInfoForCSV): string {
+  if (!namData || namData.length === 0) {
     throw new Error("Cannot generate SSV file with empty NAM list");
   }
 
   // Start with header row
   const rows: string[] = [SSV_HEADER];
 
-  // Generate data row for each NAM
-  // Format: 4 empty fields, NAM in position 5, then 21 more empty fields
-  for (const nam of nams) {
-    // Create row with NAM in column 5 (HIN field)
-    // Total 26 fields: 4 empty + 1 NAM + 21 empty
-    const row = `;;;;${nam};;;;;;;;;;;;;;;;;;;;;`;
+  // Generate data row for each NAM with doctor info, date, time, and sector
+  // Format: doctorLicenceID (col 1), doctorGroupNumber (col 2), date (col 3), time (col 4),
+  //         NAM (col 5), 5 empty (cols 6-10), sector (col 11), 15 empty (cols 12-26)
+  for (const data of namData) {
+    // Create row with all populated fields in correct positions
+    // Total 26 fields: license + group + date + time + NAM + 5 empty + sector + 15 empty
+    const row = `${doctorInfo.doctorLicenceID};${doctorInfo.doctorGroupNumber};${data.visitDate};${data.visitTime};${data.nam};;;;;${doctorInfo.sector};;;;;;;;;;;;;;;`;
     rows.push(row);
   }
 
@@ -61,10 +80,10 @@ export function generateSSVContent(nams: string[]): string {
 /**
  * Generate a timestamped filename for SSV export.
  *
- * Format: nam-extraction-YYYY-MM-DD-HHMMSS.ssv
- * Example: nam-extraction-2025-10-15-143022.ssv
+ * Format: nam-extraction-YYYY-MM-DD-HHMMSS.csv
+ * Example: nam-extraction-2025-10-15-143022.csv
  *
- * @returns Filename string with .ssv extension
+ * @returns Filename string with .csv extension
  */
 export function generateSSVFilename(): string {
   const now = new Date();
@@ -75,7 +94,7 @@ export function generateSSVFilename(): string {
     .replace(/\..+/, "")
     .slice(0, 17); // YYYY-MM-DD-HHMMSS
 
-  return `nam-extraction-${timestamp}.ssv`;
+  return `nam-extraction-${timestamp}.csv`;
 }
 
 /**

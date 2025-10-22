@@ -73,14 +73,32 @@ export function isValidNAM(nam: string): boolean {
 }
 
 /**
- * Normalize a NAM to uppercase format.
+ * Normalize a NAM to uppercase format and fix common OCR errors.
  *
  * @param nam - The NAM string to normalize
- * @returns The NAM in uppercase
+ * @returns The NAM in uppercase with OCR corrections
  *
- * This function only normalizes case, it does not validate format.
- * Use validateNAMFormat() to check validity.
+ * This function:
+ * - Converts to uppercase
+ * - Replaces '0' (zero) with 'O' (letter O) in the first 4 characters
+ *   to fix OCR confusion between zero and letter O
+ * - Does not validate format (use validateNAMFormat() for validation)
+ *
+ * NAM Format: 4 letters + 8 digits (e.g., ABCD12345678)
+ * OCR often confuses 'O' with '0' in the letter section
  */
 export function normalizeNAM(nam: string): string {
-  return nam.toUpperCase().trim();
+  const uppercased = nam.toUpperCase().trim();
+
+  // Fix OCR confusion: replace '0' with 'O' in first 4 characters (letter section)
+  // Keep last 8 characters unchanged (digit section where '0' is valid)
+  if (uppercased.length >= NAM_VALIDATION_RULES.LETTER_COUNT) {
+    const letterSection = uppercased
+      .slice(0, NAM_VALIDATION_RULES.LETTER_COUNT)
+      .replace(/0/g, 'O'); // Replace all zeros with letter O
+    const digitSection = uppercased.slice(NAM_VALIDATION_RULES.LETTER_COUNT);
+    return letterSection + digitSection;
+  }
+
+  return uppercased;
 }
