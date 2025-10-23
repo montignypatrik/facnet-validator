@@ -198,6 +198,12 @@ export class BillingCSVProcessor {
   }
 
   private parseCSVRow(row: CSVRow, validationRunId: string, rowNumber: number): InsertBillingRecord | null {
+    // Debug: Log column names on first row
+    if (rowNumber === 2) {
+      console.log(`[DEBUG CSV] Available columns:`, Object.keys(row));
+      console.log(`[DEBUG CSV] Montant payé value:`, row['Montant payé']);
+    }
+
     // Skip empty rows (privacy-safe: no sensitive data logged)
     if (!row['Facture'] && !row['Code']) {
       console.log(`[DEBUG] Row ${rowNumber} skipped - no Facture or Code`);
