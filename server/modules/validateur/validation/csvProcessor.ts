@@ -44,8 +44,9 @@ export class BillingCSVProcessor {
 
     // Handle UTF-8 replacement character read as Latin1: ï¿½ (bytes: ef bf bd)
     // This is the most common corruption when UTF-8 � is read as Latin1
-    normalized = normalized.replace(/ï¿½/g, 'e');
-    normalized = normalized.replace(/�/g, 'e');
+    // Use explicit Unicode code points: ï=U+00EF, ¿=U+00BF, ½=U+00BD
+    normalized = normalized.replace(/\u00EF\u00BF\u00BD/g, 'e');
+    normalized = normalized.replace(/\uFFFD/g, 'e');  // Also handle actual � character
 
     // Replace common corrupted/accented characters with ASCII equivalents
     const replacements: { [key: string]: string } = {
