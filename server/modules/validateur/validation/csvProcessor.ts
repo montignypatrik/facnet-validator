@@ -34,6 +34,14 @@ export interface CSVRow {
 export class BillingCSVProcessor {
 
   /**
+   * Remove accents from a string for normalized column matching
+   * Example: "Montant payé" → "Montant paye"
+   */
+  private removeAccents(str: string): string {
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  /**
    * Detects the encoding of a CSV file by checking for BOM and analyzing byte patterns
    * Returns 'utf8' or 'latin1' (ISO-8859-1/Windows-1252)
    */
@@ -198,39 +206,44 @@ export class BillingCSVProcessor {
   }
 
   private parseCSVRow(row: CSVRow, validationRunId: string, rowNumber: number): InsertBillingRecord | null {
+    // Create normalized version of row with accent-free keys
+    const normalizedRow: { [key: string]: string } = {};
+    for (const [key, value] of Object.entries(row)) {
+      const normalizedKey = this.removeAccents(key);
+      normalizedRow[normalizedKey] = value;
+    }
+
     // Debug: Log column names on first row using logger (async but fire-and-forget)
     if (rowNumber === 2) {
       const columns = Object.keys(row);
-      const montantPayeValue = row['Montant payé'];
-      const montantPrelimValue = row['Montant Preliminaire'];
+      const normalizedColumns = Object.keys(normalizedRow);
 
       logger.info(validationRunId, 'csvProcessor', '[DEBUG CSV] Column inspection', {
         totalColumns: columns.length,
-        allColumns: columns,
-        montantPayeValue,
-        montantPrelimValue,
-        hasMontantPaye: 'Montant payé' in row,
-        hasMontantPrelim: 'Montant Preliminaire' in row,
+        originalColumns: columns,
+        normalizedColumns: normalizedColumns,
+        montantPayeValue: normalizedRow['Montant paye'],
+        montantPrelimValue: normalizedRow['Montant Preliminaire'],
       }).catch(err => console.error('Logger error:', err));
 
       // Also console.log for immediate visibility
-      console.log(`[DEBUG CSV] Available columns:`, columns);
-      console.log(`[DEBUG CSV] Montant payé value:`, montantPayeValue);
-      console.log(`[DEBUG CSV] Montant Preliminaire value:`, montantPrelimValue);
+      console.log(`[DEBUG CSV] Original columns:`, columns);
+      console.log(`[DEBUG CSV] Normalized columns:`, normalizedColumns);
+      console.log(`[DEBUG CSV] Montant paye value:`, normalizedRow['Montant paye']);
     }
 
     // Skip empty rows (privacy-safe: no sensitive data logged)
-    if (!row['Facture'] && !row['Code']) {
+    if (!normalizedRow['Facture'] && !normalizedRow['Code']) {
       console.log(`[DEBUG] Row ${rowNumber} skipped - no Facture or Code`);
       return null;
     }
 
     // Parse date
     let dateService: Date | null = null;
-    if (row['Date de Service']) {
-      dateService = new Date(row['Date de Service']);
+    if (normalizedRow['Date de Service']) {
+      dateService = new Date(normalizedRow['Date de Service']);
       if (isNaN(dateService.getTime())) {
-        throw new Error(`Invalid date format: ${row['Date de Service']}`);
+        throw new Error(`Invalid date format: ${normalizedRow['Date de Service']}`);
       }
     }
 
@@ -253,33 +266,23 @@ export class BillingCSVProcessor {
     return {
       validationRunId,
       recordNumber: rowNumber,
-      facture: row['Facture'] || null,
-      idRamq: row['ID RAMQ'] || null,
+      facture: normalizedRow['Facture'] || null,
+      idRamq: normalizedRow['ID RAMQ'] || null,
       dateService,
-      debut: row['Début'] || null,
-      fin: row['Fin'] || null,
-      periode: row['Periode'] || null,
-      lieuPratique: row['Lieu de pratique'] || null,
-      secteurActivite: row["Secteur d'activité"] || null,
-      diagnostic: row['Diagnostic'] || null,
-      code: row['Code'] || null,
-      unites: parseUnits(row['Unités']),
-      role: row['Rôle'] || null,
-      elementContexte: row['Élement de contexte'] || null,
-      montantPreliminaire: parseAmount(row['Montant Preliminaire']),
-      // Handle both proper and corrupted encoding of "Montant payé"
-      // Try multiple variations due to encoding issues
-      montantPaye: parseAmount(
-        row['Montant payé'] ||
-        row['Montant pay�'] ||
-        row['Montant pay\uFFFD'] ||
-        // Fallback: find any column starting with "Montant pay"
-        Object.keys(row).find(key => key.startsWith('Montant pay') && key !== 'Montant Preliminaire')
-          ? row[Object.keys(row).find(key => key.startsWith('Montant pay') && key !== 'Montant Preliminaire')!]
-          : null
-      ),
-      doctorInfo: row['Doctor Info'] || null,
-      patient: row['Patient'] || null,
+      debut: normalizedRow['Debut'] || null,
+      fin: normalizedRow['Fin'] || null,
+      periode: normalizedRow['Periode'] || null,
+      lieuPratique: normalizedRow['Lieu de pratique'] || null,
+      secteurActivite: normalizedRow["Secteur d'activite"] || null,
+      diagnostic: normalizedRow['Diagnostic'] || null,
+      code: normalizedRow['Code'] || null,
+      unites: parseUnits(normalizedRow['Unites']),
+      role: normalizedRow['Role'] || null,
+      elementContexte: normalizedRow['Element de contexte'] || null,
+      montantPreliminaire: parseAmount(normalizedRow['Montant Preliminaire']),
+      montantPaye: parseAmount(normalizedRow['Montant paye']),
+      doctorInfo: normalizedRow['Doctor Info'] || null,
+      patient: normalizedRow['Patient'] || null,
     };
   }
 
