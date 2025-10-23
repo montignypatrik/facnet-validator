@@ -198,10 +198,25 @@ export class BillingCSVProcessor {
   }
 
   private parseCSVRow(row: CSVRow, validationRunId: string, rowNumber: number): InsertBillingRecord | null {
-    // Debug: Log column names on first row
+    // Debug: Log column names on first row using logger (async but fire-and-forget)
     if (rowNumber === 2) {
-      console.log(`[DEBUG CSV] Available columns:`, Object.keys(row));
-      console.log(`[DEBUG CSV] Montant payé value:`, row['Montant payé']);
+      const columns = Object.keys(row);
+      const montantPayeValue = row['Montant payé'];
+      const montantPrelimValue = row['Montant Preliminaire'];
+
+      logger.info(validationRunId, 'csvProcessor', '[DEBUG CSV] Column inspection', {
+        totalColumns: columns.length,
+        allColumns: columns,
+        montantPayeValue,
+        montantPrelimValue,
+        hasMontantPaye: 'Montant payé' in row,
+        hasMontantPrelim: 'Montant Preliminaire' in row,
+      }).catch(err => console.error('Logger error:', err));
+
+      // Also console.log for immediate visibility
+      console.log(`[DEBUG CSV] Available columns:`, columns);
+      console.log(`[DEBUG CSV] Montant payé value:`, montantPayeValue);
+      console.log(`[DEBUG CSV] Montant Preliminaire value:`, montantPrelimValue);
     }
 
     // Skip empty rows (privacy-safe: no sensitive data logged)
