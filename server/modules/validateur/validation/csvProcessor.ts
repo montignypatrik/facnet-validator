@@ -39,10 +39,25 @@ export class BillingCSVProcessor {
    * Example: "Montant pay�" → "Montant paye"
    */
   private removeAccents(str: string): string {
-    return str
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // Remove combining diacritical marks
-      .replace(/[\uFFFD�]/g, 'e'); // Replace replacement character � with 'e' (common for é corruption)
+    // First normalize and remove combining marks
+    let normalized = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    // Replace common corrupted/accented characters with ASCII equivalents
+    const replacements: { [key: string]: string } = {
+      'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+      'à': 'a', 'â': 'a', 'ä': 'a',
+      'ô': 'o', 'ö': 'o',
+      'ù': 'u', 'û': 'u', 'ü': 'u',
+      'î': 'i', 'ï': 'i',
+      'ç': 'c',
+      '�': 'e', // Unicode replacement character (common for corrupted é)
+    };
+
+    for (const [accented, plain] of Object.entries(replacements)) {
+      normalized = normalized.replace(new RegExp(accented, 'g'), plain);
+    }
+
+    return normalized;
   }
 
   /**
@@ -222,18 +237,28 @@ export class BillingCSVProcessor {
       const columns = Object.keys(row);
       const normalizedColumns = Object.keys(normalizedRow);
 
+      // Find columns containing "Montant" or "paye"
+      const montantColumns = normalizedColumns.filter(col => col.toLowerCase().includes('montant'));
+      const payeColumns = normalizedColumns.filter(col => col.toLowerCase().includes('pay'));
+
       logger.info(validationRunId, 'csvProcessor', '[DEBUG CSV] Column inspection', {
         totalColumns: columns.length,
         originalColumns: columns,
         normalizedColumns: normalizedColumns,
-        montantPayeValue: normalizedRow['Montant paye'],
-        montantPrelimValue: normalizedRow['Montant Preliminaire'],
+        montantColumns,
+        payeColumns,
+        'Montant paye': normalizedRow['Montant paye'],
+        'Montant Preliminaire': normalizedRow['Montant Preliminaire'],
+        allNormalizedData: normalizedRow,
       }).catch(err => console.error('Logger error:', err));
 
       // Also console.log for immediate visibility
       console.log(`[DEBUG CSV] Original columns:`, columns);
       console.log(`[DEBUG CSV] Normalized columns:`, normalizedColumns);
+      console.log(`[DEBUG CSV] Columns with 'montant':`, montantColumns);
+      console.log(`[DEBUG CSV] Columns with 'pay':`, payeColumns);
       console.log(`[DEBUG CSV] Montant paye value:`, normalizedRow['Montant paye']);
+      console.log(`[DEBUG CSV] Montant Preliminaire value:`, normalizedRow['Montant Preliminaire']);
     }
 
     // Skip empty rows (privacy-safe: no sensitive data logged)
