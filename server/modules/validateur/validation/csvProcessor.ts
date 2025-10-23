@@ -224,6 +224,21 @@ export class BillingCSVProcessor {
     }); // End of withSpan wrapper
   }
 
+  /**
+   * Find a column value by fuzzy matching (case-insensitive, handles accents/corruption)
+   */
+  private getColumnValue(row: CSVRow, searchTerms: string[]): string | null {
+    for (const [key, value] of Object.entries(row)) {
+      const normalizedKey = this.removeAccents(key).toLowerCase();
+      for (const term of searchTerms) {
+        if (normalizedKey.includes(term.toLowerCase())) {
+          return value;
+        }
+      }
+    }
+    return null;
+  }
+
   private parseCSVRow(row: CSVRow, validationRunId: string, rowNumber: number): InsertBillingRecord | null {
     // Create normalized version of row with accent-free keys
     const normalizedRow: { [key: string]: string } = {};
@@ -292,13 +307,17 @@ export class BillingCSVProcessor {
       return isNaN(parsed) ? null : parsed;
     };
 
+    // Use fuzzy matching for problematic fields that might have encoding issues
+    const montantPayeValue = this.getColumnValue(row, ['montant pay', 'montant paye']);
+    const debutValue = this.getColumnValue(row, ['debut']);
+
     return {
       validationRunId,
       recordNumber: rowNumber,
       facture: normalizedRow['Facture'] || null,
       idRamq: normalizedRow['ID RAMQ'] || null,
       dateService,
-      debut: normalizedRow['Debut'] || null,
+      debut: debutValue || normalizedRow['Debut'] || null,
       fin: normalizedRow['Fin'] || null,
       periode: normalizedRow['Periode'] || null,
       lieuPratique: normalizedRow['Lieu de pratique'] || null,
@@ -309,7 +328,7 @@ export class BillingCSVProcessor {
       role: normalizedRow['Role'] || null,
       elementContexte: normalizedRow['Element de contexte'] || null,
       montantPreliminaire: parseAmount(normalizedRow['Montant Preliminaire']),
-      montantPaye: parseAmount(normalizedRow['Montant paye']),
+      montantPaye: parseAmount(montantPayeValue),
       doctorInfo: normalizedRow['Doctor Info'] || null,
       patient: normalizedRow['Patient'] || null,
     };
