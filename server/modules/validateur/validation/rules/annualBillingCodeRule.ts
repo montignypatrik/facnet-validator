@@ -37,7 +37,6 @@ export const annualBillingCodeRule: ValidationRule = {
     const leafPatterns = [
       "Visite de prise en charge",
       "Visite périodique",
-      "04 - Examen annuel complet",
       // Add more leaf patterns as needed based on RAMQ regulations
     ];
 
