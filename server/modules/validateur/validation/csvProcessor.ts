@@ -315,12 +315,32 @@ export class BillingCSVProcessor {
     // ULTRA-SIMPLE APPROACH: Find the "other" Montant column
     // We know Montant Preliminaire works, so find the OTHER Montant column for paye
     let montantPayeValue: string | null = null;
+
+    // Debug on first row - log ALL columns to see what we're working with
+    if (rowNumber === 2) {
+      const allColumns: { original: string, normalized: string, value: string }[] = [];
+      for (const [key, value] of Object.entries(row)) {
+        const normalized = this.removeAccents(key).toLowerCase();
+        allColumns.push({ original: key, normalized, value: value || '' });
+      }
+      logger.info(validationRunId, 'csvProcessor', '[CRITICAL DEBUG] All CSV columns with normalization', {
+        totalColumns: allColumns.length,
+        columns: allColumns.slice(0, 20), // First 20 columns
+      }).catch(err => console.error('Logger error:', err));
+    }
+
     for (const [key, value] of Object.entries(row)) {
       const normalized = this.removeAccents(key).toLowerCase();
       // Find column that starts with "montant" but is NOT "montant preliminaire"
       if (normalized.startsWith('montant') && !normalized.includes('preliminaire')) {
         montantPayeValue = value;
-        console.log(`[CSV PARSER] Found montant_paye column: "${key}" = "${value}"`);
+        if (rowNumber === 2) {
+          logger.info(validationRunId, 'csvProcessor', '[FOUND] montant_paye column!', {
+            originalColumnName: key,
+            normalizedColumnName: normalized,
+            value: value,
+          }).catch(err => console.error('Logger error:', err));
+        }
         break;
       }
     }
