@@ -132,11 +132,10 @@ export class BillingCSVProcessor {
         fileSize: stats.size,
       });
 
-      // Auto-detect encoding (UTF-8 vs Latin1) with tracing
-      const encoding = withSpanSync('csv.detect_encoding', {}, () => {
-        return this.detectEncoding(filePath);
-      });
-      await logger.debug(validationRunId, 'csvProcessor', `Detected encoding: ${encoding}`, {
+      // FORCE latin1 encoding for Quebec CSV files
+      // Auto-detection was unreliable - UTF-8 detection breaks column parsing
+      const encoding: BufferEncoding = 'latin1';
+      await logger.debug(validationRunId, 'csvProcessor', `Using forced encoding: ${encoding}`, {
         encoding,
       });
 
