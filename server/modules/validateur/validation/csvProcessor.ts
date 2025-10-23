@@ -268,7 +268,16 @@ export class BillingCSVProcessor {
       elementContexte: row['Élement de contexte'] || null,
       montantPreliminaire: parseAmount(row['Montant Preliminaire']),
       // Handle both proper and corrupted encoding of "Montant payé"
-      montantPaye: parseAmount(row['Montant payé'] || row['Montant pay�']),
+      // Try multiple variations due to encoding issues
+      montantPaye: parseAmount(
+        row['Montant payé'] ||
+        row['Montant pay�'] ||
+        row['Montant pay\uFFFD'] ||
+        // Fallback: find any column starting with "Montant pay"
+        Object.keys(row).find(key => key.startsWith('Montant pay') && key !== 'Montant Preliminaire')
+          ? row[Object.keys(row).find(key => key.startsWith('Montant pay') && key !== 'Montant Preliminaire')!]
+          : null
+      ),
       doctorInfo: row['Doctor Info'] || null,
       patient: row['Patient'] || null,
     };
