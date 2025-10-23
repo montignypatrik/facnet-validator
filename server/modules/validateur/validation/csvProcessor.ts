@@ -251,38 +251,22 @@ export class BillingCSVProcessor {
       normalizedRow[normalizedKey] = value;
     }
 
-    // Debug: Log column names on first row using logger (async but fire-and-forget)
+    // Log column inspection for first data row (for troubleshooting if needed)
     if (rowNumber === 2) {
       const columns = Object.keys(row);
       const normalizedColumns = Object.keys(normalizedRow);
-
-      // Find columns containing "Montant" or "paye"
       const montantColumns = normalizedColumns.filter(col => col.toLowerCase().includes('montant'));
       const payeColumns = normalizedColumns.filter(col => col.toLowerCase().includes('pay'));
 
-      logger.info(validationRunId, 'csvProcessor', '[DEBUG CSV] Column inspection', {
+      logger.debug(validationRunId, 'csvProcessor', 'CSV column inspection', {
         totalColumns: columns.length,
-        originalColumns: columns,
-        normalizedColumns: normalizedColumns,
         montantColumns,
         payeColumns,
-        'Montant paye': normalizedRow['Montant paye'],
-        'Montant Preliminaire': normalizedRow['Montant Preliminaire'],
-        allNormalizedData: normalizedRow,
       }).catch(err => console.error('Logger error:', err));
-
-      // Also console.log for immediate visibility
-      console.log(`[DEBUG CSV] Original columns:`, columns);
-      console.log(`[DEBUG CSV] Normalized columns:`, normalizedColumns);
-      console.log(`[DEBUG CSV] Columns with 'montant':`, montantColumns);
-      console.log(`[DEBUG CSV] Columns with 'pay':`, payeColumns);
-      console.log(`[DEBUG CSV] Montant paye value:`, normalizedRow['Montant paye']);
-      console.log(`[DEBUG CSV] Montant Preliminaire value:`, normalizedRow['Montant Preliminaire']);
     }
 
     // Skip empty rows (privacy-safe: no sensitive data logged)
     if (!normalizedRow['Facture'] && !normalizedRow['Code']) {
-      console.log(`[DEBUG] Row ${rowNumber} skipped - no Facture or Code`);
       return null;
     }
 
@@ -322,10 +306,13 @@ export class BillingCSVProcessor {
     // Position 15 should be Montant paye (0-indexed)
     if (columnValues.length > 15) {
       montantPayeValue = columnValues[15] as string;
-      console.log(`[POSITION-BASED] Row ${rowNumber}: Using position 15 for montant_paye = "${montantPayeValue}"`);
-      console.log(`[POSITION-BASED] Column name at position 15: "${columnKeys[15]}"`);
     } else {
-      console.log(`[ERROR] Row ${rowNumber}: Not enough columns (${columnValues.length}), expected at least 16`);
+      // Log error if CSV structure is unexpected
+      logger.warn(validationRunId, 'csvProcessor', `Insufficient columns in row ${rowNumber}`, {
+        rowNumber,
+        columnCount: columnValues.length,
+        expected: 16
+      }).catch(err => console.error('Logger error:', err));
     }
 
     const debutValue = this.getColumnValue(row, ['debut']);
