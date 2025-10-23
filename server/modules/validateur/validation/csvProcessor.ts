@@ -42,6 +42,11 @@ export class BillingCSVProcessor {
     // First normalize and remove combining marks
     let normalized = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
+    // Handle UTF-8 replacement character read as Latin1: ï¿½ (bytes: ef bf bd)
+    // This is the most common corruption when UTF-8 � is read as Latin1
+    normalized = normalized.replace(/ï¿½/g, 'e');
+    normalized = normalized.replace(/�/g, 'e');
+
     // Replace common corrupted/accented characters with ASCII equivalents
     const replacements: { [key: string]: string } = {
       'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
@@ -50,7 +55,6 @@ export class BillingCSVProcessor {
       'ù': 'u', 'û': 'u', 'ü': 'u',
       'î': 'i', 'ï': 'i',
       'ç': 'c',
-      '�': 'e', // Unicode replacement character (common for corrupted é)
     };
 
     for (const [accented, plain] of Object.entries(replacements)) {
