@@ -318,15 +318,14 @@ export class BillingCSVProcessor {
 
     // Debug on first row - log ALL columns to see what we're working with
     if (rowNumber === 2) {
-      const allColumns: { original: string, normalized: string, value: string }[] = [];
+      console.log('=========== CSV COLUMN DEBUG (Row 2) ===========');
       for (const [key, value] of Object.entries(row)) {
         const normalized = this.removeAccents(key).toLowerCase();
-        allColumns.push({ original: key, normalized, value: value || '' });
+        // Show hex bytes for the key to see encoding issues
+        const hexBytes = Buffer.from(key, 'utf-8').toString('hex');
+        console.log(`Original: "${key}" | Hex: ${hexBytes} | Normalized: "${normalized}" | Value: "${value}"`);
       }
-      logger.info(validationRunId, 'csvProcessor', '[CRITICAL DEBUG] All CSV columns with normalization', {
-        totalColumns: allColumns.length,
-        columns: allColumns.slice(0, 20), // First 20 columns
-      }).catch(err => console.error('Logger error:', err));
+      console.log('===============================================');
     }
 
     for (const [key, value] of Object.entries(row)) {
@@ -334,15 +333,13 @@ export class BillingCSVProcessor {
       // Find column that starts with "montant" but is NOT "montant preliminaire"
       if (normalized.startsWith('montant') && !normalized.includes('preliminaire')) {
         montantPayeValue = value;
-        if (rowNumber === 2) {
-          logger.info(validationRunId, 'csvProcessor', '[FOUND] montant_paye column!', {
-            originalColumnName: key,
-            normalizedColumnName: normalized,
-            value: value,
-          }).catch(err => console.error('Logger error:', err));
-        }
+        console.log(`[MONTANT PAYE FOUND] Row ${rowNumber}: Original="${key}", Normalized="${normalized}", Value="${value}"`);
         break;
       }
+    }
+
+    if (rowNumber === 2 && !montantPayeValue) {
+      console.log('[ERROR] montant_paye column NOT FOUND in row 2!');
     }
 
     const debutValue = this.getColumnValue(row, ['debut']);
