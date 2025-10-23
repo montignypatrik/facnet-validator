@@ -312,34 +312,21 @@ export class BillingCSVProcessor {
       return isNaN(parsed) ? null : parsed;
     };
 
-    // ULTRA-SIMPLE APPROACH: Find the "other" Montant column
-    // We know Montant Preliminaire works, so find the OTHER Montant column for paye
+    // POSITION-BASED APPROACH: Use column index to get montant_paye
+    // This bypasses ALL column name matching issues (encoding, spaces, etc.)
+    // CSV structure: #, Facture, ID RAMQ, ..., Montant Preliminaire (pos 14), Montant paye (pos 15)
     let montantPayeValue: string | null = null;
 
-    // Debug on first row - log ALL columns to see what we're working with
-    if (rowNumber === 2) {
-      console.log('=========== CSV COLUMN DEBUG (Row 2) ===========');
-      for (const [key, value] of Object.entries(row)) {
-        const normalized = this.removeAccents(key).toLowerCase();
-        // Show hex bytes for the key to see encoding issues
-        const hexBytes = Buffer.from(key, 'utf-8').toString('hex');
-        console.log(`Original: "${key}" | Hex: ${hexBytes} | Normalized: "${normalized}" | Value: "${value}"`);
-      }
-      console.log('===============================================');
-    }
+    const columnValues = Object.values(row);
+    const columnKeys = Object.keys(row);
 
-    for (const [key, value] of Object.entries(row)) {
-      const normalized = this.removeAccents(key).toLowerCase();
-      // Find column that starts with "montant" but is NOT "montant preliminaire"
-      if (normalized.startsWith('montant') && !normalized.includes('preliminaire')) {
-        montantPayeValue = value;
-        console.log(`[MONTANT PAYE FOUND] Row ${rowNumber}: Original="${key}", Normalized="${normalized}", Value="${value}"`);
-        break;
-      }
-    }
-
-    if (rowNumber === 2 && !montantPayeValue) {
-      console.log('[ERROR] montant_paye column NOT FOUND in row 2!');
+    // Position 15 should be Montant paye (0-indexed)
+    if (columnValues.length > 15) {
+      montantPayeValue = columnValues[15] as string;
+      console.log(`[POSITION-BASED] Row ${rowNumber}: Using position 15 for montant_paye = "${montantPayeValue}"`);
+      console.log(`[POSITION-BASED] Column name at position 15: "${columnKeys[15]}"`);
+    } else {
+      console.log(`[ERROR] Row ${rowNumber}: Not enough columns (${columnValues.length}), expected at least 16`);
     }
 
     const debutValue = this.getColumnValue(row, ['debut']);
