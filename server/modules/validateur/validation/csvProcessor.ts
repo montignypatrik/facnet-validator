@@ -213,11 +213,11 @@ export class BillingCSVProcessor {
       }
     }
 
-    // Parse amounts - handle Quebec format with comma as decimal separator
+    // Parse amounts - handle Quebec format with comma or semicolon as decimal separator
     const parseAmount = (value: string): number | null => {
       if (!value) return null;
-      // Remove currency symbols and spaces, then replace comma with dot for decimal
-      const cleaned = value.replace(/[$\s]/g, '').replace(',', '.');
+      // Remove currency symbols and spaces, then replace comma or semicolon with dot for decimal
+      const cleaned = value.replace(/[$\s]/g, '').replace(/[,;]/, '.');
       const parsed = parseFloat(cleaned);
       return isNaN(parsed) ? null : parsed;
     };
