@@ -267,7 +267,8 @@ export class BillingCSVProcessor {
       role: row['Rôle'] || null,
       elementContexte: row['Élement de contexte'] || null,
       montantPreliminaire: parseAmount(row['Montant Preliminaire']),
-      montantPaye: parseAmount(row['Montant payé']),
+      // Handle both proper and corrupted encoding of "Montant payé"
+      montantPaye: parseAmount(row['Montant payé'] || row['Montant pay�']),
       doctorInfo: row['Doctor Info'] || null,
       patient: row['Patient'] || null,
     };
