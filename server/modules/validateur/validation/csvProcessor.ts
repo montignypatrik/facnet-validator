@@ -312,8 +312,19 @@ export class BillingCSVProcessor {
       return isNaN(parsed) ? null : parsed;
     };
 
-    // Use fuzzy matching for problematic fields that might have encoding issues
-    const montantPayeValue = this.getColumnValue(row, ['montant pay', 'montant paye']);
+    // ULTRA-SIMPLE APPROACH: Find the "other" Montant column
+    // We know Montant Preliminaire works, so find the OTHER Montant column for paye
+    let montantPayeValue: string | null = null;
+    for (const [key, value] of Object.entries(row)) {
+      const normalized = this.removeAccents(key).toLowerCase();
+      // Find column that starts with "montant" but is NOT "montant preliminaire"
+      if (normalized.startsWith('montant') && !normalized.includes('preliminaire')) {
+        montantPayeValue = value;
+        console.log(`[CSV PARSER] Found montant_paye column: "${key}" = "${value}"`);
+        break;
+      }
+    }
+
     const debutValue = this.getColumnValue(row, ['debut']);
 
     return {
