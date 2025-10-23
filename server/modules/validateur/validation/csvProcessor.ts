@@ -34,11 +34,15 @@ export interface CSVRow {
 export class BillingCSVProcessor {
 
   /**
-   * Remove accents from a string for normalized column matching
+   * Remove accents and corrupted characters from a string for normalized column matching
    * Example: "Montant payé" → "Montant paye"
+   * Example: "Montant pay�" → "Montant paye"
    */
   private removeAccents(str: string): string {
-    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return str
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove combining diacritical marks
+      .replace(/[\uFFFD�]/g, 'e'); // Replace replacement character � with 'e' (common for é corruption)
   }
 
   /**
