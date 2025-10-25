@@ -417,6 +417,136 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
     }
   }
 
+  // ===== PASS SCENARIOS (successful validations) =====
+
+  // Generate PASS scenarios for successful office fee billings
+  for (const officeFee of dayData.officeFees) {
+    const hasContext = officeFee.elementContexte?.includes("#G160") ||
+                      officeFee.elementContexte?.includes("#AR");
+
+    if (officeFee.code === "19928") {
+      if (hasContext && walkInPaidCount >= 10 && walkInPaidCount < 20) {
+        // P2: Valid 19928 - Walk-In Patients
+        results.push({
+          validationRunId,
+          ruleId: "office-fee-validation",
+          billingRecordId: officeFee.id,
+          severity: "info",
+          category: "office_fees",
+          message: `Validation réussie: Code 19928 facturé correctement avec ${walkInPaidCount} patients sans rendez-vous (minimum: 10). Montant: ${formatCurrency(dayData.totalAmount)}`,
+          affectedRecords: [officeFee.id],
+          ruleData: {
+            scenarioId: "P2",
+            monetaryImpact: 0,
+            code: "19928",
+            registeredPaidCount,
+            registeredUnpaidCount,
+            walkInPaidCount,
+            walkInUnpaidCount,
+            totalAmount: dayData.totalAmount,
+            doctor: redactDoctorName(dayData.doctor),
+            date: dayData.date
+          }
+        });
+      } else if (!hasContext && registeredPaidCount >= 6 && registeredPaidCount < 12) {
+        // P1: Valid 19928 - Registered Patients
+        results.push({
+          validationRunId,
+          ruleId: "office-fee-validation",
+          billingRecordId: officeFee.id,
+          severity: "info",
+          category: "office_fees",
+          message: `Validation réussie: Code 19928 facturé correctement avec ${registeredPaidCount} patients inscrits (minimum: 6). Montant: ${formatCurrency(dayData.totalAmount)}`,
+          affectedRecords: [officeFee.id],
+          ruleData: {
+            scenarioId: "P1",
+            monetaryImpact: 0,
+            code: "19928",
+            registeredPaidCount,
+            registeredUnpaidCount,
+            walkInPaidCount,
+            walkInUnpaidCount,
+            totalAmount: dayData.totalAmount,
+            doctor: redactDoctorName(dayData.doctor),
+            date: dayData.date
+          }
+        });
+      }
+    } else if (officeFee.code === "19929") {
+      if (hasContext && walkInPaidCount >= 20) {
+        // P4: Valid 19929 - Walk-In Patients
+        results.push({
+          validationRunId,
+          ruleId: "office-fee-validation",
+          billingRecordId: officeFee.id,
+          severity: "info",
+          category: "office_fees",
+          message: `Validation réussie: Code 19929 facturé correctement avec ${walkInPaidCount} patients sans rendez-vous (minimum: 20). Montant: ${formatCurrency(dayData.totalAmount)}`,
+          affectedRecords: [officeFee.id],
+          ruleData: {
+            scenarioId: "P4",
+            monetaryImpact: 0,
+            code: "19929",
+            registeredPaidCount,
+            registeredUnpaidCount,
+            walkInPaidCount,
+            walkInUnpaidCount,
+            totalAmount: dayData.totalAmount,
+            doctor: redactDoctorName(dayData.doctor),
+            date: dayData.date
+          }
+        });
+      } else if (!hasContext && registeredPaidCount >= 12) {
+        // P3: Valid 19929 - Registered Patients
+        results.push({
+          validationRunId,
+          ruleId: "office-fee-validation",
+          billingRecordId: officeFee.id,
+          severity: "info",
+          category: "office_fees",
+          message: `Validation réussie: Code 19929 facturé correctement avec ${registeredPaidCount} patients inscrits (minimum: 12). Montant: ${formatCurrency(dayData.totalAmount)}`,
+          affectedRecords: [officeFee.id],
+          ruleData: {
+            scenarioId: "P3",
+            monetaryImpact: 0,
+            code: "19929",
+            registeredPaidCount,
+            registeredUnpaidCount,
+            walkInPaidCount,
+            walkInUnpaidCount,
+            totalAmount: dayData.totalAmount,
+            doctor: redactDoctorName(dayData.doctor),
+            date: dayData.date
+          }
+        });
+      }
+    }
+  }
+
+  // P5: Valid Double Billing Within Maximum
+  if (dayData.officeFees.length === 2 && dayData.totalAmount <= 64.80) {
+    results.push({
+      validationRunId,
+      ruleId: "office-fee-validation",
+      billingRecordId: null,
+      severity: "info",
+      category: "office_fees",
+      message: `Validation réussie: Frais de bureau facturés correctement avec ${dayData.officeFees.length} code(s) totalisant ${formatCurrency(dayData.totalAmount)} (maximum quotidien: 64,80$)`,
+      affectedRecords: dayData.officeFees.map(f => f.id).filter((id): id is string => id !== null),
+      ruleData: {
+        scenarioId: "P5",
+        monetaryImpact: 0,
+        billingCount: dayData.officeFees.length,
+        totalAmount: dayData.totalAmount,
+        dailyMaximum: 64.80,
+        registeredPaidCount,
+        walkInPaidCount,
+        doctor: redactDoctorName(dayData.doctor),
+        date: dayData.date
+      }
+    });
+  }
+
   return results;
 }
 
