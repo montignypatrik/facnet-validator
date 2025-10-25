@@ -13,6 +13,7 @@ uploads/
 # env & local configs
 .env*
 !.env.example
+.env.staging  # Staging credentials (explicit, covered by .env* pattern)
 .claude/
 *.local.json
 

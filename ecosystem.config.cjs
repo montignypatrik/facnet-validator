@@ -15,7 +15,8 @@ module.exports = {
       // Environment variables (inherit from .env file on server)
       // This avoids hardcoding credentials in version control
       env: {
-        NODE_ENV: 'production'
+        NODE_ENV: 'production',
+        PORT: '5000' // Explicit port for production
       },
 
       // Logging configuration

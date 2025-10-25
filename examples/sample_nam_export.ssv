@@ -1,0 +1,6 @@
+doctorLicenceID;doctorGroupNumber;ClaimDate;ProcedureTime;HIN;PatientGender;PatientBirthDate;PatientFirstName;PatientLastName;PhysicianSpeciality;DiagnosticCode;BillingCode;NumberOfServices;ServiceLocation;HospitalizationIndicator;ContextElement;ComplementInformation;ServiceProviderID;ReferringPhysicianID;PrimaryCarePhysicianID;InstitutionCode;InstitutionService;FeeExplanation;EstimatedAmount;PaidAmount;ApprovalNumber
+;;2025-10-01;08:00;ABCD12345678;;;;;;;;;;;;;;;;;;;;;
+;;2025-10-01;08:15;WXYZ98765432;;;;;;;;;;;;;;;;;;;;;
+;;2025-10-01;09:30;LMNO11223344;;;;;;;;;;;;;;;;;;;;;
+;;2025-10-02;14:00;PQRS55667788;;;;;;;;;;;;;;;;;;;;;
+;;2025-10-02;14:30;TUVW99887766;;;;;;;;;;;;;;;;;;;;;
