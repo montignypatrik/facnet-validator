@@ -174,6 +174,34 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
     const hasContext = officeFee.elementContexte?.includes("#G160") ||
                       officeFee.elementContexte?.includes("#AR");
 
+    // E6: Check if billed in hospital/établissement instead of cabinet
+    const isCabinet = officeFee.lieuPratique?.toString().startsWith('5');
+    if (!isCabinet && officeFee.lieuPratique) {
+      const establishmentType = officeFee.lieuPratique.toString().startsWith('2') ? 'hôpital' : 'établissement';
+      results.push({
+        validationRunId,
+        ruleId: "office-fee-validation",
+        billingRecordId: officeFee.id,
+        severity: "error",
+        category: "office_fees",
+        message: `Les codes 19928 et 19929 peuvent seulement être facturés en cabinet. Établissement actuel: ${officeFee.lieuPratique} (${establishmentType})`,
+        solution: `Veuillez annuler la demande`,
+        affectedRecords: [officeFee.id],
+        ruleData: {
+          scenarioId: "E6",
+          code: officeFee.code || "19928",
+          establishment: officeFee.lieuPratique?.toString() || "Unknown",
+          establishmentType,
+          registeredPaidCount,
+          totalAmount: Number(officeFee.montantPreliminaire || 0),
+          doctor: redactDoctorName(dayData.doctor),
+          date: dayData.date,
+          monetaryImpact: 0
+        }
+      });
+      continue; // Skip other validations for this fee
+    }
+
     if (officeFee.code === "19928") {
       if (hasContext) {
         // E2: Walk-in 19928 with insufficient patients
@@ -376,6 +404,38 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
     });
   }
 
+  // E7: Mixed Double Billing - Both Insufficient
+  if (billed19928Registered && billed19928WalkIn) {
+    const registeredFailed = registeredPaidCount < 6;
+    const walkInFailed = walkInPaidCount < 10;
+
+    if (registeredFailed && walkInFailed) {
+      results.push({
+        validationRunId,
+        ruleId: "office-fee-validation",
+        billingRecordId: null,
+        severity: "error",
+        category: "office_fees",
+        message: `Le code 19928 inscrits requiert un minimum de 6 patients alors qu'on en trouve ${registeredPaidCount} et le code 19928 sans RDV requiert un minimum de 10 patients alors qu'on en trouve ${walkInPaidCount}`,
+        solution: `Veuillez annuler les deux demandes ou corriger les visites non payées`,
+        affectedRecords: dayData.officeFees.map(f => f.id).filter((id): id is string => id !== null),
+        ruleData: {
+          scenarioId: "E7",
+          registeredPaidCount,
+          registeredUnpaidCount,
+          walkInPaidCount,
+          walkInUnpaidCount,
+          registeredRequired: 6,
+          walkInRequired: 10,
+          totalAmount: dayData.totalAmount,
+          doctor: redactDoctorName(dayData.doctor),
+          date: dayData.date,
+          monetaryImpact: 0
+        }
+      });
+    }
+  }
+
   // ===== OPTIMIZATION DETECTION (missed revenue opportunities) =====
 
   // O1, O2: Registered patient optimizations
@@ -539,6 +599,31 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
   for (const officeFee of dayData.officeFees) {
     const hasContext = officeFee.elementContexte?.includes("#G160") ||
                       officeFee.elementContexte?.includes("#AR");
+
+    // P6: Valid Cabinet Location
+    const isCabinet = officeFee.lieuPratique?.toString().startsWith('5');
+    if (isCabinet && officeFee.lieuPratique) {
+      results.push({
+        validationRunId,
+        ruleId: "office-fee-validation",
+        billingRecordId: officeFee.id,
+        severity: "info",
+        category: "office_fees",
+        message: `Validation réussie: Code ${officeFee.code} facturé dans un cabinet (établissement valide: ${officeFee.lieuPratique})`,
+        affectedRecords: [officeFee.id],
+        ruleData: {
+          scenarioId: "P6",
+          monetaryImpact: 0,
+          code: officeFee.code || "19928",
+          establishment: officeFee.lieuPratique.toString(),
+          establishmentType: "cabinet",
+          registeredPaidCount,
+          totalAmount: Number(officeFee.montantPreliminaire || 0),
+          doctor: redactDoctorName(dayData.doctor),
+          date: dayData.date
+        }
+      });
+    }
 
     if (officeFee.code === "19928") {
       if (hasContext && walkInPaidCount >= 10 && walkInPaidCount < 20) {
