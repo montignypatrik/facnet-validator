@@ -145,27 +145,29 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
 
     if (officeFee.code === "19928") {
       if (hasContext) {
-        // E3: Walk-in 19928 with insufficient patients
-        if (walkInCount < 10) {
+        // E2: Walk-in 19928 with insufficient patients
+        if (walkInPaidCount < 10) {
           results.push({
             validationRunId,
             ruleId: "office-fee-validation",
             billingRecordId: officeFee.id,
             severity: "error",
             category: "office_fees",
-            message: `Code 19928 (sans rendez-vous) nécessite minimum 10 patients sans rendez-vous mais seulement ${walkInCount} trouvé(s) pour ${dayData.doctor} le ${dayData.date}`,
+            message: `Code 19928 exige minimum 10 patients sans rendez-vous mais seulement ${walkInPaidCount} trouvé(s) pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`,
+            solution: `Veuillez annuler la demande ou corriger les visites non payées`,
             affectedRecords: [officeFee.id],
             ruleData: {
+              scenarioId: "E2",
               code: "19928",
               billedCode: officeFee.code || "19928",
-              billedAmount: officeFee.montantPreliminaire?.toString() || "32.10",
+              billedAmount: officeFee.montantPreliminaire?.toString() || "32.40",
               hasContext: true,
               type: "walk_in",
               required: 10,
-              actual: walkInCount,
-              doctor: dayData.doctor,
+              actual: walkInPaidCount,
+              doctor: redactDoctorName(dayData.doctor),
               date: dayData.date,
-              monetaryImpact: "0.00",
+              monetaryImpact: 0,
               // Visit statistics for display
               registeredPaidCount,
               registeredUnpaidCount,
@@ -189,19 +191,23 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
             billingRecordId: officeFee.id,
             severity: "error",
             category: "office_fees",
-            message: `Code 19928 (avec rendez-vous) nécessite minimum 6 patients avec rendez-vous mais seulement ${registeredCount} trouvé(s) pour ${dayData.doctor} le ${dayData.date}`,
+            message: `Code 19928 exige minimum 6 patients inscrits mais seulement ${registeredPaidCount} trouvé(s) pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`,
+            solution: registeredUnpaidCount > 0
+              ? `Veuillez annuler la demande ou corriger les ${registeredUnpaidCount} visite(s) non payée(s)`
+              : `Veuillez annuler la demande`,
             affectedRecords: [officeFee.id],
             ruleData: {
+              scenarioId: "E1",
               code: "19928",
               billedCode: officeFee.code || "19928",
-              billedAmount: officeFee.montantPreliminaire?.toString() || "32.10",
+              billedAmount: officeFee.montantPreliminaire?.toString() || "32.40",
               hasContext: false,
               type: "registered",
               required: 6,
-              actual: registeredCount,
-              doctor: dayData.doctor,
+              actual: registeredPaidCount,
+              doctor: redactDoctorName(dayData.doctor),
               date: dayData.date,
-              monetaryImpact: "0.00",
+              monetaryImpact: 0,
               // Visit statistics for display
               registeredPaidCount,
               registeredUnpaidCount,
@@ -214,26 +220,28 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
     } else if (officeFee.code === "19929") {
       if (hasContext) {
         // E4: Walk-in 19929 with insufficient patients
-        if (walkInCount < 20) {
+        if (walkInPaidCount < 20) {
           results.push({
             validationRunId,
             ruleId: "office-fee-validation",
             billingRecordId: officeFee.id,
             severity: "error",
             category: "office_fees",
-            message: `Code 19929 (sans rendez-vous) nécessite minimum 20 patients sans rendez-vous mais seulement ${walkInCount} trouvé(s) pour ${dayData.doctor} le ${dayData.date}`,
+            message: `Code 19929 exige minimum 20 patients sans rendez-vous mais seulement ${walkInPaidCount} trouvé(s) pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`,
+            solution: `Changez le code 19929 pour 19928 ou corrigez les visites non payées`,
             affectedRecords: [officeFee.id],
             ruleData: {
+              scenarioId: "E4",
               code: "19929",
               billedCode: officeFee.code || "19929",
-              billedAmount: officeFee.montantPreliminaire?.toString() || "64.20",
+              billedAmount: officeFee.montantPreliminaire?.toString() || "64.80",
               hasContext: true,
               type: "walk_in",
               required: 20,
-              actual: walkInCount,
-              doctor: dayData.doctor,
+              actual: walkInPaidCount,
+              doctor: redactDoctorName(dayData.doctor),
               date: dayData.date,
-              monetaryImpact: "0.00",
+              monetaryImpact: 0,
               // Visit statistics for display
               registeredPaidCount,
               registeredUnpaidCount,
@@ -243,10 +251,10 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
           });
         }
       } else {
-        // E2: Registered 19929 with insufficient patients (if not eligible for walk-in either)
-        if (registeredCount < 12) {
+        // E3: Registered 19929 with insufficient patients (if not eligible for walk-in either)
+        if (registeredPaidCount < 12) {
           // Check if this is a cross-category optimization opportunity (O8)
-          if (walkInCount >= 20) {
+          if (walkInPaidCount >= 20) {
             // This will be handled in optimization section (O8)
             continue;
           }
@@ -257,19 +265,21 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
             billingRecordId: officeFee.id,
             severity: "error",
             category: "office_fees",
-            message: `Code 19929 (avec rendez-vous) nécessite minimum 12 patients avec rendez-vous mais seulement ${registeredCount} trouvé(s) pour ${dayData.doctor} le ${dayData.date}`,
+            message: `Code 19929 exige minimum 12 patients inscrits mais seulement ${registeredPaidCount} trouvé(s) pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`,
+            solution: `Changez le code 19929 pour 19928 ou corrigez les visites non payées`,
             affectedRecords: [officeFee.id],
             ruleData: {
+              scenarioId: "E3",
               code: "19929",
               billedCode: officeFee.code || "19929",
-              billedAmount: officeFee.montantPreliminaire?.toString() || "64.20",
+              billedAmount: officeFee.montantPreliminaire?.toString() || "64.80",
               hasContext: false,
               type: "registered",
               required: 12,
-              actual: registeredCount,
-              doctor: dayData.doctor,
+              actual: registeredPaidCount,
+              doctor: redactDoctorName(dayData.doctor),
               date: dayData.date,
-              monetaryImpact: "0.00",
+              monetaryImpact: 0,
               // Visit statistics for display
               registeredPaidCount,
               registeredUnpaidCount,
@@ -299,70 +309,33 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
       paid: fee.montantPaye ? parseFloat(fee.montantPaye.toString()) : 0
     }));
 
-    // Calculate overage
-    const overage = dayData.totalAmount - 64.80;
+    // Calculate excess amount
+    const excessAmount = dayData.totalAmount - 64.80;
 
     // Redact doctor name
     const redactedDoctor = redactDoctorName(dayData.doctor);
-
-    // Check if all office fees are paid (indicates likely data error in CSV)
-    // When RAMQ has already paid the fees, they validated before payment, so errors are rare
-    const allFeesPaid = dayData.officeFees.every(fee =>
-      fee.montantPaye && parseFloat(fee.montantPaye.toString()) > 0
-    );
-
-    // Determine severity and messages based on payment status
-    const severity = allFeesPaid ? "warning" : "error";
-
-    let message, solution;
-    if (allFeesPaid) {
-      // All fees are paid - likely a data error in the CSV file
-      message = `Anomalie de données: Maximum quotidien de frais de bureau de 64,80$ dépassé pour ${redactedDoctor} le ${dayData.date} (${affectedRamqIds.length} patient${affectedRamqIds.length > 1 ? 's' : ''}, total: ${formatCurrency(dayData.totalAmount)}, excédent: ${formatCurrency(overage)}). Toutes les facturations sont PAYÉES - vérifier l'exactitude du fichier CSV.`;
-
-      solution = `⚠️ PROBABLE ERREUR DE DONNÉES: Ces facturations ont déjà été payées par la RAMQ, qui valide avant de payer. Vérifier que le fichier CSV ne contient pas de données erronées ou dupliquées. Si les données sont exactes, contacter la RAMQ pour clarification.`;
-    } else {
-      // Some or all fees are unpaid - standard billing error
-      message = `Maximum quotidien de frais de bureau de 64,80$ dépassé pour ${redactedDoctor} le ${dayData.date} (${affectedRamqIds.length} patient${affectedRamqIds.length > 1 ? 's' : ''}, total: ${formatCurrency(dayData.totalAmount)}, excédent: ${formatCurrency(overage)})`;
-
-      // Identify unpaid fees to recommend for cancellation
-      const unpaidFees = feeBreakdownWithPatients.filter(fee => fee.paid === 0);
-
-      if (unpaidFees.length > 0) {
-        // Recommend canceling specific unpaid fees
-        if (unpaidFees.length === 1) {
-          solution = `Le médecin doit annuler la facture ${unpaidFees[0].idRamq} pour respecter le maximum quotidien de 64,80$ par médecin.`;
-        } else {
-          const unpaidIds = unpaidFees.map(f => f.idRamq).join(', ');
-          solution = `Le médecin doit annuler les factures non payées (${unpaidIds}) pour respecter le maximum quotidien de 64,80$ par médecin.`;
-        }
-      } else {
-        // All fees are paid but still exceeding (shouldn't happen due to allFeesPaid check, but safety)
-        solution = `Le médecin doit retirer 1 ou plusieurs facturations de frais de bureau (19928 ou 19929) pour respecter le maximum quotidien de 64,80$ par médecin.`;
-      }
-    }
 
     results.push({
       validationRunId,
       ruleId: "office-fee-validation",
       billingRecordId: null,
-      idRamq: null,  // Leave null for multi-patient errors
-      severity,
+      idRamq: null,
+      severity: "error",
       category: "office_fees",
-      message,
-      solution,
+      message: `Le maximum quotidien de 64,80$ pour les frais de bureau a été dépassé pour ${redactedDoctor} le ${dayData.date}. Total facturé: ${formatCurrency(dayData.totalAmount)}`,
+      solution: `Veuillez annuler un des frais de bureau pour respecter le maximum quotidien`,
       affectedRecords: affectedIds,
       ruleData: {
+        scenarioId: "E5",
         doctor: redactedDoctor,
         date: dayData.date,
-        totalAmount: formatCurrency(dayData.totalAmount),
-        maximum: "64,80",
-        overage: formatCurrency(overage),
+        totalAmount: dayData.totalAmount,
+        dailyMaximum: 64.80,
+        excessAmount: excessAmount,
+        billingCount: dayData.officeFees.length,
         affectedRamqIds,
         feeBreakdownWithPatients,
-        patientCount: affectedRamqIds.length,
-        monetaryImpact: formatCurrency(overage),
-        likelyDataError: allFeesPaid,
-        allFeesPaid,
+        monetaryImpact: 0,
         // Visit statistics for display
         registeredPaidCount,
         registeredUnpaidCount,
