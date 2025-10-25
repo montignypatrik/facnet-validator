@@ -417,6 +417,91 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
     }
   }
 
+  // O3, O4: Additional billing opportunities (add second 19928)
+  if (billed19928Registered && !billed19928WalkIn && !billed19929Registered && !billed19929WalkIn) {
+    // O3: One 19928 registered billed, walk-in patients available for second 19928
+    if (walkInPaidCount >= 10 && dayData.totalAmount + 32.40 <= 64.80) {
+      results.push({
+        validationRunId,
+        ruleId: "office-fee-validation",
+        billingRecordId: null,
+        severity: "optimization",
+        category: "office_fees",
+        message: `Vous avez aussi vu ${walkInPaidCount} patients sans RDV et vous pourriez facturer un autre 19928 pour atteindre le maximum quotidien de 64,80$`,
+        solution: `Ajoutez un deuxième 19928 pour les patients sans RDV (gain: 32,40$)`,
+        affectedRecords: [],
+        ruleData: {
+          scenarioId: "O3",
+          monetaryImpact: 32.40,
+          currentAmount: dayData.totalAmount,
+          expectedAmount: 64.80,
+          registeredPaidCount,
+          walkInPaidCount,
+          doctor: redactDoctorName(dayData.doctor),
+          date: dayData.date
+        }
+      });
+    }
+  } else if (billed19928WalkIn && !billed19928Registered && !billed19929Registered && !billed19929WalkIn) {
+    // O4: One 19928 walk-in billed, registered patients available for second 19928
+    if (registeredPaidCount >= 6 && dayData.totalAmount + 32.40 <= 64.80) {
+      results.push({
+        validationRunId,
+        ruleId: "office-fee-validation",
+        billingRecordId: null,
+        severity: "optimization",
+        category: "office_fees",
+        message: `Vous avez aussi vu ${registeredPaidCount} patients inscrits et vous pourriez facturer un autre 19928 pour atteindre le maximum quotidien de 64,80$`,
+        solution: `Ajoutez un deuxième 19928 pour les patients inscrits (gain: 32,40$)`,
+        affectedRecords: [],
+        ruleData: {
+          scenarioId: "O4",
+          monetaryImpact: 32.40,
+          currentAmount: dayData.totalAmount,
+          expectedAmount: 64.80,
+          registeredPaidCount,
+          walkInPaidCount,
+          doctor: redactDoctorName(dayData.doctor),
+          date: dayData.date
+        }
+      });
+    }
+  }
+
+  // O5: Mixed double billing - upgrade possible but would exceed maximum
+  if (billed19928Registered && billed19928WalkIn && dayData.totalAmount === 64.80) {
+    const qualifyingForUpgrade = registeredPaidCount >= 12 || walkInPaidCount >= 20;
+    if (qualifyingForUpgrade) {
+      const qualifyingPaidCount = registeredPaidCount >= 12 ? registeredPaidCount : walkInPaidCount;
+      const patientType = registeredPaidCount >= 12 ? "inscrits" : "sans rendez-vous";
+      const otherPatientType = registeredPaidCount >= 12 ? "sans rendez-vous" : "inscrits";
+
+      results.push({
+        validationRunId,
+        ruleId: "office-fee-validation",
+        billingRecordId: null,
+        severity: "optimization",
+        category: "office_fees",
+        message: `${qualifyingPaidCount} patients ${patientType} ont été vus, vous avez donc droit au code 19929 mais cela dépasserait le maximum quotidien`,
+        solution: `Changez le 19928 ${patientType} pour 19929 et annulez le 19928 ${otherPatientType} (gain net: 0,00$)`,
+        affectedRecords: dayData.officeFees.map(f => f.id).filter((id): id is string => id !== null),
+        ruleData: {
+          scenarioId: "O5",
+          monetaryImpact: 0,
+          currentTotal: 64.80,
+          suggestedTotal: 64.80,
+          registeredPaidCount,
+          walkInPaidCount,
+          qualifyingPaidCount,
+          patientType,
+          otherPatientType,
+          doctor: redactDoctorName(dayData.doctor),
+          date: dayData.date
+        }
+      });
+    }
+  }
+
   // ===== PASS SCENARIOS (successful validations) =====
 
   // Generate PASS scenarios for successful office fee billings
