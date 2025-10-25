@@ -85,6 +85,37 @@ export const officeFeeValidationRule: ValidationRule = {
       results.push(...validateDoctorDay(dayData, records, validationRunId));
     }
 
+    // P-SUMMARY: Validation Complete Summary
+    const passCount = results.filter(r => r.severity === 'info').length;
+    const errorCount = results.filter(r => r.severity === 'error').length;
+    const optimizationCount = results.filter(r => r.severity === 'optimization').length;
+    const totalPotentialGain = results
+      .filter(r => r.severity === 'optimization')
+      .reduce((sum, r) => sum + (typeof r.ruleData?.monetaryImpact === 'number' ? r.ruleData.monetaryImpact : 0), 0);
+
+    const officeFeeRecords = records.filter(r => r.code === "19928" || r.code === "19929");
+    const totalAmount = officeFeeRecords.reduce((sum, r) => sum + Number(r.montantPreliminaire || 0), 0);
+
+    results.push({
+      validationRunId,
+      ruleId: "office-fee-validation",
+      billingRecordId: null,
+      severity: "info",
+      category: "office_fees",
+      message: `Validation frais de bureau complétée: ${officeFeeRecords.length} enregistrement(s) traité(s), ${passCount} réussi(s), ${errorCount} erreur(s), ${optimizationCount} opportunité(s)`,
+      affectedRecords: [],
+      ruleData: {
+        scenarioId: "P-SUMMARY",
+        monetaryImpact: 0,
+        totalRecords: officeFeeRecords.length,
+        passCount,
+        errorCount,
+        optimizationCount,
+        totalAmount,
+        totalPotentialGain
+      }
+    });
+
     return results;
   }
 };
