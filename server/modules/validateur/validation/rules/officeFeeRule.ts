@@ -149,9 +149,9 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
 
   const walkInUnpaidCount = dayData.walkInPatients.size - walkInPaidCount;
 
-  // Determine eligibility
-  const registeredEligible = determineEligibility(registeredCount, 'registered');
-  const walkInEligible = determineEligibility(walkInCount, 'walkIn');
+  // Determine eligibility (using PAID counts only per spec)
+  const registeredEligible = determineEligibility(registeredPaidCount, 'registered');
+  const walkInEligible = determineEligibility(walkInPaidCount, 'walkIn');
 
   // Separate office fees by type
   const registeredOfficeFees = dayData.officeFees.filter(fee =>
@@ -188,11 +188,14 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
         solution: `Veuillez annuler la demande`,
         affectedRecords: [officeFee.id],
         ruleData: {
-          scenarioId: "E6",
+          scenarioId: "ESTABLISHMENT_ERROR",
           code: officeFee.code || "19928",
           establishment: officeFee.lieuPratique?.toString() || "Unknown",
           establishmentType,
           registeredPaidCount,
+          registeredUnpaidCount,
+          walkInPaidCount,
+          walkInUnpaidCount,
           totalAmount: Number(officeFee.montantPreliminaire || 0),
           doctor: redactDoctorName(dayData.doctor),
           date: dayData.date,
@@ -351,57 +354,111 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
     }
   }
 
-  // E5: Check daily maximum ($64.80)
+  // E5, E6, E8: Check daily maximum ($64.80) with strategic recommendations
   if (dayData.totalAmount > 64.80) {
     const affectedIds = dayData.officeFees.map(fee => fee.id).filter(id => id !== null) as string[];
-
-    // Extract unique RAMQ IDs from all affected fees
-    const affectedRamqIds = dayData.officeFees
-      .map(fee => fee.idRamq)
-      .filter((id, index, self) => id && self.indexOf(id) === index) as string[];
-
-    // Build fee breakdown with patient association (including payment status)
-    const feeBreakdownWithPatients = dayData.officeFees.map(fee => ({
-      code: fee.code || 'Unknown',
-      amount: parseFloat(fee.montantPreliminaire || '0'),
-      idRamq: fee.idRamq || 'Unknown',
-      paid: fee.montantPaye ? parseFloat(fee.montantPaye.toString()) : 0
-    }));
-
-    // Calculate excess amount
     const excessAmount = dayData.totalAmount - 64.80;
-
-    // Redact doctor name
     const redactedDoctor = redactDoctorName(dayData.doctor);
 
-    results.push({
-      validationRunId,
-      ruleId: "office-fee-validation",
-      billingRecordId: null,
-      idRamq: null,
-      severity: "error",
-      category: "office_fees",
-      message: `Le maximum quotidien de 64,80$ pour les frais de bureau a été dépassé pour ${redactedDoctor} le ${dayData.date}. Total facturé: ${formatCurrency(dayData.totalAmount)}`,
-      solution: `Veuillez annuler un des frais de bureau pour respecter le maximum quotidien`,
-      affectedRecords: affectedIds,
-      ruleData: {
-        scenarioId: "E5",
-        doctor: redactedDoctor,
-        date: dayData.date,
-        totalAmount: dayData.totalAmount,
-        dailyMaximum: 64.80,
-        excessAmount: excessAmount,
-        billingCount: dayData.officeFees.length,
-        affectedRamqIds,
-        feeBreakdownWithPatients,
-        monetaryImpact: 0,
-        // Visit statistics for display
-        registeredPaidCount,
-        registeredUnpaidCount,
-        walkInPaidCount,
-        walkInUnpaidCount
-      }
-    });
+    // E6: Strategic Maximum Exceeded - Should Keep 19929 Walk-In
+    if (billed19928Registered && billed19929WalkIn) {
+      results.push({
+        validationRunId,
+        ruleId: "office-fee-validation",
+        billingRecordId: null,
+        idRamq: null,
+        severity: "error",
+        category: "office_fees",
+        message: `Le maximum quotidien de 64,80$ pour les frais de bureau a été dépassé pour ${redactedDoctor} le ${dayData.date}. Total facturé: ${formatCurrency(dayData.totalAmount)} (19928 inscrits + 19929 sans RDV)`,
+        solution: `Annulez le 19928 inscrits et gardez seulement le 19929 sans RDV pour maximiser le remboursement`,
+        affectedRecords: affectedIds,
+        ruleData: {
+          scenarioId: "E6",
+          doctor: redactedDoctor,
+          date: dayData.date,
+          totalAmount: dayData.totalAmount,
+          dailyMaximum: 64.80,
+          excessAmount: excessAmount,
+          billingCount: dayData.officeFees.length,
+          codes: ["19928", "19929"],
+          registeredPaidCount,
+          registeredUnpaidCount,
+          walkInPaidCount,
+          walkInUnpaidCount,
+          monetaryImpact: -32.40
+        }
+      });
+    }
+    // E8: Strategic Maximum Exceeded - Should Keep 19929 Registered
+    else if (billed19929Registered && billed19928WalkIn) {
+      results.push({
+        validationRunId,
+        ruleId: "office-fee-validation",
+        billingRecordId: null,
+        idRamq: null,
+        severity: "error",
+        category: "office_fees",
+        message: `Le maximum quotidien de 64,80$ pour les frais de bureau a été dépassé pour ${redactedDoctor} le ${dayData.date}. Total facturé: ${formatCurrency(dayData.totalAmount)} (19929 inscrits + 19928 sans RDV)`,
+        solution: `Annulez le 19928 sans RDV et gardez seulement le 19929 inscrits pour maximiser le remboursement`,
+        affectedRecords: affectedIds,
+        ruleData: {
+          scenarioId: "E8",
+          doctor: redactedDoctor,
+          date: dayData.date,
+          totalAmount: dayData.totalAmount,
+          dailyMaximum: 64.80,
+          excessAmount: excessAmount,
+          billingCount: dayData.officeFees.length,
+          codes: ["19929", "19928"],
+          registeredPaidCount,
+          registeredUnpaidCount,
+          walkInPaidCount,
+          walkInUnpaidCount,
+          monetaryImpact: -32.40
+        }
+      });
+    }
+    // E5: Generic daily maximum exceeded
+    else {
+      const affectedRamqIds = dayData.officeFees
+        .map(fee => fee.idRamq)
+        .filter((id, index, self) => id && self.indexOf(id) === index) as string[];
+
+      const feeBreakdownWithPatients = dayData.officeFees.map(fee => ({
+        code: fee.code || 'Unknown',
+        amount: parseFloat(fee.montantPreliminaire || '0'),
+        idRamq: fee.idRamq || 'Unknown',
+        paid: fee.montantPaye ? parseFloat(fee.montantPaye.toString()) : 0
+      }));
+
+      results.push({
+        validationRunId,
+        ruleId: "office-fee-validation",
+        billingRecordId: null,
+        idRamq: null,
+        severity: "error",
+        category: "office_fees",
+        message: `Le maximum quotidien de 64,80$ pour les frais de bureau a été dépassé pour ${redactedDoctor} le ${dayData.date}. Total facturé: ${formatCurrency(dayData.totalAmount)}`,
+        solution: `Veuillez annuler un des frais de bureau pour respecter le maximum quotidien`,
+        affectedRecords: affectedIds,
+        ruleData: {
+          scenarioId: "E5",
+          doctor: redactedDoctor,
+          date: dayData.date,
+          totalAmount: dayData.totalAmount,
+          dailyMaximum: 64.80,
+          excessAmount: excessAmount,
+          billingCount: dayData.officeFees.length,
+          affectedRamqIds,
+          feeBreakdownWithPatients,
+          monetaryImpact: 0,
+          registeredPaidCount,
+          registeredUnpaidCount,
+          walkInPaidCount,
+          walkInUnpaidCount
+        }
+      });
+    }
   }
 
   // E7: Mixed Double Billing - Both Insufficient
@@ -527,7 +584,9 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
           currentAmount: dayData.totalAmount,
           expectedAmount: 64.80,
           registeredPaidCount,
+          registeredUnpaidCount,
           walkInPaidCount,
+          walkInUnpaidCount,
           doctor: redactDoctorName(dayData.doctor),
           date: dayData.date
         }
@@ -551,7 +610,9 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
           currentAmount: dayData.totalAmount,
           expectedAmount: 64.80,
           registeredPaidCount,
+          registeredUnpaidCount,
           walkInPaidCount,
+          walkInUnpaidCount,
           doctor: redactDoctorName(dayData.doctor),
           date: dayData.date
         }
@@ -582,10 +643,41 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
           currentTotal: 64.80,
           suggestedTotal: 64.80,
           registeredPaidCount,
+          registeredUnpaidCount,
           walkInPaidCount,
+          walkInUnpaidCount,
           qualifyingPaidCount,
           patientType,
           otherPatientType,
+          doctor: redactDoctorName(dayData.doctor),
+          date: dayData.date
+        }
+      });
+    }
+  }
+
+  // O6: Could Add Second Billing - Registered Available (Strategic)
+  if (dayData.totalAmount === 32.40 && dayData.officeFees.length === 1) {
+    if (billed19928WalkIn && registeredPaidCount >= 6 && registeredPaidCount < 12) {
+      results.push({
+        validationRunId,
+        ruleId: "office-fee-validation",
+        billingRecordId: null,
+        severity: "optimization",
+        category: "office_fees",
+        message: `Vous avez aussi vu ${registeredPaidCount} patients inscrits et vous pourriez facturer un autre 19928 pour atteindre le maximum quotidien de 64,80$`,
+        solution: `Ajoutez un deuxième 19928 pour les patients inscrits (gain: 32,40$)`,
+        affectedRecords: [],
+        ruleData: {
+          scenarioId: "O6",
+          monetaryImpact: 32.40,
+          currentCode: "19928",
+          currentAmount: 32.40,
+          expectedAmount: 64.80,
+          registeredPaidCount,
+          registeredUnpaidCount,
+          walkInPaidCount,
+          walkInUnpaidCount,
           doctor: redactDoctorName(dayData.doctor),
           date: dayData.date
         }
@@ -618,6 +710,9 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
           establishment: officeFee.lieuPratique.toString(),
           establishmentType: "cabinet",
           registeredPaidCount,
+          registeredUnpaidCount,
+          walkInPaidCount,
+          walkInUnpaidCount,
           totalAmount: Number(officeFee.montantPreliminaire || 0),
           doctor: redactDoctorName(dayData.doctor),
           date: dayData.date
@@ -698,28 +793,149 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
           }
         });
       } else if (!hasContext && registeredPaidCount >= 12) {
-        // P3: Valid 19929 - Registered Patients
-        results.push({
-          validationRunId,
-          ruleId: "office-fee-validation",
-          billingRecordId: officeFee.id,
-          severity: "info",
-          category: "office_fees",
-          message: `Validation réussie: Code 19929 facturé correctement avec ${registeredPaidCount} patients inscrits (minimum: 12). Montant: ${formatCurrency(dayData.totalAmount)}`,
-          affectedRecords: [officeFee.id],
-          ruleData: {
-            scenarioId: "P3",
-            monetaryImpact: 0,
-            code: "19929",
-            registeredPaidCount,
-            registeredUnpaidCount,
-            walkInPaidCount,
-            walkInUnpaidCount,
-            totalAmount: dayData.totalAmount,
-            doctor: redactDoctorName(dayData.doctor),
-            date: dayData.date
+        // Check for strategic scenarios first
+        if (registeredPaidCount >= 12 && walkInPaidCount >= 20) {
+          // P7, P8, P9: Optimal Mixed Billing - Both Groups Qualify
+          if (billed19929Registered && !billed19929WalkIn) {
+            // P7: Optimal Mixed Billing - Code 19929 (Registered)
+            results.push({
+              validationRunId,
+              ruleId: "office-fee-validation",
+              billingRecordId: officeFee.id,
+              severity: "info",
+              category: "office_fees",
+              message: `Facturation optimale: Code 19929 facturé avec ${registeredPaidCount} patients inscrits. Maximum quotidien atteint: ${formatCurrency(dayData.totalAmount)}`,
+              affectedRecords: [officeFee.id].filter((id): id is string => id !== null),
+              ruleData: {
+                scenarioId: "P7",
+                monetaryImpact: 0,
+                code: "19929",
+                registeredPaidCount,
+                walkInPaidCount,
+                totalAmount: dayData.totalAmount,
+                doctor: redactDoctorName(dayData.doctor),
+                date: dayData.date,
+                registeredUnpaidCount,
+                walkInUnpaidCount
+              }
+            });
+          } else if (billed19929WalkIn && !billed19929Registered) {
+            // P8: Optimal Mixed Billing - Code 19929 (Walk-In)
+            results.push({
+              validationRunId,
+              ruleId: "office-fee-validation",
+              billingRecordId: officeFee.id,
+              severity: "info",
+              category: "office_fees",
+              message: `Facturation optimale: Code 19929 facturé avec ${walkInPaidCount} patients sans rendez-vous. Maximum quotidien atteint: ${formatCurrency(dayData.totalAmount)}`,
+              affectedRecords: [officeFee.id].filter((id): id is string => id !== null),
+              ruleData: {
+                scenarioId: "P8",
+                monetaryImpact: 0,
+                code: "19929",
+                walkInPaidCount,
+                registeredPaidCount,
+                totalAmount: dayData.totalAmount,
+                doctor: redactDoctorName(dayData.doctor),
+                date: dayData.date,
+                registeredUnpaidCount,
+                walkInUnpaidCount
+              }
+            });
+          } else {
+            // P9: Strategic Choice - Both Groups Qualify
+            results.push({
+              validationRunId,
+              ruleId: "office-fee-validation",
+              billingRecordId: officeFee.id,
+              severity: "info",
+              category: "office_fees",
+              message: `Facturation optimale: Code 19929 facturé (groupe choisi). Les deux groupes qualifient mais vous ne pouvez choisir qu'un seul. Maximum quotidien atteint: ${formatCurrency(dayData.totalAmount)}`,
+              affectedRecords: [officeFee.id].filter((id): id is string => id !== null),
+              ruleData: {
+                scenarioId: "P9",
+                monetaryImpact: 0,
+                code: "19929",
+                registeredPaidCount,
+                walkInPaidCount,
+                totalAmount: dayData.totalAmount,
+                doctor: redactDoctorName(dayData.doctor),
+                date: dayData.date,
+                registeredUnpaidCount,
+                walkInUnpaidCount
+              }
+            });
           }
-        });
+        } else if (walkInPaidCount >= 20 && registeredPaidCount < 12) {
+          // P10: Strategic Billing - 19929 Walk-In Only
+          results.push({
+            validationRunId,
+            ruleId: "office-fee-validation",
+            billingRecordId: officeFee.id,
+            severity: "info",
+            category: "office_fees",
+            message: `Facturation optimale: Code 19929 facturé avec ${walkInPaidCount} patients sans rendez-vous. Maximum quotidien atteint: ${formatCurrency(dayData.totalAmount)}`,
+            affectedRecords: [officeFee.id].filter((id): id is string => id !== null),
+            ruleData: {
+              scenarioId: "P10",
+              monetaryImpact: 0,
+              code: "19929",
+              walkInPaidCount,
+              registeredPaidCount,
+              totalAmount: dayData.totalAmount,
+              doctor: redactDoctorName(dayData.doctor),
+              date: dayData.date,
+              registeredUnpaidCount,
+              walkInUnpaidCount
+            }
+          });
+        } else if (registeredPaidCount >= 12 && walkInPaidCount < 20) {
+          // P11: Strategic Billing - 19929 Registered Only (also covers P3)
+          results.push({
+            validationRunId,
+            ruleId: "office-fee-validation",
+            billingRecordId: officeFee.id,
+            severity: "info",
+            category: "office_fees",
+            message: `Facturation optimale: Code 19929 facturé avec ${registeredPaidCount} patients inscrits. Maximum quotidien atteint: ${formatCurrency(dayData.totalAmount)}`,
+            affectedRecords: [officeFee.id].filter((id): id is string => id !== null),
+            ruleData: {
+              scenarioId: dayData.totalAmount >= 64.80 ? "P11" : "P3",
+              monetaryImpact: 0,
+              code: "19929",
+              registeredPaidCount,
+              walkInPaidCount,
+              totalAmount: dayData.totalAmount,
+              doctor: redactDoctorName(dayData.doctor),
+              date: dayData.date,
+              registeredUnpaidCount,
+              walkInUnpaidCount
+            }
+          });
+        } else {
+          // P3: Valid 19929 - Registered Patients (basic case)
+          results.push({
+            validationRunId,
+            ruleId: "office-fee-validation",
+            billingRecordId: officeFee.id,
+            severity: "info",
+            category: "office_fees",
+            message: `Validation réussie: Code 19929 facturé correctement avec ${registeredPaidCount} patients inscrits (minimum: 12). Montant: ${formatCurrency(Number(officeFee.montantPreliminaire || 0))}`,
+            affectedRecords: [officeFee.id].filter((id): id is string => id !== null),
+            ruleData: {
+              scenarioId: "P3",
+              monetaryImpact: 0,
+              code: "19929",
+              registeredPaidCount,
+              totalAmount: Number(officeFee.montantPreliminaire || 0),
+              doctor: redactDoctorName(dayData.doctor),
+              date: dayData.date,
+              registeredUnpaidCount,
+              walkInPaidCount,
+              walkInUnpaidCount
+            }
+          });
+        }
       }
     }
   }
@@ -741,7 +957,9 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
         totalAmount: dayData.totalAmount,
         dailyMaximum: 64.80,
         registeredPaidCount,
+        registeredUnpaidCount,
         walkInPaidCount,
+        walkInUnpaidCount,
         doctor: redactDoctorName(dayData.doctor),
         date: dayData.date
       }

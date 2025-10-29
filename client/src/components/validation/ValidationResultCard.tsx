@@ -2,11 +2,16 @@
  * ValidationResultCard - Main template component for displaying validation results
  * Based on VALIDATION_RESULT_DISPLAY_FRAMEWORK.md Part 4 & 5
  *
+ * Display Behavior by Severity:
+ * - PASS (info): Collapsed by default, user can expand
+ * - ERROR (error): Always expanded, cannot collapse
+ * - OPTIMIZATION (optimization): Always expanded, highlighted with monetary gain
+ *
  * Usage:
  * <ValidationResultCard result={validationResult} showDetails={true} />
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,9 +28,20 @@ import { BillingDetailsBox } from "./BillingDetailsBox";
 import { VisitStatisticsGrid } from "./VisitStatisticsGrid";
 import { SolutionBox } from "./SolutionBox";
 import { OfficeFeeBreakdownBox } from "./OfficeFeeBreakdownBox";
+import { ComparisonBox } from "./ComparisonBox";
 
 export function ValidationResultCard({ result, showDetails = false }: ValidationResultCardProps) {
-  const [isExpanded, setIsExpanded] = useState(showDetails);
+  // All scenarios are collapsed by default
+  // User can expand any scenario to see details
+  const defaultExpanded = showDetails;
+
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+
+  // Sync state with props when result changes
+  useEffect(() => {
+    setIsExpanded(defaultExpanded);
+  }, [result.id, defaultExpanded]);
+
   const style = getSeverityStyle(result.severity);
   const Icon = style.icon;
 
@@ -47,13 +63,27 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
   };
 
   // Office Fee Rule - Check last since it's broader
+  // All office fee scenarios (E1-E8, O1-O6, P1-P11) have visit statistics
   const isOfficeFeeRule = (data: any): data is OfficeFeeRuleData => {
-    return 'code' in data && 'billedCode' in data && !('patientYear' in data);
+    const hasVisitStats = 'registeredPaidCount' in data || 'walkInPaidCount' in data;
+    const notAnnualRule = !('patientYear' in data);
+    const notGmfRule = !('visitCount' in data && 'patient' in data);
+
+    return hasVisitStats && notAnnualRule && notGmfRule;
   };
 
   const hasVisitStatistics = (data: any): boolean => {
     return 'registeredPaidCount' in data && 'registeredUnpaidCount' in data &&
            'walkInPaidCount' in data && 'walkInUnpaidCount' in data;
+  };
+
+  // Check if this is an optimization scenario that needs comparison box
+  const needsComparisonBox = (data: any): boolean => {
+    return result.severity === "optimization" &&
+           'currentCode' in data &&
+           'suggestedCode' in data &&
+           'currentAmount' in data &&
+           'expectedAmount' in data;
   };
 
   return (
@@ -89,8 +119,12 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
             </div>
           </div>
 
+          {/* Monetary Impact Badge - Prominent for optimizations */}
           {result.monetaryImpact !== 0 && (
-            <MonetaryImpactBadge amount={result.monetaryImpact} size="md" />
+            <MonetaryImpactBadge
+              amount={result.monetaryImpact}
+              size={result.severity === "optimization" ? "lg" : "md"}
+            />
           )}
         </div>
 
@@ -99,7 +133,7 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
           {result.message}
         </div>
 
-        {/* Expand/Collapse Button */}
+        {/* Expand/Collapse Button - Available for all scenarios */}
         <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
           <Button
             variant="ghost"
@@ -120,12 +154,28 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
       </CardHeader>
 
       {/* Expandable Details Section */}
+      {/* Always visible for errors and optimizations, toggleable for info */}
       {isExpanded && (
         <CardContent className="pt-4 space-y-4">
           {/* Solution Box - Always show if solution exists */}
+          {/* Highlighted styling for errors and optimizations */}
           {result.solution && (
             <SolutionBox solution={result.solution} severity={result.severity} />
           )}
+
+          {/* Comparison Box - For optimization scenarios with code changes */}
+          {needsComparisonBox(result.ruleData) && (() => {
+            const optData = result.ruleData as OfficeFeeRuleData;
+            return (
+              <ComparisonBox
+                currentCode={optData.currentCode!}
+                suggestedCode={optData.suggestedCode!}
+                currentAmount={optData.currentAmount!}
+                expectedAmount={optData.expectedAmount!}
+                monetaryImpact={result.monetaryImpact}
+              />
+            );
+          })()}
 
           {/* Annual Limit Rule - Display scenario-specific information (check first!) */}
           {isAnnualLimitRule(result.ruleData) && (() => {
@@ -285,18 +335,22 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
             </>
           )}
 
-          {/* Office Fee Rule - Billing Details & Visit Statistics (E1-E4) */}
+          {/* Office Fee Rule - Billing Details & Visit Statistics (E1-E4, O1-O6, P1-P11) */}
           {isOfficeFeeRule(result.ruleData) && !isOfficeFeeE5Error(result.ruleData) && (() => {
             const officeData = result.ruleData as OfficeFeeRuleData;
             return (
               <>
-                <BillingDetailsBox
-                  code={officeData.code || "N/A"}
-                  amount={officeData.billedAmount || "N/A"}
-                  type={officeData.billedCode || "N/A"}
-                  hasContext={officeData.hasContext}
-                />
+                {/* Only show billing details if we have billing info */}
+                {(officeData.code || officeData.billedAmount || officeData.billedCode) && (
+                  <BillingDetailsBox
+                    code={officeData.code || "N/A"}
+                    amount={officeData.billedAmount || "N/A"}
+                    type={officeData.billedCode || "N/A"}
+                    hasContext={officeData.hasContext}
+                  />
+                )}
 
+                {/* Visit Statistics - Always show for office fee scenarios */}
                 {hasVisitStatistics(officeData) && (
                   <VisitStatisticsGrid
                     registeredPaid={officeData.registeredPaidCount || 0}
