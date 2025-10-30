@@ -135,6 +135,24 @@ R: Après les tests unitaires, uploadez un fichier CSV dans la page Validateur
 
 ---
 
+## Règles Implémentées mais Désactivées
+
+Ces règles ont été implémentées et testées mais sont actuellement désactivées dans le moteur de validation. Elles sont conservées ici pour référence future.
+
+| Règle | Fichier | Statut | Raison | Date |
+|-------|---------|--------|--------|------|
+| **GMF Forfait 8875** | [gmf_8875_validation.md](./gmf_8875_validation.md) | ⏸️ Désactivée | Focus sur règles prioritaires (Office Fee, Annual Billing) | 2025-10-30 |
+| **Intervention Clinique** | [intervention_clinique_rule.md](./intervention_clinique_rule.md) | ⏸️ Désactivée | Focus sur règles prioritaires (Office Fee, Annual Billing) | 2025-10-30 |
+| **Visit Duration Optimization** | [VISIT_DURATION_OPTIMIZATION.md](./VISIT_DURATION_OPTIMIZATION.md) | ⏸️ Désactivée | Focus sur règles prioritaires (Office Fee, Annual Billing) | 2025-10-30 |
+
+**Pour réactiver une règle:**
+1. Ouvrir `server/modules/validateur/validation/ruleRegistry.ts`
+2. Décommenter l'import de la règle
+3. Ajouter la règle au tableau `getAllValidationRules()`
+4. Déplacer la documentation vers `../rules-implemented/`
+
+---
+
 ## Propositions Actuelles
 
 _Aucune proposition en attente actuellement._

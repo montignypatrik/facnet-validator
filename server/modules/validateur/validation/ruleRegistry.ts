@@ -15,10 +15,12 @@
 
 import { ValidationRule } from './engine';
 import { officeFeeValidationRule } from './rules/officeFeeRule';
-import { interventionCliniqueRule } from './rules/interventionCliniqueRule';
-import { visitDurationOptimizationRule } from './rules/visitDurationOptimizationRule';
-import { gmfForfait8875Rule } from './rules/gmfForfait8875Rule';
 import { annualBillingCodeRule } from './rules/annualBillingCodeRule';
+
+// Disabled rules (kept in codebase for future reference):
+// import { interventionCliniqueRule } from './rules/interventionCliniqueRule';
+// import { visitDurationOptimizationRule } from './rules/visitDurationOptimizationRule';
+// import { gmfForfait8875Rule } from './rules/gmfForfait8875Rule';
 
 /**
  * Get all registered validation rules
@@ -31,10 +33,11 @@ import { annualBillingCodeRule } from './rules/annualBillingCodeRule';
 export function getAllValidationRules(): ValidationRule[] {
   return [
     officeFeeValidationRule,
-    interventionCliniqueRule,
-    visitDurationOptimizationRule,
-    gmfForfait8875Rule,
     annualBillingCodeRule,
+    // Disabled rules (documentation moved to docs/modules/validateur/rules-future/):
+    // interventionCliniqueRule,
+    // visitDurationOptimizationRule,
+    // gmfForfait8875Rule,
   ];
 }
 
