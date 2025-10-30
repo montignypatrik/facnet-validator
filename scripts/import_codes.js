@@ -1,15 +1,15 @@
+import 'dotenv/config';
 import { readFileSync } from 'fs';
 import csvParser from 'csv-parser';
 import { Readable } from 'stream';
-import { db } from '../server/db.ts';
+import { db } from '../server/core/db.ts';
 import { codes } from '../shared/schema.ts';
-import 'dotenv/config';
 
 async function importCodes() {
   console.log('Starting BD Code RAMQ import...');
   
   // Read CSV file
-  const csvData = readFileSync('data/imports/RAMQ-codes.csv', 'utf8');
+  const csvData = readFileSync('data/imports/ramq_codes.csv', 'utf8');
   
   const records = [];
   

@@ -27,7 +27,7 @@ This rule validates daily office fee maximums for Quebec billing codes
 and thresholds based on whether patients are registered or walk-in.
 
 The rule enforces:
-1. Codes can only be billed in cabinet (not établissement)
+1. Codes can only be billed in cabinet (not Ã©tablissement)
 2. Daily maximum of $64.80 per doctor
 3. Different thresholds for registered vs walk-in patients
 4. Walk-in patients must have context codes G160 or AR
@@ -42,7 +42,7 @@ Trigger when:
 3. Code 19929 billed with <12 registered patients (minimum requirement)
 4. Code 19929 billed with >20 walk-in patients (maximum allowed)
 5. Daily total for doctor exceeds $64.80
-6. Codes billed in établissement instead of cabinet
+6. Codes billed in Ã©tablissement instead of cabinet
 7. Walk-in patient missing G160 or AR context code
 8. Doctor could use higher-paying code (optimization)
 9. Doctor could bill more to reach daily maximum (optimization)
@@ -53,7 +53,7 @@ Trigger when:
 Should NOT trigger when:
 1. Code 19928 with 6-10 registered patients (within limits)
 2. Code 19929 with 12+ registered patients (within limits)
-3. Daily total ≤ $64.80
+3. Daily total â‰¤ $64.80
 4. Billed in cabinet (establishment code 5XXXX)
 5. Walk-in patients have proper context codes
 6. All billing is optimal (right codes, maximum reached)
@@ -76,7 +76,7 @@ walkInContexts: ["G160", "AR"]  // Sans rendez-vous contexts
 ### Establishment Restrictions:
 ```javascript
 allowedEstablishments: ["cabinet"]  // Codes starting with 5XXXX
-excludedEstablishments: ["établissement", "urgence"]
+excludedEstablishments: ["Ã©tablissement", "urgence"]
 ```
 
 ---
@@ -92,9 +92,9 @@ dailyMaximum: 64.80  // Maximum dollars per doctor per day
 ```javascript
 code19928: {
   registeredMinimum: 6,   // Minimum patients inscrits
-  registeredMaximum: 10,  // Maximum before 19929 recommended
+  registeredMaximum: 11,  // Maximum before 19929 recommended
   walkInMinimum: 10,      // Minimum patients sans RDV
-  walkInMaximum: 20,      // Maximum before 19929 recommended
+  walkInMaximum: 19,      // Maximum before 19929 recommended
   amount: 32.40           // Fixed amount
 }
 
@@ -117,7 +117,7 @@ code19929: {
 > - E1, E2, E3... = ERROR scenarios (severity: error)
 > - O1, O2, O3... = OPTIMIZATION scenarios (severity: optimization)
 
-### ✅ PASS Scenarios (Severity: info)
+### âœ… PASS Scenarios (Severity: info)
 
 These scenarios represent successful validation. Results should be **collapsed by default**
 but expandable to show validation details.
@@ -126,11 +126,11 @@ but expandable to show validation details.
 
 #### Scenario P1: Valid Code 19928 - Registered Patients
 
-**Condition:** Code 19928 billed with 6-10 registered patients (paid), in cabinet
+**Condition:** Code 19928 billed with 6-11 registered patients (paid), in cabinet
 
 **Message (French):**
 ```
-"Validation réussie: Code 19928 facturé correctement avec {registeredPaidCount} patients inscrits (minimum: 6). Montant: {totalAmount}$"
+"Validation rÃ©ussie: Code 19928 facturÃ© correctement avec {registeredPaidCount} patients inscrits (minimum: 6). Montant: {totalAmount}$"
 ```
 
 **Solution (French):** `null`
@@ -167,11 +167,11 @@ but expandable to show validation details.
 
 #### Scenario P2: Valid Code 19928 - Walk-In Patients
 
-**Condition:** Code 19928 billed with 10-20 walk-in patients (paid) with G160/AR context, in cabinet
+**Condition:** Code 19928 billed with 10-19 walk-in patients (paid) with G160/AR context, in cabinet
 
 **Message (French):**
 ```
-"Validation réussie: Code 19928 facturé correctement avec {walkInPaidCount} patients sans rendez-vous (minimum: 10). Montant: {totalAmount}$"
+"Validation rÃ©ussie: Code 19928 facturÃ© correctement avec {walkInPaidCount} patients sans rendez-vous (minimum: 10). Montant: {totalAmount}$"
 ```
 
 **Solution (French):** `null`
@@ -209,7 +209,7 @@ but expandable to show validation details.
 
 **Message (French):**
 ```
-"Validation réussie: Code 19929 facturé correctement avec {registeredPaidCount} patients inscrits (minimum: 12). Montant: {totalAmount}$"
+"Validation rÃ©ussie: Code 19929 facturÃ© correctement avec {registeredPaidCount} patients inscrits (minimum: 12). Montant: {totalAmount}$"
 ```
 
 **Solution (French):** `null`
@@ -247,7 +247,7 @@ but expandable to show validation details.
 
 **Message (French):**
 ```
-"Validation réussie: Code 19929 facturé correctement avec {walkInPaidCount} patients sans rendez-vous (minimum: 20). Montant: {totalAmount}$"
+"Validation rÃ©ussie: Code 19929 facturÃ© correctement avec {walkInPaidCount} patients sans rendez-vous (minimum: 20). Montant: {totalAmount}$"
 ```
 
 **Solution (French):** `null`
@@ -281,11 +281,11 @@ but expandable to show validation details.
 
 #### Scenario P5: Valid Double Billing Within Maximum
 
-**Condition:** Two office fee codes billed (19928+19928 or 19928+19929) totaling ≤ $64.80
+**Condition:** Two office fee codes billed (19928+19928 or 19928+19929) totaling â‰¤ $64.80
 
 **Message (French):**
 ```
-"Validation réussie: Frais de bureau facturés correctement avec {billingCount} code(s) totalisant {totalAmount}$ (maximum quotidien: 64,80$)"
+"Validation rÃ©ussie: Frais de bureau facturÃ©s correctement avec {billingCount} code(s) totalisant {totalAmount}$ (maximum quotidien: 64,80$)"
 ```
 
 **Solution (French):** `null`
@@ -315,15 +315,16 @@ but expandable to show validation details.
 }
 ```
 
+
 ---
 
 #### Scenario P6: Valid Cabinet Location
 
-**Condition:** Office fee code billed in cabinet (establishment 5xxxxx)
+**Condition:** Code 19928 billed in valid cabinet establishment (code starting with 5XXXXX)
 
 **Message (French):**
 ```
-"Validation réussie: Code {code} facturé dans un cabinet (établissement valide: {establishment})"
+"Validation réussie: Code 19928 facturé correctement dans un cabinet valide (établissement: {establishment}). Montant: {totalAmount}$"
 ```
 
 **Solution (French):** `null`
@@ -333,8 +334,9 @@ but expandable to show validation details.
 **Display Configuration:**
 - **Collapsed by default:** Yes
 - **Show when expanded:**
+  - [X] Visit statistics grid
   - [X] Billing details box
-- **Custom data fields to display:** `code, establishment, totalAmount, date, doctor`
+- **Custom data fields to display:** `code, establishment, totalAmount, registeredPaidCount, date, doctor`
 
 **Test Case Reference:** `test-P6` (Scenario 13 from CSV)
 
@@ -343,9 +345,11 @@ but expandable to show validation details.
 {
   "monetaryImpact": 0,
   "code": "19928",
-  "establishment": "5xxxxx",
-  "establishmentType": "cabinet",
+  "establishment": "50001",
   "registeredPaidCount": 10,
+  "registeredUnpaidCount": 0,
+  "walkInPaidCount": 0,
+  "walkInUnpaidCount": 0,
   "totalAmount": 32.40,
   "doctor": "Dr. M***",
   "date": "2025-01-06"
@@ -354,7 +358,201 @@ but expandable to show validation details.
 
 ---
 
-### ❌ ERROR Scenarios (Severity: error)
+#### Scenario P7: Optimal Mixed Billing - Code 19929 (Registered)
+
+**Condition:** Code 19929 billed for registered patients when both groups qualify (strategic choice)
+
+**Message (French):**
+```
+"Facturation optimale: Code 19929 facturé avec {registeredPaidCount} patients inscrits. Maximum quotidien atteint: {totalAmount}$"
+```
+
+**Solution (French):** `null`
+
+**Monetary Impact:** `0`
+
+**Display Configuration:**
+- **Collapsed by default:** Yes
+- **Show when expanded:**
+  - [X] Visit statistics grid
+  - [X] Billing details box
+- **Custom data fields to display:** `code, registeredPaidCount, walkInPaidCount, totalAmount, date, doctor`
+
+**Test Case Reference:** `test-P7` (Scenario 21B from CSV)
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "code": "19929",
+  "registeredPaidCount": 14,
+  "registeredUnpaidCount": 0,
+  "walkInPaidCount": 22,
+  "walkInUnpaidCount": 0,
+  "totalAmount": 64.80,
+  "doctor": "Dr. M***",
+  "date": "2025-01-06"
+}
+```
+
+---
+
+#### Scenario P8: Optimal Mixed Billing - Code 19929 (Walk-In)
+
+**Condition:** Code 19929 billed for walk-in patients when both groups qualify (strategic choice)
+
+**Message (French):**
+```
+"Facturation optimale: Code 19929 facturé avec {walkInPaidCount} patients sans rendez-vous. Maximum quotidien atteint: {totalAmount}$"
+```
+
+**Solution (French):** `null`
+
+**Monetary Impact:** `0`
+
+**Display Configuration:**
+- **Collapsed by default:** Yes
+- **Show when expanded:**
+  - [X] Visit statistics grid
+  - [X] Billing details box
+- **Custom data fields to display:** `code, walkInPaidCount, registeredPaidCount, totalAmount, date, doctor`
+
+**Test Case Reference:** `test-P8` (Scenario 22B from CSV)
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "code": "19929",
+  "registeredPaidCount": 14,
+  "registeredUnpaidCount": 0,
+  "walkInPaidCount": 22,
+  "walkInUnpaidCount": 0,
+  "totalAmount": 64.80,
+  "doctor": "Dr. M***",
+  "date": "2025-01-06"
+}
+```
+
+---
+
+#### Scenario P9: Strategic Choice - Both Groups Qualify
+
+**Condition:** Both registered and walk-in groups qualify for 19929, doctor chose one
+
+**Message (French):**
+```
+"Facturation optimale: Code 19929 facturé (groupe choisi). Les deux groupes qualifient mais vous ne pouvez choisir qu'un seul. Maximum quotidien atteint: {totalAmount}$"
+```
+
+**Solution (French):** `null`
+
+**Monetary Impact:** `0`
+
+**Display Configuration:**
+- **Collapsed by default:** Yes
+- **Show when expanded:**
+  - [X] Visit statistics grid
+  - [X] Billing details box
+- **Custom data fields to display:** `code, registeredPaidCount, walkInPaidCount, totalAmount, date, doctor`
+
+**Test Case Reference:** `test-P9` (Scenario 26C from CSV)
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "code": "19929",
+  "registeredPaidCount": 13,
+  "registeredUnpaidCount": 0,
+  "walkInPaidCount": 21,
+  "walkInUnpaidCount": 0,
+  "totalAmount": 64.80,
+  "doctor": "Dr. M***",
+  "date": "2025-01-06"
+}
+```
+
+---
+
+#### Scenario P10: Strategic Billing - 19929 Walk-In Only
+
+**Condition:** Code 19929 billed for walk-in patients, maximum reached
+
+**Message (French):**
+```
+"Facturation optimale: Code 19929 facturé avec {walkInPaidCount} patients sans rendez-vous. Maximum quotidien atteint: {totalAmount}$"
+```
+
+**Solution (French):** `null`
+
+**Monetary Impact:** `0`
+
+**Display Configuration:**
+- **Collapsed by default:** Yes
+- **Show when expanded:**
+  - [X] Visit statistics grid
+- **Custom data fields to display:** `code, walkInPaidCount, registeredPaidCount, totalAmount, date, doctor`
+
+**Test Case Reference:** `test-P10` (Scenario 27C from CSV)
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "code": "19929",
+  "registeredPaidCount": 4,
+  "registeredUnpaidCount": 0,
+  "walkInPaidCount": 23,
+  "walkInUnpaidCount": 0,
+  "totalAmount": 64.80,
+  "doctor": "Dr. M***",
+  "date": "2025-01-06"
+}
+```
+
+---
+
+#### Scenario P11: Strategic Billing - 19929 Registered Only
+
+**Condition:** Code 19929 billed for registered patients, maximum reached
+
+**Message (French):**
+```
+"Facturation optimale: Code 19929 facturé avec {registeredPaidCount} patients inscrits. Maximum quotidien atteint: {totalAmount}$"
+```
+
+**Solution (French):** `null`
+
+**Monetary Impact:** `0`
+
+**Display Configuration:**
+- **Collapsed by default:** Yes
+- **Show when expanded:**
+  - [X] Visit statistics grid
+- **Custom data fields to display:** `code, registeredPaidCount, walkInPaidCount, totalAmount, date, doctor`
+
+**Test Case Reference:** `test-P11` (Scenario 28C from CSV)
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": 0,
+  "code": "19929",
+  "registeredPaidCount": 18,
+  "registeredUnpaidCount": 0,
+  "walkInPaidCount": 7,
+  "walkInUnpaidCount": 0,
+  "totalAmount": 64.80,
+  "doctor": "Dr. M***",
+  "date": "2025-01-06"
+}
+```
+
+
+---
+
+### âŒ ERROR Scenarios (Severity: error)
 
 These scenarios represent regulation violations that **must be fixed**.
 Results should be **always visible, expanded by default**.
@@ -367,12 +565,12 @@ Results should be **always visible, expanded by default**.
 
 **Message (French):**
 ```
-"Code 19928 exige minimum 6 patients inscrits mais seulement {registeredPaidCount} trouvé(s) pour {doctor} le {date}"
+"Code 19928 exige minimum 6 patients inscrits mais seulement {registeredPaidCount} trouvÃ©(s) pour {doctor} le {date}"
 ```
 
 **Solution (French):**
 ```
-"Veuillez annuler la demande ou corriger les {registeredUnpaidCount} visite(s) non payée(s)"
+"Veuillez annuler la demande ou corriger les {registeredUnpaidCount} visite(s) non payÃ©e(s)"
 ```
 
 **Monetary Impact:**
@@ -418,12 +616,12 @@ Results should be **always visible, expanded by default**.
 
 **Message (French):**
 ```
-"Code 19928 exige minimum 10 patients sans rendez-vous mais seulement {walkInPaidCount} trouvé(s) pour {doctor} le {date}"
+"Code 19928 exige minimum 10 patients sans rendez-vous mais seulement {walkInPaidCount} trouvÃ©(s) pour {doctor} le {date}"
 ```
 
 **Solution (French):**
 ```
-"Veuillez annuler la demande ou corriger les visites non payées"
+"Veuillez annuler la demande ou corriger les visites non payÃ©es"
 ```
 
 **Monetary Impact:** `0`
@@ -464,12 +662,12 @@ Results should be **always visible, expanded by default**.
 
 **Message (French):**
 ```
-"Code 19929 exige minimum 12 patients inscrits mais seulement {registeredPaidCount} trouvé(s) pour {doctor} le {date}"
+"Code 19929 exige minimum 12 patients inscrits mais seulement {registeredPaidCount} trouvÃ©(s) pour {doctor} le {date}"
 ```
 
 **Solution (French):**
 ```
-"Changez le code 19929 pour 19928 ou corrigez les visites non payées"
+"Changez le code 19929 pour 19928 ou corrigez les visites non payÃ©es"
 ```
 
 **Monetary Impact:** `0`
@@ -510,12 +708,12 @@ Results should be **always visible, expanded by default**.
 
 **Message (French):**
 ```
-"Code 19929 exige minimum 20 patients sans rendez-vous mais seulement {walkInPaidCount} trouvé(s) pour {doctor} le {date}"
+"Code 19929 exige minimum 20 patients sans rendez-vous mais seulement {walkInPaidCount} trouvÃ©(s) pour {doctor} le {date}"
 ```
 
 **Solution (French):**
 ```
-"Changez le code 19929 pour 19928 ou corrigez les visites non payées"
+"Changez le code 19929 pour 19928 ou corrigez les visites non payÃ©es"
 ```
 
 **Monetary Impact:** `0`
@@ -556,7 +754,7 @@ Results should be **always visible, expanded by default**.
 
 **Message (French):**
 ```
-"Le maximum quotidien de 64,80$ pour les frais de bureau a été dépassé pour {doctor} le {date}. Total facturé: {totalAmount}$"
+"Le maximum quotidien de 64,80$ pour les frais de bureau a Ã©tÃ© dÃ©passÃ© pour {doctor} le {date}. Total facturÃ©: {totalAmount}$"
 ```
 
 **Solution (French):**
@@ -593,48 +791,6 @@ Results should be **always visible, expanded by default**.
 }
 ```
 
----
-
-#### Scenario E6: Invalid Hospital Location
-
-**Condition:** Office fee code billed in hospital/établissement (not cabinet)
-
-**Message (French):**
-```
-"Les codes 19928 et 19929 peuvent seulement être facturés en cabinet. Établissement actuel: {establishment} ({establishmentType})"
-```
-
-**Solution (French):**
-```
-"Veuillez annuler la demande"
-```
-
-**Monetary Impact:** `0`
-
-**Display Configuration:**
-- **Collapsed by default:** No
-- **Always show:**
-  - [X] Error message
-  - [X] Solution box
-- **Show in details:**
-  - [X] Billing details box
-- **Custom data fields to display:** `code, establishment, establishmentType, doctor, date`
-
-**Test Case Reference:** `test-E6` (Scenario 14 from CSV)
-
-**Example ruleData:**
-```json
-{
-  "monetaryImpact": 0,
-  "code": "19928",
-  "establishment": "2xxxxx",
-  "establishmentType": "hôpital",
-  "registeredPaidCount": 10,
-  "totalAmount": 32.40,
-  "doctor": "Dr. M***",
-  "date": "2025-01-06"
-}
-```
 
 ---
 
@@ -649,7 +805,7 @@ Results should be **always visible, expanded by default**.
 
 **Solution (French):**
 ```
-"Veuillez annuler les deux demandes ou corriger les visites non payées"
+"Veuillez annuler les deux demandes ou corriger les visites non payÃ©es"
 ```
 
 **Monetary Impact:** `0`
@@ -682,22 +838,122 @@ Results should be **always visible, expanded by default**.
 }
 ```
 
+
 ---
 
-### 💡 OPTIMIZATION Scenarios (Severity: optimization)
+#### Scenario E6: Strategic Maximum Exceeded - Should Keep 19929 Walk-In
+
+**Condition:** Both 19928 (registered) and 19929 (walk-in) billed, exceeding daily maximum
+
+**Message (French):**
+```
+"Le maximum quotidien de 64,80$ pour les frais de bureau a été dépassé pour {doctor} le {date}. Total facturé: {totalAmount}$ (19928 inscrits + 19929 sans RDV)"
+```
+
+**Solution (French):**
+```
+"Annulez le 19928 inscrits et gardez seulement le 19929 sans RDV pour maximiser le remboursement"
+```
+
+**Monetary Impact:** `-32.40` (amount to be cancelled)
+
+**Display Configuration:**
+- **Collapsed by default:** No (always expanded)
+- **Always show:**
+  - [X] Error message
+  - [X] Solution box (highlighted)
+- **Show in details:**
+  - [X] Billing details box
+  - [X] Visit statistics grid
+  - [X] Comparison box
+- **Custom data fields to display:** `totalAmount, dailyMaximum, excessAmount, registeredPaidCount, walkInPaidCount, doctor, date`
+
+**Test Case Reference:** `test-E6` (Scenario 23C from CSV)
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": -32.40,
+  "totalAmount": 97.20,
+  "dailyMaximum": 64.80,
+  "excessAmount": 32.40,
+  "billingCount": 2,
+  "codes": ["19928", "19929"],
+  "registeredPaidCount": 6,
+  "registeredUnpaidCount": 0,
+  "walkInPaidCount": 25,
+  "walkInUnpaidCount": 0,
+  "doctor": "Dr. M***",
+  "date": "2025-01-06"
+}
+```
+
+---
+
+#### Scenario E8: Strategic Maximum Exceeded - Should Keep 19929 Registered
+
+**Condition:** Both 19929 (registered) and 19928 (walk-in) billed, exceeding daily maximum
+
+**Message (French):**
+```
+"Le maximum quotidien de 64,80$ pour les frais de bureau a été dépassé pour {doctor} le {date}. Total facturé: {totalAmount}$ (19929 inscrits + 19928 sans RDV)"
+```
+
+**Solution (French):**
+```
+"Annulez le 19928 sans RDV et gardez seulement le 19929 inscrits pour maximiser le remboursement"
+```
+
+**Monetary Impact:** `-32.40` (amount to be cancelled)
+
+**Display Configuration:**
+- **Collapsed by default:** No (always expanded)
+- **Always show:**
+  - [X] Error message
+  - [X] Solution box (highlighted)
+- **Show in details:**
+  - [X] Billing details box
+  - [X] Visit statistics grid
+  - [X] Comparison box
+- **Custom data fields to display:** `totalAmount, dailyMaximum, excessAmount, registeredPaidCount, walkInPaidCount, doctor, date`
+
+**Test Case Reference:** `test-E8` (Scenario 24C from CSV)
+
+**Example ruleData:**
+```json
+{
+  "monetaryImpact": -32.40,
+  "totalAmount": 97.20,
+  "dailyMaximum": 64.80,
+  "excessAmount": 32.40,
+  "billingCount": 2,
+  "codes": ["19929", "19928"],
+  "registeredPaidCount": 15,
+  "registeredUnpaidCount": 0,
+  "walkInPaidCount": 12,
+  "walkInUnpaidCount": 0,
+  "doctor": "Dr. M***",
+  "date": "2025-01-06"
+}
+```
+
+
+---
+
+### ðŸ’¡ OPTIMIZATION Scenarios (Severity: optimization)
 
 These scenarios represent **missed revenue opportunities**.
 Results should be **always visible, highlighted with gain amount**.
 
 ---
 
-#### Scenario O1: Could Use Higher Code (19928 → 19929) - Registered
+#### Scenario O1: Could Use Higher Code (19928 â†’ 19929) - Registered
 
 **Condition:** Code 19928 billed but doctor has 12+ registered patients (qualifies for 19929)
 
 **Message (French):**
 ```
-"{registeredPaidCount} patients inscrits ont été vus, vous avez donc droit au code 19929"
+"{registeredPaidCount} patients inscrits ont Ã©tÃ© vus, vous avez donc droit au code 19929"
 ```
 
 **Solution (French):**
@@ -739,13 +995,13 @@ Results should be **always visible, highlighted with gain amount**.
 
 ---
 
-#### Scenario O2: Could Use Higher Code (19928 → 19929) - Walk-In
+#### Scenario O2: Could Use Higher Code (19928 â†’ 19929) - Walk-In
 
 **Condition:** Code 19928 billed but doctor has 20+ walk-in patients (qualifies for 19929)
 
 **Message (French):**
 ```
-"{walkInPaidCount} patients sans rendez-vous ont été vus, vous avez donc droit au code 19929"
+"{walkInPaidCount} patients sans rendez-vous ont Ã©tÃ© vus, vous avez donc droit au code 19929"
 ```
 
 **Solution (French):**
@@ -798,7 +1054,7 @@ Results should be **always visible, highlighted with gain amount**.
 
 **Solution (French):**
 ```
-"Ajoutez un deuxième 19928 pour les patients sans RDV (gain: {monetaryImpact}$)"
+"Ajoutez un deuxiÃ¨me 19928 pour les patients sans RDV (gain: {monetaryImpact}$)"
 ```
 
 **Monetary Impact:** `32.40` (additional billing possible)
@@ -842,7 +1098,7 @@ Results should be **always visible, highlighted with gain amount**.
 
 **Solution (French):**
 ```
-"Ajoutez un deuxième 19928 pour les patients inscrits (gain: {monetaryImpact}$)"
+"Ajoutez un deuxiÃ¨me 19928 pour les patients inscrits (gain: {monetaryImpact}$)"
 ```
 
 **Monetary Impact:** `32.40` (additional billing possible)
@@ -873,48 +1129,47 @@ Results should be **always visible, highlighted with gain amount**.
 }
 ```
 
+
 ---
 
-#### Scenario O5: Mixed Double - Upgrade Possible But Would Exceed Maximum
+#### Scenario O5: Could Add Second Billing - Walk-In Available (Strategic)
 
-**Condition:** Two 19928 codes billed, one group qualifies for 19929 but upgrading would exceed $64.80
+**Condition:** One office fee billed (19928 inscrits), walk-in patients also qualify but total would be below maximum
 
 **Message (French):**
 ```
-"{qualifyingPaidCount} patients {patientType} ont été vus, vous avez donc droit au code 19929 mais cela dépasserait le maximum quotidien"
+"Vous avez aussi vu {walkInPaidCount} patients sans RDV et vous pourriez facturer un autre 19928 pour atteindre le maximum quotidien de 64,80$"
 ```
 
 **Solution (French):**
 ```
-"Changez le 19928 {patientType} pour 19929 et annulez le 19928 {otherPatientType} (gain net: {monetaryImpact}$)"
+"Ajoutez un deuxième 19928 pour les patients sans RDV (gain: {monetaryImpact}$)"
 ```
 
-**Monetary Impact:** `0` (net neutral after cancellation)
+**Monetary Impact:** `32.40` (additional billing possible)
 
 **Display Configuration:**
 - **Collapsed by default:** No
 - **Always show:**
   - [X] Optimization message
-  - [X] Solution box
-  - [X] Monetary impact badge
+  - [X] Solution box (highlighted in amber)
+  - [X] Monetary gain badge
 - **Show in details:**
-  - [X] Comparison box
   - [X] Visit statistics grid
-- **Custom data fields to display:** `currentTotal, suggestedTotal, monetaryImpact, qualifyingPaidCount, patientType, doctor, date`
+  - [X] Billing details box
+- **Custom data fields to display:** `currentAmount, expectedAmount, monetaryImpact, walkInPaidCount, registeredPaidCount, doctor, date`
 
-**Test Case Reference:** `test-O5` (Scenario 16A from CSV)
+**Test Case Reference:** `test-O5` (Scenario 25C from CSV)
 
 **Example ruleData:**
 ```json
 {
-  "monetaryImpact": 0,
-  "currentTotal": 64.80,
-  "suggestedTotal": 64.80,
+  "monetaryImpact": 32.40,
+  "currentCode": "19928",
+  "currentAmount": 32.40,
+  "expectedAmount": 64.80,
   "registeredPaidCount": 7,
-  "walkInPaidCount": 12,
-  "qualifyingPaidCount": 12,
-  "patientType": "sans rendez-vous",
-  "otherPatientType": "inscrits",
+  "walkInPaidCount": 11,
   "doctor": "Dr. M***",
   "date": "2025-01-06"
 }
@@ -922,44 +1177,49 @@ Results should be **always visible, highlighted with gain amount**.
 
 ---
 
-### 📊 Summary Scenario (Always Include)
+#### Scenario O6: Could Add Second Billing - Registered Available (Strategic)
 
-Every rule should include a summary info scenario at the end of validation.
-
----
-
-#### Scenario P-SUMMARY: Validation Complete
-
-**Condition:** End of validation run for all office fee records
+**Condition:** One office fee billed (19928 sans RDV), registered patients also qualify but total would be below maximum
 
 **Message (French):**
 ```
-"Validation frais de bureau complétée: {totalRecords} enregistrement(s) traité(s), {passCount} réussi(s), {errorCount} erreur(s), {optimizationCount} opportunité(s)"
+"Vous avez aussi vu {registeredPaidCount} patients inscrits et vous pourriez facturer un autre 19928 pour atteindre le maximum quotidien de 64,80$"
 ```
 
-**Solution (French):** `null`
+**Solution (French):**
+```
+"Ajoutez un deuxième 19928 pour les patients inscrits (gain: {monetaryImpact}$)"
+```
 
-**Monetary Impact:** `0` or total amount processed
+**Monetary Impact:** `32.40` (additional billing possible)
 
 **Display Configuration:**
-- **Collapsed by default:** Yes
-- **Show when expanded:**
-  - [X] Summary statistics
+- **Collapsed by default:** No
+- **Always show:**
+  - [X] Optimization message
+  - [X] Solution box (highlighted in amber)
+  - [X] Monetary gain badge
+- **Show in details:**
+  - [X] Visit statistics grid
+  - [X] Billing details box
+- **Custom data fields to display:** `currentAmount, expectedAmount, monetaryImpact, registeredPaidCount, walkInPaidCount, doctor, date`
 
-**Test Case Reference:** `test-summary`
+**Test Case Reference:** `test-O6` (Scenario 29C from CSV)
 
 **Example ruleData:**
 ```json
 {
-  "monetaryImpact": 0,
-  "totalRecords": 150,
-  "passCount": 120,
-  "errorCount": 8,
-  "optimizationCount": 7,
-  "totalAmount": 486.00,
-  "totalPotentialGain": 226.80
+  "monetaryImpact": 32.40,
+  "currentCode": "19928",
+  "currentAmount": 32.40,
+  "expectedAmount": 64.80,
+  "registeredPaidCount": 9,
+  "walkInPaidCount": 18,
+  "doctor": "Dr. M***",
+  "date": "2025-01-06"
 }
 ```
+
 
 ---
 
@@ -982,7 +1242,7 @@ groupBy: doctor + date (daily validation per doctor)
 
 ### Dependencies on Other Tables:
 ```
-- establishments table: To verify cabinet vs établissement
+- establishments table: To verify cabinet vs Ã©tablissement
 - contexts table: To validate G160/AR requirements (optional)
 - codes table: Not required (codes hardcoded: 19928, 19929)
 ```
@@ -1037,7 +1297,7 @@ patients (12+ per day) or walk-in patients (20+ per day), while 19928 is
 for smaller practices (6+ registered or 10+ walk-in per day).
 
 Cabinet establishments are identified by codes starting with "5" (50001-59999).
-Établissement codes start with "2" (20001-29999).
+Ã‰tablissement codes start with "2" (20001-29999).
 Urgence codes start with "3" (30001-39999).
 
 Daily maximum of $64.80 = 2 billings of 19928 ($32.40 each) or 1 billing of
@@ -1062,7 +1322,7 @@ Display Rules:
 **Date Requested**: 2024-12-15
 **Approved By**: Finance Department
 **Implementation Deadline**: 2025-01-15
-**Status**: ✅ Implemented and tested (2025-01-06)
+**Status**: âœ… Implemented and tested (2025-01-06)
 
 ---
 
@@ -1076,21 +1336,27 @@ Display Rules:
 | P4 | Valid 19929 - Walk-In | Scenario 9 | `test-P4` | ⏳ Pending |
 | P5 | Valid Double Billing | Scenario 11 | `test-P5` | ⏳ Pending |
 | P6 | Valid Cabinet Location | Scenario 13 | `test-P6` | ⏳ Pending |
+| P7 | Optimal Mixed - 19929 Registered | Scenario 21B | `test-P7` | ⏳ Pending |
+| P8 | Optimal Mixed - 19929 Walk-In | Scenario 22B | `test-P8` | ⏳ Pending |
+| P9 | Strategic Choice Both Qualify | Scenario 26C | `test-P9` | ⏳ Pending |
+| P10 | Strategic 19929 Walk-In Only | Scenario 27C | `test-P10` | ⏳ Pending |
+| P11 | Strategic 19929 Registered Only | Scenario 28C | `test-P11` | ⏳ Pending |
 | E1 | Insufficient Registered (19928) | Scenario 1 | `test-E1` | ⏳ Pending |
 | E2 | Insufficient Walk-In (19928) | Scenario 6 | `test-E2` | ⏳ Pending |
 | E3 | Insufficient Registered (19929) | Scenario 5 | `test-E3` | ⏳ Pending |
 | E4 | Insufficient Walk-In (19929) | Scenario 10 | `test-E4` | ⏳ Pending |
 | E5 | Daily Maximum Exceeded | Scenario 12 | `test-E5` | ⏳ Pending |
-| E6 | Invalid Hospital Location | Scenario 14 | `test-E6` | ⏳ Pending |
+| E6 | Strategic Max Exceeded - Keep 19929 Walk-In | Scenario 23C | `test-E6` | ⏳ Pending |
 | E7 | Mixed Double - Both Insufficient | Scenario 18A | `test-E7` | ⏳ Pending |
+| E8 | Strategic Max Exceeded - Keep 19929 Registered | Scenario 24C | `test-E8` | ⏳ Pending |
 | O1 | Could Use 19929 - Registered | Scenario 3 | `test-O1` | ⏳ Pending |
 | O2 | Could Use 19929 - Walk-In | Scenario 8 | `test-O2` | ⏳ Pending |
 | O3 | Could Add Second - Registered | Scenario 19B | `test-O3` | ⏳ Pending |
 | O4 | Could Add Second - Walk-In | Scenario 20B | `test-O4` | ⏳ Pending |
-| O5 | Mixed Upgrade Warning | Scenario 16A | `test-O5` | ⏳ Pending |
-| P-SUMMARY | Validation Complete | N/A | `test-summary` | ⏳ Pending |
+| O5 | Strategic - Could Add Walk-In | Scenario 25C | `test-O5` | ⏳ Pending |
+| O6 | Strategic - Could Add Registered | Scenario 29C | `test-O6` | ⏳ Pending |
 
-**Coverage**: 19 scenarios defined, 0/19 implemented (0%)
+**Coverage**: 25 scenarios defined, 0/25 implemented (0%)
 
 ---
 
@@ -1107,6 +1373,8 @@ Display Rules:
 
 **Reference Files:**
 - CSV Test Scenarios: `scenarios_frais_bureau.csv` (29 scenarios)
+  - All key scenarios from CSV are now documented in this spec (25 unique scenarios)
+  - Some CSV rows map to same spec scenario (e.g., P3/P7/P8 all validate 19929)
 - Rule Implementation: `server/modules/validateur/validation/rules/officeFeeRule.ts`
 - Test File: `tests/validation-rules/officeFeeRule.test.ts`
 - UI Component: `client/src/components/validation/OfficeFeeBreakdownBox.tsx`

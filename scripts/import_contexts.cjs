@@ -1,3 +1,4 @@
+require('dotenv/config');
 const fs = require('fs');
 const { neon } = require('@neondatabase/serverless');
 
@@ -54,7 +55,7 @@ async function importContexts() {
   console.log('Starting BD element de contexte import...');
   
   try {
-    const csvText = fs.readFileSync('data/imports/RAMQ-contexts.csv', 'utf8');
+    const csvText = fs.readFileSync('data/imports/contexte.csv', 'utf8');
     const records = parseCSV(csvText);
     
     console.log(`Parsed ${records.length} records`);
