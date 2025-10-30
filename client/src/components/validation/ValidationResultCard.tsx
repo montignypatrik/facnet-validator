@@ -177,6 +177,59 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
             );
           })()}
 
+          {/* Affected Records Details - Show RAMQ IDs and dates for optimizations */}
+          {isOfficeFeeRule(result.ruleData) &&
+           (result.ruleData as OfficeFeeRuleData).affectedRecordsDetails &&
+           (result.ruleData as OfficeFeeRuleData).affectedRecordsDetails!.length > 0 && (() => {
+            const optData = result.ruleData as OfficeFeeRuleData;
+            return (
+              <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700">
+                <CardContent className="pt-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-semibold text-blue-900 dark:text-blue-100">
+                        Enregistrements à modifier
+                      </span>
+                      <Badge variant="secondary" className="text-xs">
+                        {optData.affectedRecordsDetails!.length}
+                      </Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {optData.affectedRecordsDetails!.map((record, index) => (
+                        <div
+                          key={record.id || index}
+                          className="bg-white dark:bg-gray-800 rounded-md p-3 border border-blue-200 dark:border-blue-700"
+                        >
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                              <span className="text-gray-600 dark:text-gray-400">RAMQ:</span>
+                              <span className="ml-2 font-mono font-semibold">{record.idRamq}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600 dark:text-gray-400">Date:</span>
+                              <span className="ml-2 font-semibold">{record.date}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600 dark:text-gray-400">Code:</span>
+                              <span className="ml-2 font-mono font-semibold">{record.code}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600 dark:text-gray-400">Montant:</span>
+                              <span className="ml-2 font-semibold">{formatCurrency(record.amount)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="text-xs text-blue-700 dark:text-blue-300 mt-2">
+                      💡 Utilisez le RAMQ et la date pour trouver ces enregistrements dans votre système
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           {/* Annual Limit Rule - Display scenario-specific information (check first!) */}
           {isAnnualLimitRule(result.ruleData) && (() => {
             const annualData = result.ruleData as AnnualLimitRuleData;

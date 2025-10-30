@@ -79,6 +79,15 @@ export interface OfficeFeeRuleData extends BaseRuleData {
   // E5 daily maximum error fields
   affectedRamqIds?: string[];
   feeBreakdownWithPatients?: any;
+  // O1, O2 optimization fields
+  affectedRecordsDetails?: Array<{
+    id: string;
+    idRamq: string;
+    date: string;
+    code: string;
+    amount: number;
+    paid: number;
+  }>;
   totalAmount?: string;
   maximum?: string;
   overage?: string;

@@ -502,6 +502,18 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
       if (billed19928Registered && !billed19929Registered) {
         // O1: Could Use Higher Code (19928 → 19929) - Registered
         const billedFee = registeredOfficeFees.find(f => f.code === "19928");
+        const affected19928Records = registeredOfficeFees.filter(f => f.code === "19928");
+
+        // Build detailed breakdown with RAMQ IDs for user to identify records
+        const affectedRecordsDetails = affected19928Records.map(fee => ({
+          id: fee.id,
+          idRamq: fee.idRamq || 'Non spécifié',
+          date: fee.dateService || dayData.date,
+          code: fee.code,
+          amount: parseFloat(fee.montantPreliminaire || '0'),
+          paid: fee.montantPaye ? parseFloat(fee.montantPaye.toString()) : 0
+        }));
+
         results.push({
           validationRunId,
           ruleId: "office-fee-validation",
@@ -510,7 +522,7 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
           category: "office_fees",
           message: `${registeredPaidCount} patients inscrits ont été vus, vous avez donc droit au code 19929`,
           solution: `Remplacez le code 19928 par 19929 pour maximiser le remboursement (gain: 32,40$)`,
-          affectedRecords: registeredOfficeFees.filter(f => f.code === "19928").map(f => f.id),
+          affectedRecords: affected19928Records.map(f => f.id),
           ruleData: {
             scenarioId: "O1",
             monetaryImpact: 32.40,
@@ -523,7 +535,8 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
             walkInPaidCount,
             walkInUnpaidCount,
             doctor: redactDoctorName(dayData.doctor),
-            date: dayData.date
+            date: dayData.date,
+            affectedRecordsDetails
           }
         });
       }
@@ -537,6 +550,18 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
       if (billed19928WalkIn && !billed19929WalkIn) {
         // O2: Could Use Higher Code (19928 → 19929) - Walk-In
         const billedFee = walkInOfficeFees.find(f => f.code === "19928");
+        const affected19928Records = walkInOfficeFees.filter(f => f.code === "19928");
+
+        // Build detailed breakdown with RAMQ IDs for user to identify records
+        const affectedRecordsDetails = affected19928Records.map(fee => ({
+          id: fee.id,
+          idRamq: fee.idRamq || 'Non spécifié',
+          date: fee.dateService || dayData.date,
+          code: fee.code,
+          amount: parseFloat(fee.montantPreliminaire || '0'),
+          paid: fee.montantPaye ? parseFloat(fee.montantPaye.toString()) : 0
+        }));
+
         results.push({
           validationRunId,
           ruleId: "office-fee-validation",
@@ -545,7 +570,7 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
           category: "office_fees",
           message: `${walkInPaidCount} patients sans rendez-vous ont été vus, vous avez donc droit au code 19929`,
           solution: `Remplacez le code 19928 par 19929 pour maximiser le remboursement (gain: 32,40$)`,
-          affectedRecords: walkInOfficeFees.filter(f => f.code === "19928").map(f => f.id),
+          affectedRecords: affected19928Records.map(f => f.id),
           ruleData: {
             scenarioId: "O2",
             monetaryImpact: 32.40,
@@ -558,7 +583,8 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
             walkInPaidCount,
             walkInUnpaidCount,
             doctor: redactDoctorName(dayData.doctor),
-            date: dayData.date
+            date: dayData.date,
+            affectedRecordsDetails
           }
         });
       }
