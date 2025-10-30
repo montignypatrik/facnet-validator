@@ -50,6 +50,7 @@ export const officeFeeValidationRule: ValidationRule = {
       if (!record.doctorInfo || !record.dateService) continue;
 
       const key = `${record.doctorInfo}_${record.dateService.toISOString().split('T')[0]}`;
+      const dateStr = record.dateService.toISOString().split('T')[0];
 
       if (!doctorDayMap.has(key)) {
         doctorDayMap.set(key, {
@@ -1085,16 +1086,16 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
       }
 
       if (registeredEligible === '19929') {
-        message = `Opportunité manquée: ${registeredPaidCount} patients inscrits qualifient pour 19929 mais aucun frais de bureau n'a été facturé pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`;
+        message = `Opportunité manquée: ${totalRegistered} patients inscrits qualifient pour 19929 mais aucun frais de bureau n'a été facturé pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`;
         solution = `Facturer le code 19929 pour un gain de ${formatCurrency(missedAmount)}`;
       } else if (registeredEligible === '19928') {
-        message = `Opportunité manquée: ${registeredPaidCount} patients inscrits qualifient pour 19928 mais aucun frais de bureau n'a été facturé pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`;
+        message = `Opportunité manquée: ${totalRegistered} patients inscrits qualifient pour 19928 mais aucun frais de bureau n'a été facturé pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`;
         solution = `Facturer le code 19928 pour un gain de ${formatCurrency(missedAmount)}`;
       } else if (walkInEligible === '19929') {
-        message = `Opportunité manquée: ${walkInPaidCount} patients sans rendez-vous qualifient pour 19929 mais aucun frais de bureau n'a été facturé pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`;
+        message = `Opportunité manquée: ${totalWalkIn} patients sans rendez-vous qualifient pour 19929 mais aucun frais de bureau n'a été facturé pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`;
         solution = `Facturer le code 19929 avec contexte #G160 ou #AR pour un gain de ${formatCurrency(missedAmount)}`;
       } else if (walkInEligible === '19928') {
-        message = `Opportunité manquée: ${walkInPaidCount} patients sans rendez-vous qualifient pour 19928 mais aucun frais de bureau n'a été facturé pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`;
+        message = `Opportunité manquée: ${totalWalkIn} patients sans rendez-vous qualifient pour 19928 mais aucun frais de bureau n'a été facturé pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`;
         solution = `Facturer le code 19928 avec contexte #G160 ou #AR pour un gain de ${formatCurrency(missedAmount)}`;
       }
 
