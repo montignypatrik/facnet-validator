@@ -1062,30 +1062,86 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
     });
   }
 
-  // If no office fees were billed this day, create a "no office fees" result
-  // so the day appears in the calendar as blue (no activity)
+  // If no office fees were billed this day, check if doctor qualified for one
   if (dayData.officeFees.length === 0 && (registeredCount > 0 || walkInCount > 0)) {
-    results.push({
-      validationRunId,
-      ruleId: "office-fee-validation",
-      billingRecordId: null,
-      severity: "info",
-      category: "office_fees",
-      message: `Aucun frais de bureau facturé pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`,
-      solution: null,
-      affectedRecords: [],
-      ruleData: {
-        scenarioId: "NO_OFFICE_FEE",
-        registeredPaidCount,
-        registeredUnpaidCount,
-        walkInPaidCount,
-        walkInUnpaidCount,
-        totalAmount: 0,
-        doctor: redactDoctorName(dayData.doctor),
-        date: dayData.date,
-        monetaryImpact: 0
+    // Check if doctor qualified for an office fee but didn't bill it
+    const missedRegistered = registeredEligible !== 'none';
+    const missedWalkIn = walkInEligible !== 'none';
+
+    if (missedRegistered || missedWalkIn) {
+      // MISSED OPPORTUNITY: Doctor qualified for office fee but didn't bill it
+      let missedCode = '19928';
+      let missedAmount = 32.40;
+      let message = '';
+      let solution = '';
+
+      if (registeredEligible === '19929' || walkInEligible === '19929') {
+        missedCode = '19929';
+        missedAmount = 64.80;
       }
-    });
+
+      if (registeredEligible === '19929') {
+        message = `Opportunité manquée: ${registeredPaidCount} patients inscrits qualifient pour 19929 mais aucun frais de bureau n'a été facturé pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`;
+        solution = `Facturer le code 19929 pour un gain de ${formatCurrency(missedAmount)}`;
+      } else if (registeredEligible === '19928') {
+        message = `Opportunité manquée: ${registeredPaidCount} patients inscrits qualifient pour 19928 mais aucun frais de bureau n'a été facturé pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`;
+        solution = `Facturer le code 19928 pour un gain de ${formatCurrency(missedAmount)}`;
+      } else if (walkInEligible === '19929') {
+        message = `Opportunité manquée: ${walkInPaidCount} patients sans rendez-vous qualifient pour 19929 mais aucun frais de bureau n'a été facturé pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`;
+        solution = `Facturer le code 19929 avec contexte #G160 ou #AR pour un gain de ${formatCurrency(missedAmount)}`;
+      } else if (walkInEligible === '19928') {
+        message = `Opportunité manquée: ${walkInPaidCount} patients sans rendez-vous qualifient pour 19928 mais aucun frais de bureau n'a été facturé pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`;
+        solution = `Facturer le code 19928 avec contexte #G160 ou #AR pour un gain de ${formatCurrency(missedAmount)}`;
+      }
+
+      results.push({
+        validationRunId,
+        ruleId: "office-fee-validation",
+        billingRecordId: null,
+        severity: "optimization",
+        category: "office_fees",
+        message,
+        solution,
+        affectedRecords: [],
+        ruleData: {
+          scenarioId: "MISSED_OFFICE_FEE",
+          suggestedCode: missedCode,
+          expectedAmount: missedAmount,
+          registeredPaidCount,
+          registeredUnpaidCount,
+          walkInPaidCount,
+          walkInUnpaidCount,
+          totalAmount: 0,
+          potentialRevenue: missedAmount,
+          doctor: redactDoctorName(dayData.doctor),
+          date: dayData.date,
+          monetaryImpact: missedAmount
+        }
+      });
+    } else {
+      // Truly no office fees needed (< 6 registered and < 10 walk-in)
+      results.push({
+        validationRunId,
+        ruleId: "office-fee-validation",
+        billingRecordId: null,
+        severity: "info",
+        category: "office_fees",
+        message: `Aucun frais de bureau applicable pour ${redactDoctorName(dayData.doctor)} le ${dayData.date} (${registeredPaidCount} patients inscrits, ${walkInPaidCount} sans rendez-vous)`,
+        solution: null,
+        affectedRecords: [],
+        ruleData: {
+          scenarioId: "NO_OFFICE_FEE_QUALIFIED",
+          registeredPaidCount,
+          registeredUnpaidCount,
+          walkInPaidCount,
+          walkInUnpaidCount,
+          totalAmount: 0,
+          doctor: redactDoctorName(dayData.doctor),
+          date: dayData.date,
+          monetaryImpact: 0
+        }
+      });
+    }
   }
 
   return results;
