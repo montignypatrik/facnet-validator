@@ -1062,6 +1062,32 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
     });
   }
 
+  // If no office fees were billed this day, create a "no office fees" result
+  // so the day appears in the calendar as blue (no activity)
+  if (dayData.officeFees.length === 0 && (registeredCount > 0 || walkInCount > 0)) {
+    results.push({
+      validationRunId,
+      ruleId: "office-fee-validation",
+      billingRecordId: null,
+      severity: "info",
+      category: "office_fees",
+      message: `Aucun frais de bureau facturé pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`,
+      solution: null,
+      affectedRecords: [],
+      ruleData: {
+        scenarioId: "NO_OFFICE_FEE",
+        registeredPaidCount,
+        registeredUnpaidCount,
+        walkInPaidCount,
+        walkInUnpaidCount,
+        totalAmount: 0,
+        doctor: redactDoctorName(dayData.doctor),
+        date: dayData.date,
+        monetaryImpact: 0
+      }
+    });
+  }
+
   return results;
 }
 

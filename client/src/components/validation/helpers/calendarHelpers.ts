@@ -91,9 +91,16 @@ export function aggregateByDate(results: ValidationResult[]): CalendarDayData[] 
         dayData.status = 'optimization';
       }
     } else if (result.severity === 'info') {
-      dayData.passCount++;
-      if (dayData.status === 'none') {
-        dayData.status = 'pass';
+      // Check if this is a "no office fee" scenario
+      const scenarioId = result.ruleData?.scenarioId;
+      if (scenarioId === 'NO_OFFICE_FEE') {
+        // Keep status as 'none' (blue) for days with no office fees
+        // Don't change status
+      } else {
+        dayData.passCount++;
+        if (dayData.status === 'none') {
+          dayData.status = 'pass';
+        }
       }
     }
   }
