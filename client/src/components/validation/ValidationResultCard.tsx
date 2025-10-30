@@ -182,6 +182,11 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
            (result.ruleData as OfficeFeeRuleData).affectedRecordsDetails &&
            (result.ruleData as OfficeFeeRuleData).affectedRecordsDetails!.length > 0 && (() => {
             const optData = result.ruleData as OfficeFeeRuleData;
+            const totalRecords = optData.affectedRecordsDetails!.reduce(
+              (sum, record) => sum + (record.count || 1), 0
+            );
+            const hasDuplicates = optData.affectedRecordsDetails!.some(r => r.isDuplicate);
+
             return (
               <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700">
                 <CardContent className="pt-4">
@@ -191,15 +196,31 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
                         Enregistrements à modifier
                       </span>
                       <Badge variant="secondary" className="text-xs">
-                        {optData.affectedRecordsDetails!.length}
+                        {totalRecords} {totalRecords > 1 ? 'enregistrements' : 'enregistrement'}
                       </Badge>
+                      {hasDuplicates && (
+                        <Badge variant="destructive" className="text-xs">
+                          ⚠️ Duplicata détecté
+                        </Badge>
+                      )}
                     </div>
                     <div className="space-y-2">
                       {optData.affectedRecordsDetails!.map((record, index) => (
                         <div
                           key={record.id || index}
-                          className="bg-white dark:bg-gray-800 rounded-md p-3 border border-blue-200 dark:border-blue-700"
+                          className={`bg-white dark:bg-gray-800 rounded-md p-3 border ${
+                            record.isDuplicate
+                              ? 'border-orange-400 dark:border-orange-600'
+                              : 'border-blue-200 dark:border-blue-700'
+                          }`}
                         >
+                          {record.isDuplicate && (
+                            <div className="mb-2 flex items-center gap-2">
+                              <Badge variant="destructive" className="text-xs">
+                                Duplicata: {record.count}× enregistrements identiques
+                              </Badge>
+                            </div>
+                          )}
                           <div className="grid grid-cols-2 gap-2 text-sm">
                             <div>
                               <span className="text-gray-600 dark:text-gray-400">RAMQ:</span>
@@ -207,17 +228,33 @@ export function ValidationResultCard({ result, showDetails = false }: Validation
                             </div>
                             <div>
                               <span className="text-gray-600 dark:text-gray-400">Date:</span>
-                              <span className="ml-2 font-semibold">{record.date}</span>
+                              <span className="ml-2 font-semibold">
+                                {new Date(record.date).toLocaleDateString('fr-CA')}
+                              </span>
                             </div>
                             <div>
                               <span className="text-gray-600 dark:text-gray-400">Code:</span>
-                              <span className="ml-2 font-mono font-semibold">{record.code}</span>
+                              <span className="ml-2 font-mono font-semibold">
+                                {record.code}{record.isDuplicate && ` (×${record.count})`}
+                              </span>
                             </div>
                             <div>
-                              <span className="text-gray-600 dark:text-gray-400">Montant:</span>
-                              <span className="ml-2 font-semibold">{formatCurrency(record.amount)}</span>
+                              <span className="text-gray-600 dark:text-gray-400">
+                                {record.isDuplicate ? 'Montant total:' : 'Montant:'}
+                              </span>
+                              <span className="ml-2 font-semibold">
+                                {record.isDuplicate
+                                  ? formatCurrency(record.totalAmount || record.amount)
+                                  : formatCurrency(record.amount)
+                                }
+                              </span>
                             </div>
                           </div>
+                          {record.isDuplicate && (
+                            <div className="mt-2 text-xs text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/20 p-2 rounded">
+                              ⚠️ Annulez les {record.count} enregistrements identiques et remplacez par 1 seul code 19929
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

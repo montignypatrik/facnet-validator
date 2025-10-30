@@ -505,13 +505,48 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
         const affected19928Records = registeredOfficeFees.filter(f => f.code === "19928");
 
         // Build detailed breakdown with RAMQ IDs for user to identify records
-        const affectedRecordsDetails = affected19928Records.map(fee => ({
-          id: fee.id,
-          idRamq: fee.idRamq || 'Non spécifié',
-          date: fee.dateService || dayData.date,
-          code: fee.code,
-          amount: parseFloat(fee.montantPreliminaire || '0'),
-          paid: fee.montantPaye ? parseFloat(fee.montantPaye.toString()) : 0
+        // Group by RAMQ + date + code to detect duplicates
+        const recordsMap = new Map<string, {
+          ids: string[];
+          idRamq: string;
+          date: string;
+          code: string;
+          amount: number;
+          paid: number;
+          count: number;
+        }>();
+
+        affected19928Records.forEach(fee => {
+          const key = `${fee.idRamq || 'unknown'}_${fee.dateService || dayData.date}_${fee.code}`;
+          const existing = recordsMap.get(key);
+
+          if (existing) {
+            existing.ids.push(fee.id);
+            existing.count++;
+          } else {
+            recordsMap.set(key, {
+              ids: [fee.id],
+              idRamq: fee.idRamq || 'Non spécifié',
+              date: fee.dateService || dayData.date,
+              code: fee.code || '19928',
+              amount: parseFloat(fee.montantPreliminaire || '0'),
+              paid: fee.montantPaye ? parseFloat(fee.montantPaye.toString()) : 0,
+              count: 1
+            });
+          }
+        });
+
+        const affectedRecordsDetails = Array.from(recordsMap.values()).map(record => ({
+          id: record.ids[0], // Use first ID as primary
+          ids: record.ids, // Keep all IDs for reference
+          idRamq: record.idRamq,
+          date: record.date,
+          code: record.code,
+          amount: record.amount,
+          paid: record.paid,
+          count: record.count,
+          isDuplicate: record.count > 1,
+          totalAmount: record.amount * record.count
         }));
 
         results.push({
@@ -553,13 +588,48 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
         const affected19928Records = walkInOfficeFees.filter(f => f.code === "19928");
 
         // Build detailed breakdown with RAMQ IDs for user to identify records
-        const affectedRecordsDetails = affected19928Records.map(fee => ({
-          id: fee.id,
-          idRamq: fee.idRamq || 'Non spécifié',
-          date: fee.dateService || dayData.date,
-          code: fee.code,
-          amount: parseFloat(fee.montantPreliminaire || '0'),
-          paid: fee.montantPaye ? parseFloat(fee.montantPaye.toString()) : 0
+        // Group by RAMQ + date + code to detect duplicates
+        const recordsMap = new Map<string, {
+          ids: string[];
+          idRamq: string;
+          date: string;
+          code: string;
+          amount: number;
+          paid: number;
+          count: number;
+        }>();
+
+        affected19928Records.forEach(fee => {
+          const key = `${fee.idRamq || 'unknown'}_${fee.dateService || dayData.date}_${fee.code}`;
+          const existing = recordsMap.get(key);
+
+          if (existing) {
+            existing.ids.push(fee.id);
+            existing.count++;
+          } else {
+            recordsMap.set(key, {
+              ids: [fee.id],
+              idRamq: fee.idRamq || 'Non spécifié',
+              date: fee.dateService || dayData.date,
+              code: fee.code || '19928',
+              amount: parseFloat(fee.montantPreliminaire || '0'),
+              paid: fee.montantPaye ? parseFloat(fee.montantPaye.toString()) : 0,
+              count: 1
+            });
+          }
+        });
+
+        const affectedRecordsDetails = Array.from(recordsMap.values()).map(record => ({
+          id: record.ids[0], // Use first ID as primary
+          ids: record.ids, // Keep all IDs for reference
+          idRamq: record.idRamq,
+          date: record.date,
+          code: record.code,
+          amount: record.amount,
+          paid: record.paid,
+          count: record.count,
+          isDuplicate: record.count > 1,
+          totalAmount: record.amount * record.count
         }));
 
         results.push({

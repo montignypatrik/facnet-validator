@@ -82,11 +82,15 @@ export interface OfficeFeeRuleData extends BaseRuleData {
   // O1, O2 optimization fields
   affectedRecordsDetails?: Array<{
     id: string;
+    ids?: string[]; // All record IDs if duplicate
     idRamq: string;
     date: string;
     code: string;
     amount: number;
     paid: number;
+    count?: number; // Number of duplicate records
+    isDuplicate?: boolean; // True if count > 1
+    totalAmount?: number; // Total amount for all duplicates
   }>;
   totalAmount?: string;
   maximum?: string;
