@@ -228,10 +228,18 @@ async function processValidationJob(job: Job<ValidationJobData>): Promise<void> 
       });
     }
 
-    // Update to completed status with 100% progress
+    // Calculate statistics
+    const totalRows = records.length;
+    const processedRows = records.length; // All records are processed
+    const errorCount = validationResults.length;
+
+    // Update to completed status with statistics and 100% progress
     await storage.updateValidationRun(validationRunId, {
       status: 'completed',
       progress: '100',
+      totalRows: totalRows.toString(),
+      processedRows: processedRows.toString(),
+      errorCount: errorCount.toString(),
     });
 
       await logger.info(validationRunId, 'worker', 'Validation processing completed successfully');
