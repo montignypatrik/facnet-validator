@@ -149,9 +149,12 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
 
   const walkInUnpaidCount = dayData.walkInPatients.size - walkInPaidCount;
 
-  // Determine eligibility (using PAID counts only per spec)
-  const registeredEligible = determineEligibility(registeredPaidCount, 'registered');
-  const walkInEligible = determineEligibility(walkInPaidCount, 'walkIn');
+  // Determine eligibility using TOTAL visits (paid + unpaid)
+  // At billing time, visits are typically unpaid - RAMQ payment comes later
+  const totalRegistered = registeredPaidCount + registeredUnpaidCount;
+  const totalWalkIn = walkInPaidCount + walkInUnpaidCount;
+  const registeredEligible = determineEligibility(totalRegistered, 'registered');
+  const walkInEligible = determineEligibility(totalWalkIn, 'walkIn');
 
   // Separate office fees by type
   const registeredOfficeFees = dayData.officeFees.filter(fee =>
