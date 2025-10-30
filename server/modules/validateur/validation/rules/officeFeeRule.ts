@@ -78,6 +78,7 @@ export const officeFeeValidationRule: ValidationRule = {
           dayData.registeredPatients.add(record.patient);
         }
       }
+
     }
 
     // Second pass: validate each doctor-day
@@ -1123,13 +1124,16 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
       });
     } else {
       // Truly no office fees needed (< 6 registered and < 10 walk-in)
+      const totalReg = registeredPaidCount + registeredUnpaidCount;
+      const totalWalk = walkInPaidCount + walkInUnpaidCount;
+
       results.push({
         validationRunId,
         ruleId: "office-fee-validation",
         billingRecordId: null,
         severity: "info",
         category: "office_fees",
-        message: `Aucun frais de bureau applicable pour ${redactDoctorName(dayData.doctor)} le ${dayData.date} (${registeredPaidCount} patients inscrits, ${walkInPaidCount} sans rendez-vous)`,
+        message: `Aucun frais de bureau applicable pour ${redactDoctorName(dayData.doctor)} le ${dayData.date} (${totalReg} patients inscrits, ${totalWalk} sans rendez-vous)`,
         solution: null,
         affectedRecords: [],
         ruleData: {
