@@ -196,3 +196,57 @@ export interface SolutionBoxProps {
   solution: string;
   severity: ValidationSeverity;
 }
+
+// Calendar view types
+export type CalendarDayStatus = "none" | "pass" | "optimization" | "error";
+
+export interface CalendarDayData {
+  date: string; // ISO date string (YYYY-MM-DD)
+  doctor: string; // Redacted doctor name
+
+  // Visit counts
+  registeredPaidCount: number;
+  registeredUnpaidCount: number;
+  walkInPaidCount: number;
+  walkInUnpaidCount: number;
+
+  // Financial summary
+  totalBilled: number; // Total office fees billed
+  potentialGain: number; // Sum of optimization gains
+
+  // Validation summary
+  status: CalendarDayStatus;
+  errorCount: number;
+  optimizationCount: number;
+  passCount: number;
+
+  // Detailed results (for modal)
+  results: ValidationResult[];
+}
+
+export interface DoctorCalendarData {
+  doctor: string;
+  days: CalendarDayData[];
+}
+
+export interface CalendarViewProps {
+  results: ValidationResult[];
+}
+
+export interface DoctorCalendarProps {
+  doctor: string;
+  days: CalendarDayData[];
+  currentMonth: Date;
+}
+
+export interface CalendarDayProps {
+  dayData: CalendarDayData | null; // null for empty days
+  date: Date;
+  onClick: () => void;
+}
+
+export interface DayDetailsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  dayData: CalendarDayData | null;
+}
