@@ -19,8 +19,9 @@ import { Calendar, Users, DollarSign } from "lucide-react";
 export function DayDetailsModal({ isOpen, onClose, dayData }: DayDetailsModalProps) {
   if (!dayData) return null;
 
-  // Parse the date
-  const date = new Date(dayData.date);
+  // Parse the date - add time to prevent timezone shift
+  // dayData.date is "YYYY-MM-DD", adding "T00:00:00" makes it parse as local time
+  const date = new Date(dayData.date + 'T00:00:00');
   const dateString = date.toLocaleDateString('fr-CA', {
     weekday: 'long',
     year: 'numeric',
