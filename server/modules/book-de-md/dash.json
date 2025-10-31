@@ -1,0 +1,13 @@
+{
+  "name": "book-de-md",
+  "version": "1.0.0",
+  "description": "Book de MD - Centralized doctor directory management",
+  "routes": [
+    {
+      "path": "/api/doctors",
+      "file": "routes.ts"
+    }
+  ],
+  "requiresAuth": true,
+  "dependencies": []
+}

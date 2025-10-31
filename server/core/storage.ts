@@ -4,6 +4,7 @@ import {
   users, codes, contexts, establishments, rules, fieldCatalog, validationRuns, files,
   billingRecords, validationResults, validationLogs,
   taskBoards, taskLists, tasks, taskLabels, taskLabelAssignments, taskComments, taskAttachments,
+  doctors,
   type User, type InsertUser,
   type Code, type InsertCode,
   type Context, type InsertContext,
@@ -21,6 +22,7 @@ import {
   type TaskLabel, type InsertTaskLabel,
   type TaskComment, type InsertTaskComment,
   type TaskAttachment, type InsertTaskAttachment,
+  type Doctor, type InsertDoctor,
 } from "../../shared/schema.js";
 import { cacheService, CACHE_KEYS } from "../cache/index.js";
 
@@ -150,6 +152,13 @@ export interface IStorage {
   getTaskAttachment(id: string): Promise<TaskAttachment | undefined>;
   createTaskAttachment(attachment: InsertTaskAttachment): Promise<TaskAttachment>;
   deleteTaskAttachment(id: string): Promise<void>;
+
+  // Doctors
+  getDoctors(userId: string, params: { search?: string; page?: number; pageSize?: number }): Promise<{ data: Doctor[]; total: number }>;
+  getDoctor(id: string, userId: string): Promise<Doctor | undefined>;
+  createDoctor(doctor: InsertDoctor): Promise<Doctor>;
+  updateDoctor(id: string, userId: string, data: Partial<InsertDoctor>): Promise<Doctor>;
+  deleteDoctor(id: string, userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1333,6 +1342,69 @@ export class DatabaseStorage implements IStorage {
       .update(taskAttachments)
       .set({ deletedAt: new Date() })
       .where(eq(taskAttachments.id, id));
+  }
+
+  // ==================== DOCTORS (BOOK DE MD MODULE) ====================
+
+  async getDoctors(userId: string, params: { search?: string; page?: number; pageSize?: number }): Promise<{ data: Doctor[]; total: number }> {
+    const { search, page = 1, pageSize = 50 } = params;
+    const offset = (page - 1) * pageSize;
+
+    let query = db.select().from(doctors).where(eq(doctors.userId, userId));
+    let countQuery = db.select({ count: count() }).from(doctors).where(eq(doctors.userId, userId));
+
+    if (search) {
+      // Support comma-separated search values
+      const searchTerms = search.split(',').map(term => term.trim()).filter(term => term.length > 0);
+
+      if (searchTerms.length > 0) {
+        // Search across multiple fields: name, clNumber, license
+        const searchConditions = searchTerms.flatMap(term => [
+          like(doctors.name, `%${term}%`),
+          like(doctors.clNumber, `%${term}%`),
+          like(doctors.license, `%${term}%`),
+        ]);
+        const combinedCondition = or(...searchConditions);
+
+        query = query.where(and(eq(doctors.userId, userId), combinedCondition));
+        countQuery = countQuery.where(and(eq(doctors.userId, userId), combinedCondition));
+      }
+    }
+
+    const [data, totalResult] = await Promise.all([
+      query.limit(pageSize).offset(offset).orderBy(asc(doctors.name)),
+      countQuery
+    ]);
+
+    return { data, total: totalResult[0].count };
+  }
+
+  async getDoctor(id: string, userId: string): Promise<Doctor | undefined> {
+    const [result] = await db
+      .select()
+      .from(doctors)
+      .where(and(eq(doctors.id, id), eq(doctors.userId, userId)));
+    return result || undefined;
+  }
+
+  async createDoctor(doctor: InsertDoctor): Promise<Doctor> {
+    const [created] = await db.insert(doctors).values(doctor).returning();
+    return created;
+  }
+
+  async updateDoctor(id: string, userId: string, data: Partial<InsertDoctor>): Promise<Doctor> {
+    const [updated] = await db
+      .update(doctors)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(doctors.id, id), eq(doctors.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteDoctor(id: string, userId: string): Promise<void> {
+    await db
+      .delete(doctors)
+      .where(and(eq(doctors.id, id), eq(doctors.userId, userId)));
   }
 }
 

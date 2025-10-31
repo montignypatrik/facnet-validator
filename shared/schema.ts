@@ -554,6 +554,44 @@ export const documentChunksRelations = relations(documentChunks, ({ one }) => ({
   }),
 }));
 
+// ==================== BOOK DE MD MODULE ====================
+
+/**
+ * Book de MD (Doctor Directory) Module
+ *
+ * Purpose: Centralized repository for doctor management
+ * User-scoped: Each user manages their own list of doctors
+ * Access Control: Only owner user and admins can view/edit
+ */
+
+// Doctor status enum
+export const doctorStatusEnum = pgEnum("doctor_status", ["active", "inactive", "pending"]);
+
+// Doctors table - User-scoped doctor directory
+export const doctors = pgTable("doctors", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // Owner/creator
+  clNumber: text("cl_number"), // CL number (Client/Contract number)
+  name: text("name").notNull(), // Doctor full name
+  license: text("license"), // Professional license number
+  servicePlan: text("service_plan"), // Service plan/billing plan
+  status: doctorStatusEnum("status").default("active").notNull(), // Status (active/inactive/pending)
+  notes: text("notes"), // Additional notes
+  customFields: jsonb("custom_fields").default({}).notNull(), // For future expansion
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdBy: text("created_by").notNull(), // Auth0 user ID
+  updatedBy: text("updated_by"), // Last updated by Auth0 user ID
+});
+
+// Relations
+export const doctorsRelations = relations(doctors, ({ one }) => ({
+  user: one(users, {
+    fields: [doctors.userId],
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCodeSchema = createInsertSchema(codes).omit({ updatedAt: true });
@@ -579,6 +617,7 @@ export const insertTaskCommentSchema = createInsertSchema(taskComments).omit({ i
 export const insertTaskAttachmentSchema = createInsertSchema(taskAttachments).omit({ id: true, createdAt: true });
 export const insertNamExtractionRunSchema = createInsertSchema(namExtractionRuns).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertNamExtractionResultSchema = createInsertSchema(namExtractionResults).omit({ id: true, createdAt: true });
+export const insertDoctorSchema = createInsertSchema(doctors).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Select schemas
 export const selectUserSchema = createSelectSchema(users);
@@ -605,6 +644,7 @@ export const selectTaskCommentSchema = createSelectSchema(taskComments);
 export const selectTaskAttachmentSchema = createSelectSchema(taskAttachments);
 export const selectNamExtractionRunSchema = createSelectSchema(namExtractionRuns);
 export const selectNamExtractionResultSchema = createSelectSchema(namExtractionResults);
+export const selectDoctorSchema = createSelectSchema(doctors);
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -655,3 +695,5 @@ export type InsertNamExtractionRun = z.infer<typeof insertNamExtractionRunSchema
 export type NamExtractionRun = typeof namExtractionRuns.$inferSelect;
 export type InsertNamExtractionResult = z.infer<typeof insertNamExtractionResultSchema>;
 export type NamExtractionResult = typeof namExtractionResults.$inferSelect;
+export type InsertDoctor = z.infer<typeof insertDoctorSchema>;
+export type Doctor = typeof doctors.$inferSelect;

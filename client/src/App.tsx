@@ -27,6 +27,8 @@ import HorsRamq from "./pages/HorsRamq";
 import NamUpload from "./pages/nam/NamUpload";
 import NamResults from "./pages/nam/NamResults";
 import NamHistory from "./pages/nam/NamHistory";
+import DoctorsList from "./pages/book-de-md/DoctorsList";
+import DoctorProfile from "./pages/book-de-md/DoctorProfile";
 import NotFound from "@/pages/not-found";
 import { useAuth0 } from "@auth0/auth0-react";
 
@@ -127,6 +129,13 @@ function Router() {
       <Route path="/admin/users" component={Users} />
       <Route path="/admin/knowledge" component={KnowledgeAdmin} />
       <Route path="/admin/queue" component={QueueManagement} />
+
+      {/* Book de MD routes */}
+      <Route path="/book-de-md">
+        <Redirect to="/book-de-md/list" />
+      </Route>
+      <Route path="/book-de-md/list" component={DoctorsList} />
+      <Route path="/book-de-md/:id" component={DoctorProfile} />
 
       {/* Settings */}
       <Route path="/settings" component={Settings} />

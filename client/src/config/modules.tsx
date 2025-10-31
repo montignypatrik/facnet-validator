@@ -6,6 +6,7 @@ import {
   FileText,
   Database,
   Shield,
+  Stethoscope,
   type LucideIcon
 } from "lucide-react";
 
@@ -73,6 +74,13 @@ export const MODULE_CONFIGS: Record<string, ModuleConfig> = {
     icon: FileText,
     route: "/hors-ramq",
     description: "Facturation hors système RAMQ",
+  },
+  "book-de-md": {
+    name: "book-de-md",
+    displayName: "Book de MD",
+    icon: Stethoscope,
+    route: "/book-de-md",
+    description: "Répertoire centralisé de vos médecins",
   },
   database: {
     name: "database",
