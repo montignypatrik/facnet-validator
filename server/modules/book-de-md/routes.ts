@@ -81,23 +81,9 @@ router.get("/api/doctors/:id", authenticateToken, async (req: AuthenticatedReque
   try {
     const { id } = req.params;
     const userId = req.user!.uid;
-    const userRole = req.user!.role;
 
-    // Admins can view any doctor
-    let doctor;
-    if (userRole === "admin") {
-      // Admin: fetch without user filter
-      const [result] = await storage.getDoctors(userId, { page: 1, pageSize: 1 });
-      doctor = result.data.find(d => d.id === id);
-
-      // If not found in user's list, search globally (admin privilege)
-      if (!doctor) {
-        doctor = await storage.getDoctor(id, userId);
-      }
-    } else {
-      // Regular user: only fetch their own doctors
-      doctor = await storage.getDoctor(id, userId);
-    }
+    // Fetch doctor with ownership check
+    const doctor = await storage.getDoctor(id, userId);
 
     if (!doctor) {
       return res.status(404).json({ error: "Médecin non trouvé" });
