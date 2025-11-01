@@ -8,10 +8,27 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { ArrowLeft, Edit, Trash2, Save, X } from "lucide-react";
 import client from "@/api/client";
+
+type RemunerationType = "Acte" | "Mixte" | "TH" | "Dépanage";
+
+interface Practice {
+  active: boolean;
+  remuneration: RemunerationType | null;
+}
+
+interface Practices {
+  cab?: Practice;
+  urg?: Practice;
+  hospit?: Practice;
+  chsld?: Practice;
+  sad?: Practice;
+  siad?: Practice;
+}
 
 interface Doctor {
   id: string;
@@ -22,6 +39,7 @@ interface Doctor {
   groupe?: string;
   servicePlan?: string;
   status: "Actif" | "Maternité" | "Maladie" | "Inactif";
+  practices?: Practices;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,6 +49,22 @@ const statusColors = {
   Maternité: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   Maladie: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
   Inactif: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
+};
+
+const practiceLabels: Record<string, string> = {
+  cab: "Cabinet",
+  urg: "Urgence",
+  hospit: "Hospitalier",
+  chsld: "CHSLD",
+  sad: "SAD",
+  siad: "SIAD",
+};
+
+const remunerationColors: Record<RemunerationType, string> = {
+  Acte: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border-green-300",
+  Mixte: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 border-yellow-300",
+  TH: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 border-red-300",
+  Dépanage: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 border-blue-300",
 };
 
 // Helper function to format license with groupe
@@ -55,6 +89,7 @@ export default function DoctorProfile() {
     groupe: "",
     servicePlan: "",
     status: "Actif" as "Actif" | "Maternité" | "Maladie" | "Inactif",
+    practices: {} as Practices,
   });
 
   const doctorId = params.id;
@@ -123,6 +158,7 @@ export default function DoctorProfile() {
         groupe: doctor.groupe || "",
         servicePlan: doctor.servicePlan || "",
         status: doctor.status,
+        practices: doctor.practices || {},
       });
       setShowEditDialog(true);
     }
@@ -239,6 +275,32 @@ export default function DoctorProfile() {
           </CardContent>
         </Card>
 
+        {/* Pratique Section */}
+        {doctor.practices && Object.keys(doctor.practices).length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Pratique</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(doctor.practices).map(([key, practice]) => {
+                  if (practice?.active && practice?.remuneration) {
+                    return (
+                      <Badge
+                        key={key}
+                        className={`${remunerationColors[practice.remuneration]} border-2`}
+                      >
+                        {practiceLabels[key]} - {practice.remuneration}
+                      </Badge>
+                    );
+                  }
+                  return null;
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Metadata */}
         <Card>
           <CardHeader>
@@ -352,6 +414,68 @@ export default function DoctorProfile() {
                     <SelectItem value="Inactif">Inactif</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Pratique Section */}
+              <div className="space-y-3">
+                <Label>Pratique</Label>
+                <div className="space-y-3 border rounded-lg p-4">
+                  {Object.entries(practiceLabels).map(([key, label]) => {
+                    const practice = formData.practices[key as keyof Practices];
+                    return (
+                      <div key={key} className="flex items-center gap-4">
+                        <div className="flex items-center space-x-2 w-32">
+                          <Checkbox
+                            id={`practice-${key}`}
+                            checked={practice?.active || false}
+                            onCheckedChange={(checked) => {
+                              setFormData({
+                                ...formData,
+                                practices: {
+                                  ...formData.practices,
+                                  [key]: {
+                                    active: checked as boolean,
+                                    remuneration: practice?.remuneration || null,
+                                  },
+                                },
+                              });
+                            }}
+                          />
+                          <Label htmlFor={`practice-${key}`} className="font-normal cursor-pointer">
+                            {label}
+                          </Label>
+                        </div>
+                        {practice?.active && (
+                          <Select
+                            value={practice.remuneration || ""}
+                            onValueChange={(value: RemunerationType) => {
+                              setFormData({
+                                ...formData,
+                                practices: {
+                                  ...formData.practices,
+                                  [key]: {
+                                    active: true,
+                                    remuneration: value,
+                                  },
+                                },
+                              });
+                            }}
+                          >
+                            <SelectTrigger className="w-40">
+                              <SelectValue placeholder="Rémunération" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Acte">Acte</SelectItem>
+                              <SelectItem value="Mixte">Mixte</SelectItem>
+                              <SelectItem value="TH">TH</SelectItem>
+                              <SelectItem value="Dépanage">Dépanage</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="flex justify-end gap-2">

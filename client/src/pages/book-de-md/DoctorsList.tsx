@@ -12,6 +12,22 @@ import { useToast } from "@/hooks/use-toast";
 import { Stethoscope, Plus, Search } from "lucide-react";
 import client from "@/api/client";
 
+type RemunerationType = "Acte" | "Mixte" | "TH" | "Dépanage";
+
+interface Practice {
+  active: boolean;
+  remuneration: RemunerationType | null;
+}
+
+interface Practices {
+  cab?: Practice;
+  urg?: Practice;
+  hospit?: Practice;
+  chsld?: Practice;
+  sad?: Practice;
+  siad?: Practice;
+}
+
 interface Doctor {
   id: string;
   userId: string;
@@ -21,6 +37,7 @@ interface Doctor {
   groupe?: string;
   servicePlan?: string;
   status: "Actif" | "Maternité" | "Maladie" | "Inactif";
+  practices?: Practices;
   createdAt: string;
   updatedAt: string;
 }
@@ -30,6 +47,22 @@ const statusColors = {
   Maternité: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   Maladie: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
   Inactif: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
+};
+
+const practiceLabels: Record<string, string> = {
+  cab: "Cab",
+  urg: "Urg",
+  hospit: "Hospit",
+  chsld: "CHSLD",
+  sad: "SAD",
+  siad: "SIAD",
+};
+
+const remunerationColors: Record<RemunerationType, string> = {
+  Acte: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border-green-300",
+  Mixte: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 border-yellow-300",
+  TH: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 border-red-300",
+  Dépanage: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 border-blue-300",
 };
 
 // Helper function to format license with groupe
@@ -54,6 +87,7 @@ export default function DoctorsList() {
     groupe: "",
     servicePlan: "",
     status: "Actif" as "Actif" | "Maternité" | "Maladie" | "Inactif",
+    practices: {} as Practices,
   });
 
   // Fetch doctors
@@ -87,6 +121,7 @@ export default function DoctorsList() {
         groupe: "",
         servicePlan: "",
         status: "Actif",
+        practices: {},
       });
       toast({
         title: "Succès",
@@ -184,6 +219,7 @@ export default function DoctorsList() {
                       <th className="text-left p-4 font-medium text-foreground">Nom</th>
                       <th className="text-left p-4 font-medium text-foreground">Licence</th>
                       <th className="text-left p-4 font-medium text-foreground">Plan de service</th>
+                      <th className="text-left p-4 font-medium text-foreground">Pratique</th>
                       <th className="text-left p-4 font-medium text-foreground">Statut</th>
                     </tr>
                   </thead>
@@ -198,6 +234,26 @@ export default function DoctorsList() {
                         <td className="p-4 text-foreground font-medium">{doctor.name}</td>
                         <td className="p-4 text-foreground">{formatLicense(doctor.license, doctor.groupe)}</td>
                         <td className="p-4 text-foreground">{doctor.servicePlan || "-"}</td>
+                        <td className="p-4">
+                          <div className="flex flex-wrap gap-1">
+                            {doctor.practices && Object.entries(doctor.practices).map(([key, practice]) => {
+                              if (practice?.active && practice?.remuneration) {
+                                return (
+                                  <Badge
+                                    key={key}
+                                    className={`${remunerationColors[practice.remuneration]} border text-xs`}
+                                  >
+                                    {practiceLabels[key]}
+                                  </Badge>
+                                );
+                              }
+                              return null;
+                            })}
+                            {(!doctor.practices || Object.keys(doctor.practices).length === 0) && (
+                              <span className="text-muted-foreground text-sm">-</span>
+                            )}
+                          </div>
+                        </td>
                         <td className="p-4">
                           <Badge className={statusColors[doctor.status]}>
                             {doctor.status}

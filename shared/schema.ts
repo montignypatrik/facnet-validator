@@ -577,6 +577,7 @@ export const doctors = pgTable("doctors", {
   groupe: text("groupe"), // Group number (5 digits, optional, e.g., 12345)
   servicePlan: text("service_plan"), // Service plan/billing plan
   status: doctorStatusEnum("status").default("Actif").notNull(), // Status (Actif/Maternité/Maladie/Inactif)
+  practices: jsonb("practices").default({}).notNull(), // Practice types with remuneration modes
   customFields: jsonb("custom_fields").default({}).notNull(), // For future expansion
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
