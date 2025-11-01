@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import client from "@/api/client";
 import { ValidationResultCard } from "@/components/validation/ValidationResultCard";
+import { CalendarView } from "@/components/validation/CalendarView";
 import { ValidationProgress } from "@/components/ValidationProgress";
 import { ValidationPreview } from "@/components/ValidationPreview";
 import { useValidationStream } from "@/hooks/useValidationStream";
@@ -444,10 +445,14 @@ export default function RunDetailsPage() {
 
           {/* Validation Results Details */}
           {run.status === "completed" && isMinimumTimeMet && validationResults && validationResults.length > 0 && (() => {
-            // Separate errors, optimizations, and informational messages
-            const errors = validationResults.filter((r: any) => r.severity === "error");
-            const optimizations = validationResults.filter((r: any) => r.severity === "optimization");
-            const infos = validationResults.filter((r: any) => r.severity === "info");
+            // Separate office fee results (for calendar view) from other results
+            const officeFeeResults = validationResults.filter((r: any) => r.ruleId === "office-fee-validation");
+            const otherResults = validationResults.filter((r: any) => r.ruleId !== "office-fee-validation");
+
+            // For non-office-fee results, separate by severity
+            const errors = otherResults.filter((r: any) => r.severity === "error");
+            const optimizations = otherResults.filter((r: any) => r.severity === "optimization");
+            const infos = otherResults.filter((r: any) => r.severity === "info");
 
             // Calculate total monetary impact
             const totalImpact = validationResults.reduce((sum: number, result: any) => {
@@ -508,6 +513,11 @@ export default function RunDetailsPage() {
                       </div>
                     </CardContent>
                   </Card>
+                )}
+
+                {/* Office Fee Calendar View */}
+                {officeFeeResults.length > 0 && (
+                  <CalendarView results={officeFeeResults} />
                 )}
 
                 {/* Errors Section */}

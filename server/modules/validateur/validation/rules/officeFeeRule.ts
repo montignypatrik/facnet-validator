@@ -50,6 +50,7 @@ export const officeFeeValidationRule: ValidationRule = {
       if (!record.doctorInfo || !record.dateService) continue;
 
       const key = `${record.doctorInfo}_${record.dateService.toISOString().split('T')[0]}`;
+      const dateStr = record.dateService.toISOString().split('T')[0];
 
       if (!doctorDayMap.has(key)) {
         doctorDayMap.set(key, {
@@ -78,6 +79,7 @@ export const officeFeeValidationRule: ValidationRule = {
           dayData.registeredPatients.add(record.patient);
         }
       }
+
     }
 
     // Second pass: validate each doctor-day
@@ -149,9 +151,12 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
 
   const walkInUnpaidCount = dayData.walkInPatients.size - walkInPaidCount;
 
-  // Determine eligibility (using PAID counts only per spec)
-  const registeredEligible = determineEligibility(registeredPaidCount, 'registered');
-  const walkInEligible = determineEligibility(walkInPaidCount, 'walkIn');
+  // Determine eligibility using TOTAL visits (paid + unpaid)
+  // At billing time, visits are typically unpaid - RAMQ payment comes later
+  const totalRegistered = registeredPaidCount + registeredUnpaidCount;
+  const totalWalkIn = walkInPaidCount + walkInUnpaidCount;
+  const registeredEligible = determineEligibility(totalRegistered, 'registered');
+  const walkInEligible = determineEligibility(totalWalkIn, 'walkIn');
 
   // Separate office fees by type
   const registeredOfficeFees = dayData.officeFees.filter(fee =>
@@ -502,6 +507,53 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
       if (billed19928Registered && !billed19929Registered) {
         // O1: Could Use Higher Code (19928 → 19929) - Registered
         const billedFee = registeredOfficeFees.find(f => f.code === "19928");
+        const affected19928Records = registeredOfficeFees.filter(f => f.code === "19928");
+
+        // Build detailed breakdown with RAMQ IDs for user to identify records
+        // Group by RAMQ + date + code to detect duplicates
+        const recordsMap = new Map<string, {
+          ids: string[];
+          idRamq: string;
+          date: string;
+          code: string;
+          amount: number;
+          paid: number;
+          count: number;
+        }>();
+
+        affected19928Records.forEach(fee => {
+          const key = `${fee.idRamq || 'unknown'}_${fee.dateService || dayData.date}_${fee.code}`;
+          const existing = recordsMap.get(key);
+
+          if (existing) {
+            existing.ids.push(fee.id);
+            existing.count++;
+          } else {
+            recordsMap.set(key, {
+              ids: [fee.id],
+              idRamq: fee.idRamq || 'Non spécifié',
+              date: fee.dateService || dayData.date,
+              code: fee.code || '19928',
+              amount: parseFloat(fee.montantPreliminaire || '0'),
+              paid: fee.montantPaye ? parseFloat(fee.montantPaye.toString()) : 0,
+              count: 1
+            });
+          }
+        });
+
+        const affectedRecordsDetails = Array.from(recordsMap.values()).map(record => ({
+          id: record.ids[0], // Use first ID as primary
+          ids: record.ids, // Keep all IDs for reference
+          idRamq: record.idRamq,
+          date: record.date,
+          code: record.code,
+          amount: record.amount,
+          paid: record.paid,
+          count: record.count,
+          isDuplicate: record.count > 1,
+          totalAmount: record.amount * record.count
+        }));
+
         results.push({
           validationRunId,
           ruleId: "office-fee-validation",
@@ -510,7 +562,7 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
           category: "office_fees",
           message: `${registeredPaidCount} patients inscrits ont été vus, vous avez donc droit au code 19929`,
           solution: `Remplacez le code 19928 par 19929 pour maximiser le remboursement (gain: 32,40$)`,
-          affectedRecords: registeredOfficeFees.filter(f => f.code === "19928").map(f => f.id),
+          affectedRecords: affected19928Records.map(f => f.id),
           ruleData: {
             scenarioId: "O1",
             monetaryImpact: 32.40,
@@ -523,7 +575,8 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
             walkInPaidCount,
             walkInUnpaidCount,
             doctor: redactDoctorName(dayData.doctor),
-            date: dayData.date
+            date: dayData.date,
+            affectedRecordsDetails
           }
         });
       }
@@ -537,6 +590,53 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
       if (billed19928WalkIn && !billed19929WalkIn) {
         // O2: Could Use Higher Code (19928 → 19929) - Walk-In
         const billedFee = walkInOfficeFees.find(f => f.code === "19928");
+        const affected19928Records = walkInOfficeFees.filter(f => f.code === "19928");
+
+        // Build detailed breakdown with RAMQ IDs for user to identify records
+        // Group by RAMQ + date + code to detect duplicates
+        const recordsMap = new Map<string, {
+          ids: string[];
+          idRamq: string;
+          date: string;
+          code: string;
+          amount: number;
+          paid: number;
+          count: number;
+        }>();
+
+        affected19928Records.forEach(fee => {
+          const key = `${fee.idRamq || 'unknown'}_${fee.dateService || dayData.date}_${fee.code}`;
+          const existing = recordsMap.get(key);
+
+          if (existing) {
+            existing.ids.push(fee.id);
+            existing.count++;
+          } else {
+            recordsMap.set(key, {
+              ids: [fee.id],
+              idRamq: fee.idRamq || 'Non spécifié',
+              date: fee.dateService || dayData.date,
+              code: fee.code || '19928',
+              amount: parseFloat(fee.montantPreliminaire || '0'),
+              paid: fee.montantPaye ? parseFloat(fee.montantPaye.toString()) : 0,
+              count: 1
+            });
+          }
+        });
+
+        const affectedRecordsDetails = Array.from(recordsMap.values()).map(record => ({
+          id: record.ids[0], // Use first ID as primary
+          ids: record.ids, // Keep all IDs for reference
+          idRamq: record.idRamq,
+          date: record.date,
+          code: record.code,
+          amount: record.amount,
+          paid: record.paid,
+          count: record.count,
+          isDuplicate: record.count > 1,
+          totalAmount: record.amount * record.count
+        }));
+
         results.push({
           validationRunId,
           ruleId: "office-fee-validation",
@@ -545,7 +645,7 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
           category: "office_fees",
           message: `${walkInPaidCount} patients sans rendez-vous ont été vus, vous avez donc droit au code 19929`,
           solution: `Remplacez le code 19928 par 19929 pour maximiser le remboursement (gain: 32,40$)`,
-          affectedRecords: walkInOfficeFees.filter(f => f.code === "19928").map(f => f.id),
+          affectedRecords: affected19928Records.map(f => f.id),
           ruleData: {
             scenarioId: "O2",
             monetaryImpact: 32.40,
@@ -558,7 +658,8 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
             walkInPaidCount,
             walkInUnpaidCount,
             doctor: redactDoctorName(dayData.doctor),
-            date: dayData.date
+            date: dayData.date,
+            affectedRecordsDetails
           }
         });
       }
@@ -964,6 +1065,91 @@ function validateDoctorDay(dayData: DoctorDayData, records: BillingRecord[], val
         date: dayData.date
       }
     });
+  }
+
+  // If no office fees were billed this day, check if doctor qualified for one
+  if (dayData.officeFees.length === 0 && (registeredCount > 0 || walkInCount > 0)) {
+    // Check if doctor qualified for an office fee but didn't bill it
+    const missedRegistered = registeredEligible !== 'none';
+    const missedWalkIn = walkInEligible !== 'none';
+
+    if (missedRegistered || missedWalkIn) {
+      // MISSED OPPORTUNITY: Doctor qualified for office fee but didn't bill it
+      let missedCode = '19928';
+      let missedAmount = 32.40;
+      let message = '';
+      let solution = '';
+
+      if (registeredEligible === '19929' || walkInEligible === '19929') {
+        missedCode = '19929';
+        missedAmount = 64.80;
+      }
+
+      if (registeredEligible === '19929') {
+        message = `Opportunité manquée: ${totalRegistered} patients inscrits qualifient pour 19929 mais aucun frais de bureau n'a été facturé pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`;
+        solution = `Facturer le code 19929 pour un gain de ${formatCurrency(missedAmount)}`;
+      } else if (registeredEligible === '19928') {
+        message = `Opportunité manquée: ${totalRegistered} patients inscrits qualifient pour 19928 mais aucun frais de bureau n'a été facturé pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`;
+        solution = `Facturer le code 19928 pour un gain de ${formatCurrency(missedAmount)}`;
+      } else if (walkInEligible === '19929') {
+        message = `Opportunité manquée: ${totalWalkIn} patients sans rendez-vous qualifient pour 19929 mais aucun frais de bureau n'a été facturé pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`;
+        solution = `Facturer le code 19929 avec contexte #G160 ou #AR pour un gain de ${formatCurrency(missedAmount)}`;
+      } else if (walkInEligible === '19928') {
+        message = `Opportunité manquée: ${totalWalkIn} patients sans rendez-vous qualifient pour 19928 mais aucun frais de bureau n'a été facturé pour ${redactDoctorName(dayData.doctor)} le ${dayData.date}`;
+        solution = `Facturer le code 19928 avec contexte #G160 ou #AR pour un gain de ${formatCurrency(missedAmount)}`;
+      }
+
+      results.push({
+        validationRunId,
+        ruleId: "office-fee-validation",
+        billingRecordId: null,
+        severity: "optimization",
+        category: "office_fees",
+        message,
+        solution,
+        affectedRecords: [],
+        ruleData: {
+          scenarioId: "MISSED_OFFICE_FEE",
+          suggestedCode: missedCode,
+          expectedAmount: missedAmount,
+          registeredPaidCount,
+          registeredUnpaidCount,
+          walkInPaidCount,
+          walkInUnpaidCount,
+          totalAmount: 0,
+          potentialRevenue: missedAmount,
+          doctor: redactDoctorName(dayData.doctor),
+          date: dayData.date,
+          monetaryImpact: missedAmount
+        }
+      });
+    } else {
+      // Truly no office fees needed (< 6 registered and < 10 walk-in)
+      const totalReg = registeredPaidCount + registeredUnpaidCount;
+      const totalWalk = walkInPaidCount + walkInUnpaidCount;
+
+      results.push({
+        validationRunId,
+        ruleId: "office-fee-validation",
+        billingRecordId: null,
+        severity: "info",
+        category: "office_fees",
+        message: `Aucun frais de bureau applicable pour ${redactDoctorName(dayData.doctor)} le ${dayData.date} (${totalReg} patients inscrits, ${totalWalk} sans rendez-vous)`,
+        solution: null,
+        affectedRecords: [],
+        ruleData: {
+          scenarioId: "NO_OFFICE_FEE_QUALIFIED",
+          registeredPaidCount,
+          registeredUnpaidCount,
+          walkInPaidCount,
+          walkInUnpaidCount,
+          totalAmount: 0,
+          doctor: redactDoctorName(dayData.doctor),
+          date: dayData.date,
+          monetaryImpact: 0
+        }
+      });
+    }
   }
 
   return results;

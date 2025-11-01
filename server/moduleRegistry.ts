@@ -36,6 +36,7 @@ export async function registerModules(app: Express): Promise<void> {
   const chatbotAdminRoutes = (await import("./modules/chatbot/routes-admin")).default;
   const formationRoutes = (await import("./modules/formation-ressourcement/routes")).default;
   const taskRoutes = (await import("./modules/tasks/routes")).default;
+  const bookDeMdRoutes = (await import("./modules/book-de-md/routes")).default;
 
   // Define modules
   const modules: DashModule[] = [
@@ -81,6 +82,13 @@ export async function registerModules(app: Express): Promise<void> {
       router: administrationRoutes,
       enabled: true,
       requiredRole: "admin",
+    },
+    {
+      name: "book-de-md",
+      version: "1.0.0",
+      description: "Book de MD - Centralized doctor directory management",
+      router: bookDeMdRoutes,
+      enabled: true,
     },
     {
       name: "chatbot",
@@ -168,6 +176,12 @@ export async function getModuleList(): Promise<Array<{ name: string; version: st
       name: "administration",
       version: "1.0.0",
       description: "User management",
+      enabled: true,
+    },
+    {
+      name: "book-de-md",
+      version: "1.0.0",
+      description: "Book de MD - Centralized doctor directory",
       enabled: true,
     },
     {

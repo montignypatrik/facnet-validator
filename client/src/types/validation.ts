@@ -79,6 +79,19 @@ export interface OfficeFeeRuleData extends BaseRuleData {
   // E5 daily maximum error fields
   affectedRamqIds?: string[];
   feeBreakdownWithPatients?: any;
+  // O1, O2 optimization fields
+  affectedRecordsDetails?: Array<{
+    id: string;
+    ids?: string[]; // All record IDs if duplicate
+    idRamq: string;
+    date: string;
+    code: string;
+    amount: number;
+    paid: number;
+    count?: number; // Number of duplicate records
+    isDuplicate?: boolean; // True if count > 1
+    totalAmount?: number; // Total amount for all duplicates
+  }>;
   totalAmount?: string;
   maximum?: string;
   overage?: string;
@@ -182,4 +195,58 @@ export interface VisitStatisticsBoxProps {
 export interface SolutionBoxProps {
   solution: string;
   severity: ValidationSeverity;
+}
+
+// Calendar view types
+export type CalendarDayStatus = "none" | "pass" | "optimization" | "error";
+
+export interface CalendarDayData {
+  date: string; // ISO date string (YYYY-MM-DD)
+  doctor: string; // Redacted doctor name
+
+  // Visit counts
+  registeredPaidCount: number;
+  registeredUnpaidCount: number;
+  walkInPaidCount: number;
+  walkInUnpaidCount: number;
+
+  // Financial summary
+  totalBilled: number; // Total office fees billed
+  potentialGain: number; // Sum of optimization gains
+
+  // Validation summary
+  status: CalendarDayStatus;
+  errorCount: number;
+  optimizationCount: number;
+  passCount: number;
+
+  // Detailed results (for modal)
+  results: ValidationResult[];
+}
+
+export interface DoctorCalendarData {
+  doctor: string;
+  days: CalendarDayData[];
+}
+
+export interface CalendarViewProps {
+  results: ValidationResult[];
+}
+
+export interface DoctorCalendarProps {
+  doctor: string;
+  days: CalendarDayData[];
+  currentMonth: Date;
+}
+
+export interface CalendarDayProps {
+  dayData: CalendarDayData | null; // null for empty days
+  date: Date;
+  onClick: () => void;
+}
+
+export interface DayDetailsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  dayData: CalendarDayData | null;
 }
