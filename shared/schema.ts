@@ -567,6 +567,12 @@ export const documentChunksRelations = relations(documentChunks, ({ one }) => ({
 // Doctor status enum
 export const doctorStatusEnum = pgEnum("doctor_status", ["Actif", "Maternité", "Maladie", "Inactif"]);
 
+// Billing frequency enum
+export const billingFrequencyEnum = pgEnum("billing_frequency", ["monthly", "quarterly"]);
+
+// Billing instance status enum
+export const billingInstanceStatusEnum = pgEnum("billing_instance_status", ["pending", "completed", "skipped"]);
+
 // Doctors table - User-scoped doctor directory
 export const doctors = pgTable("doctors", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -578,6 +584,7 @@ export const doctors = pgTable("doctors", {
   servicePlan: text("service_plan"), // Service plan/billing plan
   status: doctorStatusEnum("status").default("Actif").notNull(), // Status (Actif/Maternité/Maladie/Inactif)
   practices: jsonb("practices").default({}).notNull(), // Practice types with remuneration modes
+  automaticBilling: jsonb("automatic_billing").default({}).notNull(), // Automatic billing rules and GMF hours
   customFields: jsonb("custom_fields").default({}).notNull(), // For future expansion
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -585,10 +592,42 @@ export const doctors = pgTable("doctors", {
   updatedBy: text("updated_by"), // Last updated by Auth0 user ID
 });
 
+// Billing instances table - Tracks individual billing occurrences
+export const billingInstances = pgTable("billing_instances", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  doctorId: uuid("doctor_id").notNull().references(() => doctors.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // Owner
+  ruleId: text("rule_id").notNull(), // References the id in automaticBilling JSONB
+  code: text("code").notNull(), // Billing code (duplicated for easy querying)
+  description: text("description"), // What this billing is for
+  frequency: billingFrequencyEnum("frequency").notNull(), // monthly or quarterly
+  gmfHours: numeric("gmf_hours"), // GMF hours (optional)
+  amount: numeric("amount", { precision: 10, scale: 2 }), // Billing amount (optional)
+  period: text("period").notNull(), // Period (e.g., "2025-01" for monthly, "2025-Q1" for quarterly)
+  status: billingInstanceStatusEnum("status").default("pending").notNull(), // pending, completed, skipped
+  billedDate: timestamp("billed_date"), // When it was marked as completed
+  billedBy: text("billed_by"), // User ID who marked it as completed
+  notes: text("notes"), // Any notes about this billing instance
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Relations
-export const doctorsRelations = relations(doctors, ({ one }) => ({
+export const doctorsRelations = relations(doctors, ({ one, many }) => ({
   user: one(users, {
     fields: [doctors.userId],
+    references: [users.id],
+  }),
+  billingInstances: many(billingInstances),
+}));
+
+export const billingInstancesRelations = relations(billingInstances, ({ one }) => ({
+  doctor: one(doctors, {
+    fields: [billingInstances.doctorId],
+    references: [doctors.id],
+  }),
+  user: one(users, {
+    fields: [billingInstances.userId],
     references: [users.id],
   }),
 }));
@@ -619,6 +658,7 @@ export const insertTaskAttachmentSchema = createInsertSchema(taskAttachments).om
 export const insertNamExtractionRunSchema = createInsertSchema(namExtractionRuns).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertNamExtractionResultSchema = createInsertSchema(namExtractionResults).omit({ id: true, createdAt: true });
 export const insertDoctorSchema = createInsertSchema(doctors).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertBillingInstanceSchema = createInsertSchema(billingInstances).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Select schemas
 export const selectUserSchema = createSelectSchema(users);
@@ -646,6 +686,7 @@ export const selectTaskAttachmentSchema = createSelectSchema(taskAttachments);
 export const selectNamExtractionRunSchema = createSelectSchema(namExtractionRuns);
 export const selectNamExtractionResultSchema = createSelectSchema(namExtractionResults);
 export const selectDoctorSchema = createSelectSchema(doctors);
+export const selectBillingInstanceSchema = createSelectSchema(billingInstances);
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -698,3 +739,5 @@ export type InsertNamExtractionResult = z.infer<typeof insertNamExtractionResult
 export type NamExtractionResult = typeof namExtractionResults.$inferSelect;
 export type InsertDoctor = z.infer<typeof insertDoctorSchema>;
 export type Doctor = typeof doctors.$inferSelect;
+export type InsertBillingInstance = z.infer<typeof insertBillingInstanceSchema>;
+export type BillingInstance = typeof billingInstances.$inferSelect;
