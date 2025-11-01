@@ -18,23 +18,25 @@ interface Doctor {
   clNumber?: string;
   name: string;
   license?: string;
+  groupe?: string;
   servicePlan?: string;
-  status: "active" | "inactive" | "pending";
-  notes?: string;
+  status: "Actif" | "Maternité" | "Maladie" | "Inactif";
   createdAt: string;
   updatedAt: string;
 }
 
-const statusLabels = {
-  active: "Actif",
-  inactive: "Inactif",
-  pending: "En attente",
+const statusColors = {
+  Actif: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  Maternité: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  Maladie: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+  Inactif: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
 };
 
-const statusColors = {
-  active: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  inactive: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
-  pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+// Helper function to format license with groupe
+const formatLicense = (license?: string, groupe?: string) => {
+  if (!license) return "-";
+  if (groupe) return `${license}-${groupe}`;
+  return license;
 };
 
 export default function DoctorsList() {
@@ -49,9 +51,9 @@ export default function DoctorsList() {
     clNumber: "",
     name: "",
     license: "",
+    groupe: "",
     servicePlan: "",
-    status: "active" as "active" | "inactive" | "pending",
-    notes: "",
+    status: "Actif" as "Actif" | "Maternité" | "Maladie" | "Inactif",
   });
 
   // Fetch doctors
@@ -82,9 +84,9 @@ export default function DoctorsList() {
         clNumber: "",
         name: "",
         license: "",
+        groupe: "",
         servicePlan: "",
-        status: "active",
-        notes: "",
+        status: "Actif",
       });
       toast({
         title: "Succès",
@@ -194,11 +196,11 @@ export default function DoctorsList() {
                       >
                         <td className="p-4 text-foreground">{doctor.clNumber || "-"}</td>
                         <td className="p-4 text-foreground font-medium">{doctor.name}</td>
-                        <td className="p-4 text-foreground">{doctor.license || "-"}</td>
+                        <td className="p-4 text-foreground">{formatLicense(doctor.license, doctor.groupe)}</td>
                         <td className="p-4 text-foreground">{doctor.servicePlan || "-"}</td>
                         <td className="p-4">
                           <Badge className={statusColors[doctor.status]}>
-                            {statusLabels[doctor.status]}
+                            {doctor.status}
                           </Badge>
                         </td>
                       </tr>
@@ -279,18 +281,32 @@ export default function DoctorsList() {
                     id="license"
                     value={formData.license}
                     onChange={(e) => setFormData({ ...formData, license: e.target.value })}
-                    placeholder="Ex: 12345-67"
+                    placeholder="Ex: 1234567"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="servicePlan">Plan de service</Label>
+                  <Label htmlFor="groupe">Groupe (optionnel)</Label>
                   <Input
-                    id="servicePlan"
-                    value={formData.servicePlan}
-                    onChange={(e) => setFormData({ ...formData, servicePlan: e.target.value })}
-                    placeholder="Ex: Plan A"
+                    id="groupe"
+                    value={formData.groupe}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 5);
+                      setFormData({ ...formData, groupe: value });
+                    }}
+                    placeholder="Ex: 12345"
+                    maxLength={5}
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="servicePlan">Plan de service</Label>
+                <Input
+                  id="servicePlan"
+                  value={formData.servicePlan}
+                  onChange={(e) => setFormData({ ...formData, servicePlan: e.target.value })}
+                  placeholder="Ex: Plan A"
+                />
               </div>
 
               <div className="space-y-2">
@@ -303,21 +319,12 @@ export default function DoctorsList() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Actif</SelectItem>
-                    <SelectItem value="inactive">Inactif</SelectItem>
-                    <SelectItem value="pending">En attente</SelectItem>
+                    <SelectItem value="Actif">Actif</SelectItem>
+                    <SelectItem value="Maternité">Maternité</SelectItem>
+                    <SelectItem value="Maladie">Maladie</SelectItem>
+                    <SelectItem value="Inactif">Inactif</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Input
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Notes additionnelles..."
-                />
               </div>
 
               <div className="flex justify-end gap-2">

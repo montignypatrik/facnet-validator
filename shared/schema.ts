@@ -565,7 +565,7 @@ export const documentChunksRelations = relations(documentChunks, ({ one }) => ({
  */
 
 // Doctor status enum
-export const doctorStatusEnum = pgEnum("doctor_status", ["active", "inactive", "pending"]);
+export const doctorStatusEnum = pgEnum("doctor_status", ["Actif", "Maternité", "Maladie", "Inactif"]);
 
 // Doctors table - User-scoped doctor directory
 export const doctors = pgTable("doctors", {
@@ -573,10 +573,10 @@ export const doctors = pgTable("doctors", {
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // Owner/creator
   clNumber: text("cl_number"), // CL number (Client/Contract number)
   name: text("name").notNull(), // Doctor full name
-  license: text("license"), // Professional license number
+  license: text("license"), // Professional license number (e.g., 1234567)
+  groupe: text("groupe"), // Group number (5 digits, optional, e.g., 12345)
   servicePlan: text("service_plan"), // Service plan/billing plan
-  status: doctorStatusEnum("status").default("active").notNull(), // Status (active/inactive/pending)
-  notes: text("notes"), // Additional notes
+  status: doctorStatusEnum("status").default("Actif").notNull(), // Status (Actif/Maternité/Maladie/Inactif)
   customFields: jsonb("custom_fields").default({}).notNull(), // For future expansion
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
