@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Stethoscope, Plus, Search } from "lucide-react";
+import { Stethoscope, Plus, Search, X } from "lucide-react";
 import client from "@/api/client";
 
 type RemunerationType = "Acte" | "Mixte" | "TH" | "Dépanage";
@@ -80,6 +80,9 @@ export default function DoctorsList() {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(50);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [practiceFilter, setPracticeFilter] = useState<string>("");
+  const [remunerationFilter, setRemunerationFilter] = useState<string>("");
   const [formData, setFormData] = useState({
     clNumber: "",
     name: "",
@@ -159,6 +162,36 @@ export default function DoctorsList() {
     createMutation.mutate(formData);
   };
 
+  // Apply filters to the data
+  const filteredDoctors = doctorsData?.data.filter((doctor: Doctor) => {
+    // Status filter
+    if (statusFilter && doctor.status !== statusFilter) {
+      return false;
+    }
+
+    // Practice type filter
+    if (practiceFilter) {
+      const hasPractice = doctor.practices?.[practiceFilter as keyof Practices]?.active;
+      if (!hasPractice) return false;
+    }
+
+    // Remuneration filter
+    if (remunerationFilter) {
+      const hasRemuneration = doctor.practices && Object.values(doctor.practices).some(
+        practice => practice?.active && practice?.remuneration === remunerationFilter
+      );
+      if (!hasRemuneration) return false;
+    }
+
+    return true;
+  }) || [];
+
+  const clearFilters = () => {
+    setStatusFilter("");
+    setPracticeFilter("");
+    setRemunerationFilter("");
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -183,8 +216,14 @@ export default function DoctorsList() {
           </div>
           <div className="flex items-center gap-4">
             <Badge variant="outline">
-              {doctorsData?.total || 0} médecins
+              {filteredDoctors.length} / {doctorsData?.total || 0} médecins
             </Badge>
+            {(statusFilter || practiceFilter || remunerationFilter) && (
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                <X className="w-4 h-4 mr-2" />
+                Effacer les filtres
+              </Button>
+            )}
             <Button onClick={() => setShowAddDialog(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Ajouter un médecin
@@ -211,20 +250,81 @@ export default function DoctorsList() {
         <Card>
           <CardContent className="p-0">
             {doctorsData && doctorsData.data.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="border-b border-border bg-muted/50">
-                    <tr>
-                      <th className="text-left p-4 font-medium text-foreground">Numéro CL</th>
-                      <th className="text-left p-4 font-medium text-foreground">Nom</th>
-                      <th className="text-left p-4 font-medium text-foreground">Licence</th>
-                      <th className="text-left p-4 font-medium text-foreground">Plan de service</th>
-                      <th className="text-left p-4 font-medium text-foreground">Pratique</th>
-                      <th className="text-left p-4 font-medium text-foreground">Statut</th>
+              <>
+                {filteredDoctors.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="border-b border-border bg-muted/50">
+                        <tr>
+                          <th className="text-left p-4 font-medium text-foreground">Numéro CL</th>
+                          <th className="text-left p-4 font-medium text-foreground">Nom</th>
+                          <th className="text-left p-4 font-medium text-foreground">Licence</th>
+                          <th className="text-left p-4 font-medium text-foreground">Plan de service</th>
+                          <th className="text-left p-4 font-medium text-foreground">Statut</th>
+                          <th className="text-left p-4 font-medium text-foreground">Pratique</th>
+                        </tr>
+                    <tr className="border-b border-border bg-muted/30">
+                      <th className="p-2"></th>
+                      <th className="p-2"></th>
+                      <th className="p-2"></th>
+                      <th className="p-2"></th>
+                      <th className="p-2">
+                        <Select
+                          value={statusFilter || "all"}
+                          onValueChange={(value) => setStatusFilter(value === "all" ? "" : value)}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue placeholder="Filtrer..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tous</SelectItem>
+                            <SelectItem value="Actif">Actif</SelectItem>
+                            <SelectItem value="Maternité">Maternité</SelectItem>
+                            <SelectItem value="Maladie">Maladie</SelectItem>
+                            <SelectItem value="Inactif">Inactif</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </th>
+                      <th className="p-2">
+                        <div className="flex gap-1">
+                          <Select
+                            value={practiceFilter || "all"}
+                            onValueChange={(value) => setPracticeFilter(value === "all" ? "" : value)}
+                          >
+                            <SelectTrigger className="h-8 text-xs flex-1">
+                              <SelectValue placeholder="Type..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Tous</SelectItem>
+                              <SelectItem value="cab">Cabinet</SelectItem>
+                              <SelectItem value="urg">Urgence</SelectItem>
+                              <SelectItem value="hospit">Hospitalier</SelectItem>
+                              <SelectItem value="chsld">CHSLD</SelectItem>
+                              <SelectItem value="sad">SAD</SelectItem>
+                              <SelectItem value="siad">SIAD</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Select
+                            value={remunerationFilter || "all"}
+                            onValueChange={(value) => setRemunerationFilter(value === "all" ? "" : value)}
+                          >
+                            <SelectTrigger className="h-8 text-xs flex-1">
+                              <SelectValue placeholder="Rémun..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Tous</SelectItem>
+                              <SelectItem value="Acte">Acte</SelectItem>
+                              <SelectItem value="Mixte">Mixte</SelectItem>
+                              <SelectItem value="TH">TH</SelectItem>
+                              <SelectItem value="Dépanage">Dépanage</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {doctorsData.data.map((doctor: Doctor) => (
+                    {filteredDoctors.map((doctor: Doctor) => (
                       <tr
                         key={doctor.id}
                         onClick={() => handleRowClick(doctor)}
@@ -234,6 +334,11 @@ export default function DoctorsList() {
                         <td className="p-4 text-foreground font-medium">{doctor.name}</td>
                         <td className="p-4 text-foreground">{formatLicense(doctor.license, doctor.groupe)}</td>
                         <td className="p-4 text-foreground">{doctor.servicePlan || "-"}</td>
+                        <td className="p-4">
+                          <Badge className={statusColors[doctor.status]}>
+                            {doctor.status}
+                          </Badge>
+                        </td>
                         <td className="p-4">
                           <div className="flex flex-wrap gap-1">
                             {doctor.practices && Object.entries(doctor.practices).map(([key, practice]) => {
@@ -254,11 +359,6 @@ export default function DoctorsList() {
                             )}
                           </div>
                         </td>
-                        <td className="p-4">
-                          <Badge className={statusColors[doctor.status]}>
-                            {doctor.status}
-                          </Badge>
-                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -267,16 +367,26 @@ export default function DoctorsList() {
             ) : (
               <div className="text-center py-12 text-muted-foreground">
                 <Stethoscope className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <p className="text-lg font-medium mb-2">Aucun médecin trouvé</p>
+                <p className="text-lg font-medium mb-2">Aucun médecin trouvé avec ces filtres</p>
                 <p className="text-sm">
-                  {search
-                    ? "Essayez de modifier votre recherche"
-                    : "Cliquez sur 'Ajouter un médecin' pour commencer"}
+                  Essayez de modifier vos filtres ou cliquez sur "Effacer les filtres"
                 </p>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </>
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            <Stethoscope className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            <p className="text-lg font-medium mb-2">Aucun médecin trouvé</p>
+            <p className="text-sm">
+              {search
+                ? "Essayez de modifier votre recherche"
+                : "Cliquez sur 'Ajouter un médecin' pour commencer"}
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
 
         {/* Pagination */}
         {doctorsData && doctorsData.total > pageSize && (
