@@ -81,6 +81,11 @@ export const MODULE_CONFIGS: Record<string, ModuleConfig> = {
     icon: Stethoscope,
     route: "/book-de-md",
     description: "Répertoire centralisé de vos médecins",
+    isCollapsible: true,
+    subItems: [
+      { name: "Liste des médecins", route: "/list" },
+      { name: "Facturation automatique", route: "/billing" },
+    ],
   },
   database: {
     name: "database",

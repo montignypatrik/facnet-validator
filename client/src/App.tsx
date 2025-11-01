@@ -29,6 +29,7 @@ import NamResults from "./pages/nam/NamResults";
 import NamHistory from "./pages/nam/NamHistory";
 import DoctorsList from "./pages/book-de-md/DoctorsList";
 import DoctorProfile from "./pages/book-de-md/DoctorProfile";
+import BillingRepository from "./pages/book-de-md/BillingRepository";
 import NotFound from "@/pages/not-found";
 import { useAuth0 } from "@auth0/auth0-react";
 
@@ -135,6 +136,7 @@ function Router() {
         <Redirect to="/book-de-md/list" />
       </Route>
       <Route path="/book-de-md/list" component={DoctorsList} />
+      <Route path="/book-de-md/billing" component={BillingRepository} />
       <Route path="/book-de-md/:id" component={DoctorProfile} />
 
       {/* Settings */}

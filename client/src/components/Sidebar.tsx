@@ -15,6 +15,8 @@ import {
   Users,
   Shield,
   Activity,
+  Stethoscope,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -27,6 +29,7 @@ export function Sidebar() {
   const [location] = useLocation();
   const [databaseOpen, setDatabaseOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [bookDeMdOpen, setBookDeMdOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Fetch enabled modules from API
@@ -96,9 +99,10 @@ export function Sidebar() {
             {/* Dynamic Module Links (excluding special cases) */}
             {enabledModules
               .filter((module) =>
-                // Exclude database and administration (handled separately below)
+                // Exclude database, administration, and book-de-md (handled separately below)
                 module.name !== "database" &&
                 module.name !== "administration" &&
+                module.name !== "book-de-md" &&
                 // Check module visibility based on user role
                 isModuleVisible(module.name, module.enabled, user?.role)
               )
@@ -124,6 +128,49 @@ export function Sidebar() {
                   </div>
                 );
               })}
+
+            {/* Book de MD Section - Special collapsible handling */}
+            {enabledModules.some((m) => m.name === "book-de-md" && m.enabled) && (
+            <div className="pt-4">
+              {sidebarCollapsed ? (
+                <Link href="/book-de-md/list" className={`flex items-center justify-center px-2 py-2 rounded-xl font-medium transition-colors ${
+                  isActive("/book-de-md")
+                    ? "text-primary bg-primary/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`} data-testid="link-book-de-md">
+                  <Stethoscope className="w-6 h-6" />
+                </Link>
+              ) : (
+                <Collapsible open={bookDeMdOpen} onOpenChange={setBookDeMdOpen}>
+                  <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">
+                    <div className="flex items-center space-x-2">
+                      <Stethoscope className="w-4 h-4" />
+                      <span>Book de MD</span>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${bookDeMdOpen ? "rotate-180" : ""}`} />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="ml-6 space-y-1">
+                    <Link href="/book-de-md/list" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                      isActive("/book-de-md/list")
+                        ? "text-primary bg-primary/10"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`} data-testid="link-book-de-md-list">
+                      <Users className="w-4 h-4" />
+                      <span>Liste des médecins</span>
+                    </Link>
+                    <Link href="/book-de-md/billing" className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                      isActive("/book-de-md/billing")
+                        ? "text-primary bg-primary/10"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`} data-testid="link-book-de-md-billing">
+                      <FileText className="w-4 h-4" />
+                      <span>Facturation automatique</span>
+                    </Link>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+            </div>
+            )}
 
             {/* Database Section - Special collapsible handling */}
             {enabledModules.some((m) => m.name === "database" && m.enabled) && (
