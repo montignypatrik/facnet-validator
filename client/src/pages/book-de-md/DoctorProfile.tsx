@@ -11,10 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { ArrowLeft, Edit, Trash2, Save, X } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, Save, X, Plus, Calendar, DollarSign, Clock } from "lucide-react";
 import client from "@/api/client";
 
 type RemunerationType = "Acte" | "Mixte" | "TH" | "Dépanage";
+type BillingFrequency = "monthly" | "quarterly";
 
 interface Practice {
   active: boolean;
@@ -30,6 +31,21 @@ interface Practices {
   siad?: Practice;
 }
 
+interface BillingRule {
+  id: string;
+  code: string;
+  description: string;
+  frequency: BillingFrequency;
+  gmfHours?: number;
+  amount?: number;
+  active: boolean;
+  startDate?: string;
+}
+
+interface AutomaticBilling {
+  rules?: BillingRule[];
+}
+
 interface Doctor {
   id: string;
   userId: string;
@@ -40,6 +56,7 @@ interface Doctor {
   servicePlan?: string;
   status: "Actif" | "Maternité" | "Maladie" | "Inactif";
   practices?: Practices;
+  automaticBilling?: AutomaticBilling;
   createdAt: string;
   updatedAt: string;
 }
@@ -67,6 +84,11 @@ const remunerationColors: Record<RemunerationType, string> = {
   Dépanage: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 border-blue-300",
 };
 
+const frequencyLabels: Record<BillingFrequency, string> = {
+  monthly: "Mensuel",
+  quarterly: "Trimestriel",
+};
+
 // Helper function to format license with groupe
 const formatLicense = (license?: string, groupe?: string) => {
   if (!license) return "-";
@@ -90,6 +112,7 @@ export default function DoctorProfile() {
     servicePlan: "",
     status: "Actif" as "Actif" | "Maternité" | "Maladie" | "Inactif",
     practices: {} as Practices,
+    automaticBilling: { rules: [] } as AutomaticBilling,
   });
 
   const doctorId = params.id;
@@ -159,6 +182,7 @@ export default function DoctorProfile() {
         servicePlan: doctor.servicePlan || "",
         status: doctor.status,
         practices: doctor.practices || {},
+        automaticBilling: doctor.automaticBilling || { rules: [] },
       });
       setShowEditDialog(true);
     }
@@ -175,6 +199,41 @@ export default function DoctorProfile() {
       return;
     }
     updateMutation.mutate(formData);
+  };
+
+  // Billing rule management
+  const addBillingRule = () => {
+    const newRule: BillingRule = {
+      id: crypto.randomUUID(),
+      code: "",
+      description: "",
+      frequency: "monthly",
+      active: true,
+    };
+    setFormData({
+      ...formData,
+      automaticBilling: {
+        rules: [...(formData.automaticBilling.rules || []), newRule],
+      },
+    });
+  };
+
+  const updateBillingRule = (index: number, updates: Partial<BillingRule>) => {
+    const newRules = [...(formData.automaticBilling.rules || [])];
+    newRules[index] = { ...newRules[index], ...updates };
+    setFormData({
+      ...formData,
+      automaticBilling: { rules: newRules },
+    });
+  };
+
+  const removeBillingRule = (index: number) => {
+    const newRules = [...(formData.automaticBilling.rules || [])];
+    newRules.splice(index, 1);
+    setFormData({
+      ...formData,
+      automaticBilling: { rules: newRules },
+    });
   };
 
   const handleDelete = () => {
@@ -296,6 +355,49 @@ export default function DoctorProfile() {
                   }
                   return null;
                 })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Automatic Billing Section */}
+        {doctor.automaticBilling?.rules && doctor.automaticBilling.rules.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Facturation Automatique & Heures GMF</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {doctor.automaticBilling.rules
+                  .filter(rule => rule.active)
+                  .map((rule) => (
+                    <div key={rule.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{rule.code}</Badge>
+                          <span className="font-medium text-foreground">{rule.description}</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-4 h-4" />
+                            <span>{frequencyLabels[rule.frequency]}</span>
+                          </div>
+                          {rule.gmfHours && (
+                            <div className="flex items-center gap-1">
+                              <Clock className="w-4 h-4" />
+                              <span>{rule.gmfHours}h GMF</span>
+                            </div>
+                          )}
+                          {rule.amount && (
+                            <div className="flex items-center gap-1">
+                              <DollarSign className="w-4 h-4" />
+                              <span>{rule.amount.toFixed(2)}$</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
               </div>
             </CardContent>
           </Card>
@@ -475,6 +577,114 @@ export default function DoctorProfile() {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* Automatic Billing Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Facturation Automatique & Heures GMF</Label>
+                  <Button type="button" size="sm" variant="outline" onClick={addBillingRule}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Ajouter
+                  </Button>
+                </div>
+                <div className="space-y-3 border rounded-lg p-4 max-h-96 overflow-y-auto">
+                  {formData.automaticBilling.rules && formData.automaticBilling.rules.length > 0 ? (
+                    formData.automaticBilling.rules.map((rule, index) => (
+                      <div key={rule.id} className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Règle {index + 1}</span>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={rule.active}
+                              onCheckedChange={(checked) =>
+                                updateBillingRule(index, { active: checked as boolean })
+                              }
+                            />
+                            <Label className="text-sm cursor-pointer">Actif</Label>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => removeBillingRule(index)}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label className="text-xs">Code</Label>
+                            <Input
+                              placeholder="Ex: 12345"
+                              value={rule.code}
+                              onChange={(e) => updateBillingRule(index, { code: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">Fréquence</Label>
+                            <Select
+                              value={rule.frequency}
+                              onValueChange={(value: BillingFrequency) =>
+                                updateBillingRule(index, { frequency: value })
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="monthly">Mensuel</SelectItem>
+                                <SelectItem value="quarterly">Trimestriel</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs">Description</Label>
+                          <Input
+                            placeholder="Ex: Facturation GMF mensuelle"
+                            value={rule.description}
+                            onChange={(e) => updateBillingRule(index, { description: e.target.value })}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label className="text-xs">Heures GMF (optionnel)</Label>
+                            <Input
+                              type="number"
+                              step="0.5"
+                              placeholder="Ex: 12"
+                              value={rule.gmfHours || ""}
+                              onChange={(e) =>
+                                updateBillingRule(index, {
+                                  gmfHours: e.target.value ? parseFloat(e.target.value) : undefined
+                                })
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">Montant $ (optionnel)</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="Ex: 100.00"
+                              value={rule.amount || ""}
+                              onChange={(e) =>
+                                updateBillingRule(index, {
+                                  amount: e.target.value ? parseFloat(e.target.value) : undefined
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      Aucune règle de facturation automatique. Cliquez sur "Ajouter" pour créer une règle.
+                    </p>
+                  )}
                 </div>
               </div>
 
